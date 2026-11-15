@@ -24,6 +24,8 @@ export const G = {
 };
 
 const vert = /* glsl */ `
+#include <common>
+#include <skinning_pars_vertex>
 uniform vec3 uLightPos[${MAX_LIGHTS}];
 uniform vec3 uLightCol[${MAX_LIGHTS}];
 uniform float uLightRange[${MAX_LIGHTS}];
@@ -51,8 +53,14 @@ float inBox(vec3 p, vec3 mn, vec3 mx){
 }
 
 void main(){
-  vec4 wp = modelMatrix * vec4(position, 1.0);
-  vec3 n = normalize(mat3(modelMatrix) * normal);
+  // skinned characters: one continuous mesh deformed by a skeleton
+  vec3 transformed = position;
+  vec3 objectNormal = normal;
+  #include <skinbase_vertex>
+  #include <skinnormal_vertex>
+  #include <skinning_vertex>
+  vec4 wp = modelMatrix * vec4(transformed, 1.0);
+  vec3 n = normalize(mat3(modelMatrix) * objectNormal);
   vec3 L = uAmbient;
   for (int i = 0; i < ${MAX_LIGHTS}; i++) {
     vec3 d = uLightPos[i] - wp.xyz;

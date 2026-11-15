@@ -43,7 +43,7 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 
 **The family**
 - **Retro-realism.** The family are jagged, faceted low-poly meshes wearing photographic textures: painted faces with harsh camera-flash lighting, oily skin sheen, pores, moles, broken capillaries, bloodshot eyes with detailed irises and lashes, and fabric textures with weave and folds. The realism of the skin on blocky heads is what makes them wrong.
-- **Warped anatomy.** Everyone is almost right. Torsos are slightly too tall, shoulders sunk, necks a touch long, and the arms long and spindly enough that the hands hang near the knees. The thing in the basement is the same body, stretched further.
+- **Real skinned bodies.** Each character is one continuous mesh deformed by a 12-bone skeleton, the way real games build characters, rather than floating parts. Shoulders grow out of the torso with deltoids and a trapezius slope, legs grow out of the pelvis, and elbows and knees bend with the skin stretching across them. The torsos are sculpted (chest, waist, hips, buttocks, bust), and the limbs taper realistically with thighs, calves and forearms. Proportions are still almost right: torsos slightly tall, arms long enough that the hands hang near the knees, necks a touch long. The thing in the basement is the same body, stretched further.
 - **PS1 NPC movement.** Limbs update in stiff steps at about 8 frames a second while the body slides smoothly underneath, so the feet don't match the speed. Heads snap to look at you with no easing, turns happen in jumps, and everyone has random twitches: head jerks, shoulder spasms, flinches and tilts, more often as the poison builds.
 - Faces blink, close in sleep, and have a "wrong" version: pale skin, fully black eyes, a hanging mouth and veins.
 - Tom, Claire and Lily walk the house on a schedule that runs through the evening, bedtime, the slow poisoning, and sleep that turns into something worse.
@@ -82,7 +82,7 @@ Every ending finishes with **"What they said tonight"**: a full, unscrambled tra
 | `js/ps1.js` | PS1 material (vertex lighting, snapping, affine UVs, fog) and post-processing (dither, hallucination) |
 | `js/textures.js` | procedural canvas textures |
 | `js/house.js` | geometry, colliders, doors, lights, props, items |
-| `js/humans.js` | family bodies (sculpted heads, shaped torsos, hands), animation, pathfinding, speech garbler |
+| `js/humans.js` | skinned family bodies (skeleton + continuous skin), sculpted heads, animation, pathfinding, speech garbler |
 | `js/faces.js` | painted head textures: open, closed and "wrong" faces for each family member |
 | `js/player.js` | dog controller and input |
 | `js/scent.js` | scent-vision particles |

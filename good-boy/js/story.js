@@ -944,4 +944,5 @@ export function updateStory(dt) {
 
   AU.updateAmbience(S.dogCO, S.t, S.windBoost || 0);
   G.uAmbient.value.set(0.06 + S.flash * 0.1, 0.065 + S.flash * 0.1, 0.095 + S.flash * 0.12);
+  if (S.debugLight) G.uAmbient.value.setScalar(S.debugLight); // testing aid only
 }

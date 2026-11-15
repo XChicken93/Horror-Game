@@ -178,6 +178,71 @@ function hand(mat, parent, y, s, side) {
   return h;
 }
 
+// One continuous skinned body: rings of vertices swept along the skeleton. Each vertex is
+// weighted between the bones either side of a joint, so shoulders, hips, elbows and knees
+// stay attached and the skin stretches when they bend.
+class BodyBuilder {
+  constructor(seg) { this.seg = seg; this.pos = []; this.uv = []; this.si = []; this.sw = []; this.idx = []; this.groups = []; }
+  vert(x, y, z, u, v, w) {
+    this.pos.push(x, y, z); this.uv.push(u, v);
+    const ws = w.filter((e) => e[1] > 1e-4).sort((p, q) => q[1] - p[1]).slice(0, 4);
+    let tot = ws.reduce((t, e) => t + e[1], 0) || 1;
+    for (let k = 0; k < 4; k++) { this.si.push(ws[k] ? ws[k][0] : 0); this.sw.push(ws[k] ? ws[k][1] / tot : 0); }
+    return this.pos.length / 3 - 1;
+  }
+  tube(rings, mat, o = {}) {
+    const seg = this.seg, base = this.pos.length / 3, i0 = this.idx.length;
+    const P = (i) => [this.pos[i * 3], this.pos[i * 3 + 1], this.pos[i * 3 + 2]];
+    rings.forEach((r) => {
+      for (let j = 0; j <= seg; j++) {
+        const a = (j / seg) * Math.PI * 2, dx = Math.sin(a), dz = Math.cos(a);
+        const x = r.x + dx * r.rx, z = r.z + dz * r.rz + (dz > 0 ? (r.front || 0) * dz * dz : 0);
+        this.vert(x, r.y, z, (j / seg) * (o.uRep || 1), r.y / 0.3, r.w(x, r.y, z));
+      }
+    });
+    const tri = (a, b, c, cx, cz) => {
+      // keep every face pointing outward
+      const A = P(a), B = P(b), C = P(c);
+      const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+      const nx = uy * vz - uz * vy, nz = ux * vy - uy * vx;
+      const ox = (A[0] + B[0] + C[0]) / 3 - cx, oz = (A[2] + B[2] + C[2]) / 3 - cz;
+      if (nx * ox + nz * oz < 0) this.idx.push(a, c, b); else this.idx.push(a, b, c);
+    };
+    for (let k = 0; k < rings.length - 1; k++) {
+      const cx = (rings[k].x + rings[k + 1].x) / 2, cz = (rings[k].z + rings[k + 1].z) / 2;
+      for (let j = 0; j < seg; j++) {
+        const a = base + k * (seg + 1) + j, b = a + 1, c = a + seg + 1, d = c + 1;
+        tri(a, b, c, cx, cz); tri(b, d, c, cx, cz);
+      }
+    }
+    const cap = (k, down) => {
+      const r = rings[k];
+      const c = this.vert(r.x, r.y, r.z, 0.5, r.y / 0.3, r.w(r.x, r.y, r.z));
+      for (let j = 0; j < seg; j++) {
+        const a = base + k * (seg + 1) + j, b = a + 1;
+        const A = P(a), B = P(b);
+        const ny = (A[2] - r.z) * (B[0] - r.x) - (A[0] - r.x) * (B[2] - r.z);
+        if ((ny > 0) === down) this.idx.push(c, b, a); else this.idx.push(c, a, b);
+      }
+    };
+    if (o.capStart) cap(0, rings[0].y < rings[rings.length - 1].y);
+    if (o.capEnd) cap(rings.length - 1, rings[rings.length - 1].y < rings[0].y);
+    this.groups.push([i0, this.idx.length - i0, mat]);
+  }
+  build() {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+    g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(this.si, 4));
+    g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(this.sw, 4));
+    g.setIndex(this.idx);
+    for (const [st, c, m] of this.groups) g.addGroup(st, c, m);
+    const n = g.toNonIndexed();
+    n.computeVertexNormals();
+    return n;
+  }
+}
+
 export class Human {
   constructor(name, spec, scene) {
     this.name = name; this.spec = spec;
@@ -187,57 +252,117 @@ export class Human {
     this.root = root;
     const body = pivot(root, 0, 0, 0); this.body = body;
     const uniq = !!(spec.ghost || spec.presence);
-    const shirt = ps1Mat({ map: spec.shirt || null, color: spec.shirtCol ?? 0xffffff, unique: uniq });
-    const pants = ps1Mat({ map: spec.pants || null, color: spec.pantsCol ?? 0xffffff, unique: uniq });
+    const shirt = ps1Mat({ map: spec.shirt || null, color: spec.shirtCol ?? 0xffffff, unique: true });
+    const pants = ps1Mat({ map: spec.pants || null, color: spec.pantsCol ?? 0xffffff, unique: true });
     const skin = ps1Mat({ map: T.skin, color: spec.skinCol ?? 0xffffff, unique: true });
     const hair = ps1Mat({ map: spec.hair || null, unique: uniq });
     const shoe = ps1Mat({ color: spec.shoeCol ?? 0x1a1410, unique: uniq });
     this.faceMat = ps1Mat({ map: spec.face, unique: true });
     this.mats = [shirt, pants, skin, hair, this.faceMat, shoe];
-    // retro-realism: everything is almost right. Limbs a little too long and thin,
-    // the torso too tall, the shoulders sunk, the neck a touch long.
-    const fem = spec.build === 'woman', kid = spec.build === 'child', thin = spec.presence ? 0.62 : 0.84;
+    // ---- skeleton -------------------------------------------------------------
+    // Retro-realism: proportions are almost right. Torso a little tall, arms a little
+    // long, the neck a touch long. Everything is one continuous skinned mesh.
+    const fem = spec.build === 'woman', kid = spec.build === 'child';
+    const lthin = spec.presence ? 0.62 : 0.9, tthin = spec.presence ? 0.72 : 1;
     const leg = 0.96 * s * (spec.presence ? 1.1 : 1), torso = 0.66 * s, headR = 0.098 * (kid ? Math.max(s, 0.8) : s);
+    const armL = spec.presence ? 1.5 : 1.1;
+    const U = 0.3 * s * armL, F = 0.26 * s * armL;
+    const hx = (fem ? 0.092 : 0.088) * s * tthin, shx = (fem ? 0.182 : kid ? 0.19 : 0.2) * s * tthin, shy = torso - 0.1 * s;
     this.legLen = leg;
-    const hips = pivot(body, 0, leg, 0); this.hips = hips;
-    // pelvis
-    limb(0.155 * s * thin, 0.16 * s * thin, 0.16 * s, pants, hips, -0.03 * s, { sz: 0.68, seg: 12 });
-    // legs: thigh, shin, ankle, shoe
+    const bones = [];
+    const bone = (parent, x, y, z) => { const b = new THREE.Bone(); b.position.set(x, y, z); if (parent) parent.add(b); bones.push(b); return b; };
+    const bodyB = bone(null, 0, 0, 0);
+    body.add(bodyB);
+    const hips = bone(bodyB, 0, leg, 0); this.hips = hips;
     this.legs = [-1, 1].map((side) => {
-      const hip = pivot(hips, side * 0.088 * s * thin, -0.06 * s, 0);
-      limb(0.075 * s * thin, 0.055 * s * thin, leg / 2, pants, hip, -leg / 4 + 0.03 * s, { sz: 0.95 });
-      const knee = pivot(hip, 0, -leg / 2 + 0.06 * s, 0);
-      limb(0.054 * s * thin, 0.04 * s * thin, leg / 2 - 0.06 * s, pants, knee, -leg / 4 + 0.03 * s);
-      const sh = new THREE.Mesh(new THREE.BoxGeometry(0.09 * s * thin, 0.065 * s, 0.24 * s, 2, 1, 3), shoe);
+      const hip = bone(hips, side * hx, -0.06 * s, 0);
+      const knee = bone(hip, 0, -leg / 2 + 0.06 * s, 0);
+      return { hip, knee };
+    });
+    const chest = bone(hips, 0, 0.04 * s, 0); this.chest = chest;
+    this.arms = [-1, 1].map((side) => {
+      const sh = bone(chest, side * shx, shy, 0);
+      const el = bone(sh, 0, -U, 0);
+      return { sh, el };
+    });
+    const neck = bone(chest, 0, torso - 0.02 * s, 0); this.neck = neck;
+    const bi = (b) => bones.indexOf(b);
+
+    // ---- skin ---------------------------------------------------------------------
+    const mesh = new BodyBuilder(9);
+    const hipsY = leg, chestY = leg + 0.04 * s, shY = chestY + shy, neckY = chestY + torso - 0.02 * s;
+    // torso profile: [y above the hips (x s), half-width, half-depth, depth offset, front bulge]
+    const T_MAN = [[-0.13, 0.05, 0.05, 0], [-0.09, 0.12, 0.09, -0.005], [-0.03, 0.155, 0.105, -0.012], [0.03, 0.16, 0.105, -0.006], [0.13, 0.148, 0.098, 0.004],
+      [0.25, 0.15, 0.1, 0.012], [0.37, 0.152, 0.118, 0.014], [0.47, 0.156, 0.124, 0.012], [0.55, 0.16, 0.112, 0.002], [0.61, 0.175, 0.092, -0.008],
+      [0.655, 0.14, 0.075, -0.012], [0.69, 0.085, 0.06, -0.01], [0.715, 0.052, 0.048, 0]];
+    const T_WOMAN = [[-0.13, 0.05, 0.05, 0], [-0.09, 0.125, 0.09, -0.008], [-0.03, 0.168, 0.108, -0.016], [0.03, 0.165, 0.102, -0.008], [0.15, 0.125, 0.088, 0.002],
+      [0.25, 0.128, 0.09, 0.004], [0.36, 0.13, 0.095, 0.006, 0.03], [0.44, 0.133, 0.098, 0.006, 0.038], [0.52, 0.138, 0.095, 0, 0.012], [0.6, 0.158, 0.082, -0.008],
+      [0.645, 0.125, 0.068, -0.01], [0.68, 0.075, 0.055, -0.008], [0.705, 0.046, 0.043, 0]];
+    const T_KID = [[-0.13, 0.05, 0.05, 0], [-0.09, 0.115, 0.085, -0.004], [-0.03, 0.14, 0.095, -0.008], [0.03, 0.14, 0.095, -0.002], [0.15, 0.135, 0.092, 0.01],
+      [0.27, 0.13, 0.092, 0.012], [0.4, 0.13, 0.094, 0.006], [0.52, 0.135, 0.09, 0], [0.6, 0.155, 0.08, -0.008], [0.645, 0.12, 0.066, -0.01],
+      [0.68, 0.07, 0.052, -0.008], [0.705, 0.046, 0.043, 0]];
+    const tp = fem ? T_WOMAN : kid ? T_KID : T_MAN;
+    const torsoW = (x, y) => {
+      const yr = (y - hipsY) / s;
+      const wC = smooth(0.02, 0.2, yr), wN = smooth(0.66, 0.73, yr) * 0.35;
+      const ax = Math.abs(x);
+      const wS = smooth(shx * 0.5, shx * 0.92, ax) * smooth(0.46, 0.6, yr) * 0.6;
+      const sideArm = x < 0 ? this.arms[0].sh : this.arms[1].sh;
+      return [[bi(hips), (1 - wC) * (1 - wS)], [bi(chest), wC * (1 - wS) * (1 - wN)], [bi(neck), wC * wN * (1 - wS)], [bi(sideArm), wS]];
+    };
+    const ring = (row, mul = 1) => ({ y: hipsY + row[0] * s, x: 0, z: (row[3] || 0) * s, rx: row[1] * s * tthin * mul, rz: row[2] * s * tthin * mul, front: (row[4] || 0) * s, w: torsoW });
+    // trousers up to the waist, shirt over it with an untucked hem
+    mesh.tube(tp.filter((r) => r[0] <= 0.15).map((r) => ring(r)), 1, { capStart: true });
+    mesh.tube([ring([0.07, ...tp.find((r) => r[0] >= 0.03).slice(1)], 1.05), ...tp.filter((r) => r[0] > 0.07).map((r) => ring(r))], 0, { uRep: 2 });
+    // legs: hip to ankle, weighted across the hip and knee
+    const LEG = [[-0.1, 0.09, 0.095, 0], [0, 0.088, 0.092, 0], [0.12, 0.083, 0.088, 0.008], [0.3, 0.072, 0.078, 0.012], [0.43, 0.058, 0.062, 0.006], [0.5, 0.05, 0.056, 0.004],
+      [0.56, 0.05, 0.055, -0.004], [0.66, 0.054, 0.06, -0.016], [0.8, 0.04, 0.044, -0.006], [0.94, 0.029, 0.033, 0], [1.0, 0.028, 0.032, 0]];
+    const hipY = hipsY - 0.06 * s, kneeY = hipY - leg / 2 + 0.06 * s, ankleY = kneeY - leg / 2 + 0.06 * s;
+    this.legs.forEach((l, i) => {
+      const side = i ? 1 : -1;
+      const w = (x, y) => {
+        const wH = smooth(hipY - 0.02 * s, hipY + 0.08 * s, y) * 0.6, wK = smooth(kneeY + 0.06 * s, kneeY - 0.06 * s, y);
+        return [[bi(hips), wH], [bi(l.hip), (1 - wK) * (1 - wH)], [bi(l.knee), wK * (1 - wH)]];
+      };
+      mesh.tube(LEG.map(([f, rx, rz, dz]) => ({ y: hipY - f * (hipY - ankleY), x: side * hx, z: dz * s, rx: rx * s * lthin, rz: rz * s * lthin, w })), 1, { capEnd: true });
+    });
+    // arms: shoulder (inside the deltoid) to wrist, weighted across shoulder and elbow
+    const ARM_UP = [[-0.045, 0.042, 0.048, 'a'], [-0.015, 0.055, 0.057, 'a'], [0.04, 0.058, 0.058, 'a'], [0.4, 0.046, 0.05, 'u'], [0.75, 0.043, 0.045, 'u'], [0.95, 0.037, 0.039, 'u'], [1.0, 0.035, 0.037, 'u']];
+    const ARM_LO = [[0, 0.035, 0.037], [0.08, 0.037, 0.036], [0.3, 0.038, 0.036], [0.75, 0.029, 0.025], [1.0, 0.022, 0.019]];
+    this.arms.forEach((a, i) => {
+      const side = i ? 1 : -1;
+      const elY = shY - U;
+      const w = (x, y) => {
+        const wC = smooth(shY - 0.02 * s, shY + 0.05 * s, y) * 0.8, wE = smooth(elY + 0.04 * s, elY - 0.04 * s, y);
+        return [[bi(chest), wC], [bi(a.sh), (1 - wE) * (1 - wC)], [bi(a.el), wE * (1 - wC)]];
+      };
+      const yOf = (d, kind) => (kind === 'a' ? shY - d * s : shY - d * U);
+      mesh.tube(ARM_UP.map(([d, rx, rz, k]) => ({ y: yOf(d, k), x: side * shx, z: 0, rx: rx * s * lthin, rz: rz * s * lthin, w })), 0, { uRep: 1 });
+      mesh.tube(ARM_LO.map(([f, rx, rz]) => ({ y: elY - f * F, x: side * shx, z: f > 0.05 && f < 0.5 ? 0.004 * s : 0, rx: rx * s * lthin, rz: rz * s * lthin, w })), spec.rolled ? 2 : 0, { uRep: 1 });
+    });
+    // neck
+    const nw = (x, y) => { const k = smooth(chestY + torso - 0.05 * s, neckY + 0.04 * s, y); return [[bi(chest), 1 - k], [bi(neck), k]]; };
+    mesh.tube([[chestY + torso - 0.035 * s, 0.05, 0.045], [neckY + 0.02 * s, 0.043, 0.042], [neckY + 0.07 * s, 0.041, 0.041], [neckY + 0.12 * s, 0.039, 0.039]]
+      .map(([y, rx, rz]) => ({ y, x: 0, z: 0.006 * s, rx: rx * s, rz: rz * s, w: nw })), 2, { uRep: 1 });
+
+    const geo = mesh.build();
+    const skinMesh = new THREE.SkinnedMesh(geo, [shirt, pants, skin]);
+    skinMesh.frustumCulled = false;
+    root.add(skinMesh);
+    root.updateMatrixWorld(true);
+    skinMesh.bind(new THREE.Skeleton(bones));
+    this.skinMesh = skinMesh;
+
+    // rigid extremities on the bones: shoes and hands
+    for (const l of this.legs) {
+      const sh = new THREE.Mesh(new THREE.BoxGeometry(0.09 * s * lthin, 0.065 * s, 0.24 * s, 2, 1, 3), shoe);
       sh.position.set(0, -leg / 2 + 0.09 * s, 0.05 * s);
       const sp = sh.geometry.attributes.position;
       for (let i = 0; i < sp.count; i++) if (sp.getZ(i) > 0.05 * s) { sp.setX(i, sp.getX(i) * 0.75); if (sp.getY(i) > 0) sp.setY(i, sp.getY(i) * 0.4); }
-      sh.geometry.computeVertexNormals();
-      knee.add(sh);
-      return { hip, knee };
-    });
-    // torso: hips -> waist -> chest -> shoulders -> collar
-    const chest = pivot(hips, 0, 0.04 * s, 0); this.chest = chest;
-    const prof = fem
-      ? [[0.16, 0.1], [0.125, 0.085], [0.135, 0.09, 0.03], [0.15, 0.095, 0.035], [0.145, 0.08], [0.05, 0.045]]
-      : kid ? [[0.15, 0.095], [0.135, 0.09], [0.135, 0.09], [0.14, 0.085], [0.135, 0.075], [0.05, 0.045]]
-        : [[0.165, 0.11], [0.15, 0.11, 0.02], [0.165, 0.115], [0.18, 0.11], [0.165, 0.09], [0.055, 0.05]];
-    shaped(torso, prof.map(([w, d, f]) => [w * s * thin, d * s * thin, (f || 0) * s]), shirt, chest, torso / 2);
-    // arms: sleeve, forearm, wrist, hand
-    const armL = spec.presence ? 1.55 : 1.2;
-    this.arms = [-1, 1].map((side) => {
-      const sh = pivot(chest, side * (fem ? 0.15 : kid ? 0.15 : 0.17) * s * (thin / 0.84), torso - 0.11 * s, 0);
-      limb(0.052 * s * thin, 0.042 * s * thin, 0.3 * s * armL, shirt, sh, -0.15 * s * armL);
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.045 * s * thin, 5, 4), shirt); sh.add(ball);
-      const el = pivot(sh, 0, -0.3 * s * armL, 0);
-      limb(0.042 * s * thin, 0.034 * s * thin, 0.24 * s * armL, spec.rolled ? skin : shirt, el, -0.12 * s * armL);
-      limb(0.03 * s * thin, 0.028 * s * thin, 0.03 * s, skin, el, -0.25 * s * armL);
-      hand(skin, el, -0.255 * s * armL, s * (spec.presence ? 1.5 : 1), side);
-      return { sh, el };
-    });
-    // neck and head
-    const neck = pivot(chest, 0, torso - 0.02 * s, 0); this.neck = neck;
-    limb(0.04 * s, 0.048 * s, 0.11 * s, skin, neck, 0.035 * s);
+      sh.geometry = facet(sh.geometry);
+      l.knee.add(sh);
+    }
+    this.arms.forEach((a, i) => hand(skin, a.el, -F + 0.005 * s, s * (spec.presence ? 1.5 : 1), i ? 1 : -1));
     const hg = headGeo(headR, { child: kid, wide: !fem && !kid, fem });
     this.head = new THREE.Mesh(hg, this.faceMat);
     this.head.position.set(0, 0.068 * s + headR * 0.98, 0.018 * s);
@@ -328,7 +453,7 @@ export class Human {
     let hipY = this.legLen;
     const sway = co > 0.5 && this.moving ? Math.sin(now * 2.1) * 0.12 * co : 0;
     this.body.rotation.set(0, 0, sway);
-    for (const a of Ar) { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); }
+    for (const [i, a] of Ar.entries()) { a.sh.rotation.set(0, 0, i ? 0.11 : -0.11); a.el.rotation.set(-0.08, 0, 0); }
     this.chest.rotation.set(0, 0, 0);
     if (this.pose === 'sit' || this.pose === 'slump') {
       hipY = 0.47;
@@ -362,7 +487,7 @@ export class Human {
       const w = this.moving ? Math.sign(Math.sin(this.walkPhase)) * Math.min(1, Math.abs(Math.sin(this.walkPhase)) * 2) : 0;
       L[0].hip.rotation.set(w * 0.34, 0, 0); L[1].hip.rotation.set(-w * 0.34, 0, 0);
       L[0].knee.rotation.set(Math.max(0, -w) * 0.25, 0, 0); L[1].knee.rotation.set(Math.max(0, w) * 0.25, 0, 0);
-      Ar[0].sh.rotation.set(-w * 0.1, 0, 0.04); Ar[1].sh.rotation.set(w * 0.1, 0, -0.04);
+      Ar[0].sh.rotation.set(-w * 0.1, 0, -0.11); Ar[1].sh.rotation.set(w * 0.1, 0, 0.11);
       if (this.override?.type === 'rub') { Ar[1].sh.rotation.set(-2.6, 0, -0.3); Ar[1].el.rotation.set(-1.6, 0, 0); }
     }
     this.hips.position.y = hipY;
