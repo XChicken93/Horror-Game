@@ -257,7 +257,7 @@ export function buildHouse(sc) {
   wallZ(5, 3, 9, 0, H, M.green, M.rose, [door(5.0, 6.5, 2.2)]);
   wallZ(5, 9, 14, 0, H, M.green, M.kitchen, [door(11.0, 12.0, 2.1)]);
   // south exterior z=10
-  wallZ(10, 0, 3, 0, H, M.green, M.ext, [door(1.0, 2.0)]);
+  wallZ(10, 0, 3, 0, H, M.green, M.ext, [win(0.2, 0.8, 0.8, 1.95), door(1.0, 2.0)]); // a narrow sidelight by the front door
   wallZ(10, 3, 9, 0, H, M.rose, M.ext, [win(4.5, 6.0, 0.8, 2.0), win(7.0, 8.2, 0.8, 2.0)]);
   wallZ(10, 9, 14, 0, H, M.kitchen, M.ext, [win(11.0, 12.5, 1.15, 2.0)]);
   // west exterior x=0
@@ -329,6 +329,7 @@ export function buildHouse(sc) {
   refs.livingWin2 = windowPane(7.6, 1.4, 9.93, 1.2, 1.2, 's'); curtains(7.6, 1.6, 9.93, 1.2, 's');
   windowPane(11.75, 1.575, 9.93, 1.5, 0.85, 's');
   windowPane(13.93, 1.5, 7.15, 1.3, 1.0, 'e'); curtains(13.93, 1.6, 7.15, 1.3, 'e');
+  windowPane(0.5, 1.375, 9.93, 0.6, 1.15, 's');
 
   // ---- lights -------------------------------------------------------------
   light(0, 'kitchen', [11.5, 2.35, 7.5], 0xffd9a0, 7.5, [9, -0.1, 5, 14, 3, 10], { bulb: true });

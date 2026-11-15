@@ -115,8 +115,8 @@ function lightning(withFigure = false) {
   AU.thunder(1 + Math.random() * 0.6);
   // something is out there, and the flash shows it to you
   if (isOutside(dog.pos.x, dog.pos.z, dog.y)) { lights[7].pos.set(dog.pos.x + 6, 9, dog.pos.z - 4); S.deerShow = Math.random() < 0.5; }
-  const want = withFigure || (S.coOn && S.t - (S.lastFigure || -99) > 45 && Math.random() < 0.25 + S.co * 0.55);
-  if (!want || S.cut || S.inspectOpen) return;
+  // every flash: your head snaps to the window, and something is standing in it
+  if (S.cut || S.inspectOpen || S.ended || inBasement()) return;
   if (isOutside(dog.pos.x, dog.pos.z, dog.y)) {
     lights[7].pos.set(dog.pos.x + 6, 9, dog.pos.z - 4);
     const spots2 = [[30.6, -2.5], [30.4, 6.5], [20.5, -7.4], [25.5, -7.2], [30.8, 1.5]];
@@ -132,11 +132,19 @@ function lightning(withFigure = false) {
   }
   const room = roomAt(dog.pos.x, dog.pos.z, dog.y);
   let win = null, wd = 1e9;
-  for (const w of windows) {
-    const inner = w.pos.clone().addScaledVector(w.out, -0.4);
-    if (roomAt(inner.x, inner.z, 0) !== room || inBasement()) continue;
-    const d = w.pos.distanceTo(dog.pos);
-    if (d < wd && d < 8 && canSee(w.pos, w.mesh)) { wd = d; win = w; }
+  // a window in this room first; otherwise any window you can see from here, through a doorway
+  for (const pass of [0, 1]) {
+    for (const w of windows) {
+      const inner = w.pos.clone().addScaledVector(w.out, -0.4);
+      if (pass === 0 && roomAt(inner.x, inner.z, 0) !== room) continue;
+      const d = w.pos.distanceTo(dog.pos);
+      if (d >= wd || d > (pass ? 10 : 8)) continue;
+      // the middle of the pane, or failing that its top, over the furniture
+      const top = w.pos.clone(); top.y += 0.35;
+      if (canSee(w.pos, w.mesh)) { wd = d; win = w; win.aim = w.pos.y + 0.15; }
+      else if (canSee(top, w.mesh)) { wd = d; win = w; win.aim = top.y; }
+    }
+    if (win) break;
   }
   if (!win) return;
   S.lastFigure = S.t;
@@ -144,7 +152,7 @@ function lightning(withFigure = false) {
   if (!figTex) { figTex = figureWindow(); figMat = ps1Mat({ map: figTex, unlit: true, unique: true }); }
   S.figWin = { w: win, orig: win.mesh.material, t: 0 };
   win.mesh.material = figMat;
-  later(0.04, () => { lookAtPoint(win.pos.x, win.pos.y + 0.15, win.pos.z, 2.0); AU.stinger(1); scared(1); });
+  later(0.04, () => { lookAtPoint(win.pos.x, win.aim, win.pos.z, 2.0); AU.stinger(1); scared(1); });
 }
 // your heart jumps; you flinch and whimper
 function scared(k = 1) {
