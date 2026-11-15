@@ -149,7 +149,18 @@ addEventListener('keydown', (e) => { if (S.inspectOpen && (e.key === 'Escape' ||
 try {
   const found = JSON.parse(localStorage.getItem('goodboy_endings') || '[]');
   if (found.length) $('titleFound').textContent = `endings found: ${found.length} / 6`;
+  if (found.length) $('resetSaves').style.display = 'block';
 } catch (e) { /* storage unavailable */ }
+// wipe the endings you have found, so the game is new again
+$('resetSaves').addEventListener('click', (e) => {
+  e.stopPropagation(); // don't start the game
+  const el = $('resetSaves');
+  // click once to arm, again to confirm (pop-up dialogs can be blocked here)
+  if (!el.dataset.armed) { el.dataset.armed = '1'; el.textContent = 'click again to forget every ending you found'; setTimeout(() => { delete el.dataset.armed; el.textContent = 'forget everything and start over'; }, 4000); return; }
+  try { localStorage.removeItem('goodboy_endings'); } catch (err) { /* storage unavailable */ }
+  $('titleFound').textContent = '';
+  $('resetSaves').style.display = 'none';
+});
 
 const INTRO = [
   'December 13th, 1998.',
