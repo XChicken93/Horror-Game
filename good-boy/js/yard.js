@@ -144,6 +144,17 @@ export function buildYard(scene, M) {
   for (const s of [-1, 1]) prop(s * 0.075, 1.62, -0.8, 0.025, 0.02, 0.01, eyeM, { parent: deer });
   deer.visible = false;
   refs.deer = deer;
+  // something taller than a man, standing at the treeline. Only the lightning shows it.
+  const fig = new THREE.Group(); scene.add(fig);
+  const blk = ps1Mat({ color: 0x020202 });
+  prop(0, 1.55, 0, 0.34, 1.5, 0.2, blk, { parent: fig });
+  prop(0, 2.45, 0, 0.1, 0.3, 0.1, blk, { parent: fig });
+  for (const sx of [-1, 1]) { prop(sx * 0.24, 1.3, 0, 0.07, 1.6, 0.07, blk, { parent: fig, rz: sx * 0.06 }); prop(sx * 0.1, 0.4, 0, 0.09, 0.8, 0.09, blk, { parent: fig }); }
+  prop(0, 2.72, 0.03, 0.2, 0.3, 0.16, ps1Mat({ color: 0x8a8a84, unlit: true }), { parent: fig });
+  for (const sx of [-1, 1]) prop(sx * 0.05, 2.76, 0.115, 0.045, 0.06, 0.01, blk, { parent: fig });
+  prop(0, 2.63, 0.115, 0.05, 0.07, 0.01, blk, { parent: fig });
+  fig.visible = false;
+  refs.yardFigure = fig;
 
   // ---- the old oak, Danny's tire swing, and what you buried under it ------------
   const oak = new THREE.Group(); oak.position.set(22.8, 0, 8.7); scene.add(oak);

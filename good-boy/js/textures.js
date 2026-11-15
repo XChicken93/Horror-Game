@@ -477,6 +477,59 @@ export function updateTV(t, showFace) {
   tex.needsUpdate = true;
 }
 
+// The thing at the window: too tall, too thin, its face and hand pressed flat to the glass.
+export function figureWindow() {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.NoColorSpace;
+  t.userData.ctx = g;
+  return t;
+}
+export function paintFigureWindow(tex, b, stage) {
+  const g = tex.userData.ctx;
+  g.fillStyle = rgb(6 + b * 170, 10 + b * 180, 20 + b * 210); g.fillRect(0, 0, 64, 64);
+  for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(200,210,230,${0.2 + b * 0.5})`; g.fillRect(ri(0, 63), ri(0, 63), 1, 3); }
+  const v = Math.max(0.35, b);
+  // body: a long black shape filling the pane, shoulders too narrow, arms too long
+  g.fillStyle = `rgba(0,0,0,${0.97})`;
+  g.fillRect(24, 22, 17, 42); g.fillRect(20, 26, 4, 34); g.fillRect(41, 26, 4, 30);
+  // neck stretched
+  g.fillRect(29, 14, 7, 10);
+  // the face, grey and too long, pressed so hard against the glass the skin has gone flat and white
+  for (let y = 0; y < 24; y++) {
+    const w = y < 3 ? 9 + y * 2 : y < 15 ? 16 : Math.max(6, 16 - (y - 15) * 1.4);
+    for (let x = 0; x < w; x++) {
+      const cx = (x - w / 2) / (w / 2), cy = (y - 9) / 12;
+      const lit = (1 - Math.min(1, cx * cx * 0.7 + cy * cy * 0.5)) * (0.75 + rnd() * 0.25);
+      const k = v * lit;
+      g.fillStyle = rgb(30 + 170 * k, 32 + 165 * k, 30 + 150 * k);
+      g.fillRect(Math.round(32 - w / 2 + x), y, 1, 1);
+    }
+  }
+  // sunken sockets, not quite level; tiny wet points of light deep inside
+  g.fillStyle = 'rgba(0,0,0,0.92)';
+  g.fillRect(26, 6, 5, 4); g.fillRect(25, 7, 7, 2); g.fillRect(34, 7, 5, 4); g.fillRect(33, 8, 7, 2);
+  g.fillStyle = rgb(255 * v, 250 * v, 220 * v); g.fillRect(28, 8, 1, 1); g.fillRect(36, 9, 1, 1);
+  g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(31, 10, 2, 4); // nose, crushed flat
+  // the mouth, stretched far too wide and too long
+  g.fillStyle = '#000';
+  const mh = stage > 0 ? 8 : 3;
+  g.fillRect(28, 15, 9, mh); g.fillRect(29, 15 + mh, 7, 1); g.fillRect(27, 16, 1, Math.max(1, mh - 2)); g.fillRect(37, 16, 1, Math.max(1, mh - 2));
+  if (stage > 0) { g.fillStyle = rgb(160 * v, 150 * v, 120 * v); for (let i = 0; i < 4; i++) g.fillRect(29 + i * 2, 15, 1, 2); }
+  // blotches where it presses the glass
+  g.fillStyle = `rgba(230,230,220,${0.35 * v})`; g.fillRect(29, 2, 6, 3); g.fillRect(27, 11, 3, 2); g.fillRect(35, 12, 3, 2);
+  // its hand, flat on the pane, fingers too long
+  g.fillStyle = rgb(130 * v + 20, 128 * v + 20, 120 * v + 18);
+  g.fillRect(44, 22, 7, 7);
+  for (let i = 0; i < 4; i++) g.fillRect(44 + i * 2, 10 - (i === 1 || i === 2 ? 2 : 0), 1, 12);
+  g.fillRect(51, 24, 5, 1);
+  // breath fog on the glass around the mouth
+  g.fillStyle = `rgba(200,205,215,${0.25 + b * 0.2})`; g.fillRect(24, 16, 18, 6);
+  g.fillStyle = '#1a120a'; g.fillRect(31, 0, 2, 64); g.fillRect(0, 31, 64, 2);
+  g.fillRect(0, 0, 64, 2); g.fillRect(0, 62, 64, 2); g.fillRect(0, 0, 2, 64); g.fillRect(62, 0, 2, 64);
+  tex.needsUpdate = true;
+}
 export function updateWindow(flash, figure) {
   const tex = T.window, g = tex.userData.ctx;
   const b = flash;

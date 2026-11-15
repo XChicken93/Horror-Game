@@ -117,7 +117,7 @@ const ui = {
     $('hud').style.display = 'none';
     const el = $('ending');
     el.style.display = 'flex';
-    $('endNum').textContent = `ENDING ${meta.n} OF 5`;
+    $('endNum').textContent = `ENDING ${meta.n} OF 6`;
     $('endTitle').textContent = meta.title;
     const body = $('endText'); body.innerHTML = '';
     paras.forEach((p, i) => {
@@ -125,7 +125,7 @@ const ui = {
     });
     let found = [];
     try { found = JSON.parse(localStorage.getItem('goodboy_endings') || '[]'); } catch (e) { /* none */ }
-    $('endFound').textContent = `endings found: ${found.length} / 5`;
+    $('endFound').textContent = `endings found: ${found.length} / 6`;
     $('endFound').style.animationDelay = `${2 + paras.length * 3.2}s`;
     setTimeout(() => { ui.canRestart = true; }, 2500 + paras.length * 3200);
   },
@@ -148,7 +148,7 @@ addEventListener('keydown', (e) => { if (S.inspectOpen && (e.key === 'Escape' ||
 
 try {
   const found = JSON.parse(localStorage.getItem('goodboy_endings') || '[]');
-  if (found.length) $('titleFound').textContent = `endings found: ${found.length} / 5`;
+  if (found.length) $('titleFound').textContent = `endings found: ${found.length} / 6`;
 } catch (e) { /* storage unavailable */ }
 
 const INTRO = [
@@ -163,6 +163,7 @@ function startGame() {
   started = true;
   AU.initAudio();
   AU.startAmbience({ furnace: spots.furnace });
+  AU.startDrone();
   $('title').style.display = 'none';
   const intro = $('intro');
   intro.style.display = 'flex';

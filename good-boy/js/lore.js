@@ -320,11 +320,16 @@ export function buildLore(scene, M) {
     return it;
   };
   puzzle.crayons = [
-    crayon(0xc02828, 6.4, 7.92, 'a red crayon'),
+    crayon(0xc02828, 6.0, 8.62, 'a red crayon'),        // under the couch
     crayon(0x2850c0, 9.7, 3.85, 'a blue crayon'),
     crayon(0xe0c020, 11.0, 7.25, 'a yellow crayon'),
     crayon(0x111111, 2.2, 9.3, 'a black crayon'),
+    crayon(0x30a040, 11.15, 1.25, 'a green crayon'),    // in the laundry room
+    crayon(0x7a3aa0, 1.5, 1.9, 'a purple crayon'),      // under the parents' bed
   ];
+  // two of them rolled where you can only reach lying flat on your belly
+  for (const i of [0, 5]) { puzzle.crayons[i].under = true; }
+  puzzle.crayons[0].underWhat = 'the couch'; puzzle.crayons[5].underWhat = 'the bed';
 
   const key = new THREE.Group();
   prop(0, 0, 0, 0.09, 0.012, 0.03, ps1Mat({ color: 0xc8a840 }), { parent: key });
@@ -348,6 +353,16 @@ export function buildLore(scene, M) {
   puzzle.drawing = items.find((i) => i.name === 'drawing');
   puzzle.drawing.gone = true; puzzle.drawing.mesh.visible = false;
   puzzle.drawingDoc = inspect('drawing', 0, 0, 0, 0.8, { item: puzzle.drawing });
+
+  // ---- Danny's flashlight: knocked off his nightstand. It still works, mostly. ----------
+  const fl = new THREE.Group();
+  prop(0, 0, 0, 0.05, 0.05, 0.2, ps1Mat({ color: 0x8a1a14 }), { parent: fl });
+  prop(0, 0, -0.11, 0.07, 0.07, 0.04, ps1Mat({ color: 0x2a2a2a }), { parent: fl });
+  refs.flashLens = prop(0, 0, -0.132, 0.055, 0.055, 0.005, ps1Mat({ color: 0xfff0c0, unlit: true, unique: true }), { parent: fl });
+  fl.position.set(9.1, 0.03, 2.25); fl.rotation.y = 0.9; scene.add(fl);
+  puzzle.flashlight = addItem('flashlight', "Danny's flashlight", fl, { scent: 'danny' });
+  light(12, 'flashlight', [9.1, 0.2, 2.0], 0xfff0d0, 3.5, [-1, -3.5, -5, 40, 6, 14]);
+  lights[12].on = false;
 
   // ---- the CO detector's warning light ---------------------------------------------------
   light(9, 'alarm', [10.6, 1.4, 5.25], 0xff2010, 3.0, [9, -0.1, 4.6, 14, 3, 10]);

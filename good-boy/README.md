@@ -14,7 +14,7 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
-Use headphones and play in the dark. A full playthrough to the true ending takes roughly 35–50 minutes.
+Use headphones and play in the dark. A first playthrough to the true ending is meant to take about an hour. The night itself lasts about 55 minutes of air from the moment the furnace lights (longer if you dig out its pipe), and the thing in the dark costs you time every time it catches you.
 
 ## Controls
 
@@ -33,12 +33,12 @@ Use headphones and play in the dark. A full playthrough to the true ending takes
 
 **You can see yourself.** Biscuit has a body: look down to see your chest, front legs and paws. Everything you do shows. Your paws come up and scratch at a door, leaving claw marks; your legs stretch out in front of you when you lie down; your paws dig and throw snow; your jaw opens with teeth showing when you bark or bite; you lunge and shake your head when you bite, brace and pull when you tug or pull a rope, put your head down to eat, carry or drop something, and shake the snow off when you come back inside. Out in the cold your breath smokes, and you leave paw prints in the snow.
 
-## The story, in seven chapters
+## The story, in eight chapters
 
 Biscuit starts out understanding about twenty-five words. **Each puzzle you solve teaches him more**, so the family's garbled speech fills in as the night goes on, until by the end you understand every word.
 
 1. **Dinner.** Your bowl is empty. Carry it to the woman so she remembers to feed you, then eat.
-2. **Lily's crayons.** Lily lost four crayons around the house. Find them (sniff for her green scent) and bring them back. She draws the family and tells you she can hear Danny *under the house*.
+2. **Lily's crayons.** Lily lost six crayons all over the house, from the laundry room to the parents' room. Sniff for her green scent on them. Two have rolled under furniture (the couch, the parents' bed): lie flat with **C** and stretch in to drag them out. She draws the family and tells you she can hear Danny *under the house*.
 3. **The voice under the house.** At bedtime the furnace lights. The basement door rattles on its hook every time the furnace cycles, and Tom explains why: it pulls air, and only the old latch holds the door shut. Find what Lily hears through the vent in her room. She goes to the basement door but can't reach the hook, so push the kitchen step stool over for her.
 4. **Danny's room.** Claire goes to bed and drops the key she keeps in her pocket. Bring it to Lily so she unlocks Danny's room, shut for a year. Read his furnace checklist, his essay *My Dog Biscuit*, his photographs.
 5. **Out back.** Danny's list has one more job: *after a big snow, dig out the furnace pipe by the back door, or the bad air comes back inside.* Pull the storm cover off your dog flap at the end of the hall (the family stops you while they're awake) and go out into the snow. The yard has the old oak with Danny's tire swing, the doghouse he built you, Lily's snowman wearing his scarf, the woodpile, a sheet frozen on the clothesline, and deer tracks along the fence. There are three things to do:
@@ -47,8 +47,9 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
    - **Follow his last trail to the field gate.** So many smells cross there that you have to follow only Danny's (sniff, then **T**). It is where he went, the night you ran after the deer.
 
    The air outside is clean: your head clears out there and the poison's effects fade, then come back when you go in.
-6. **Under the house.** Danny's gold ghost guides you to his boxes. Read the newspaper clipping about how he died. Pull the workbench drawer's rope for the red tag. Taking either one wakes the thing from the furnace, so carry each up the stairs before it catches you.
-7. **Wake them.** Tom and Claire won't wake to barking any more. Bring the CO alarm's battery to Lily so she puts it back. When the alarm screams, Tom stumbles in and pulls it out again. Show him the red tag, then Danny's jacket, and lead him out the front door.
+6. **Lights out.** Back inside, lightning takes the power. Every light in the house dies; only the furnace keeps glowing. Lily screams, then stops, and her bed is empty and still warm. Follow only her scent (sniff, **T**) through the dark house and down the basement stairs. Danny's flashlight fell off his nightstand when the thunder hit and clicked on: carry it in your mouth and it lights wherever you look, though the old batteries flicker and cut out at the worst moments. You find Lily standing in front of the furnace, talking to it, saying Danny wants everyone to go to sleep down there. Bark to snap her out of it, then lead her back up to her room while the thing from the furnace comes after you. She is slow, and she is scared of the dark.
+7. **Under the house.** Danny's gold ghost guides you to his boxes. Read the newspaper clipping about how he died. Pull the workbench drawer's rope for the red tag. Taking either one wakes the thing from the furnace, so carry each up the stairs before it catches you.
+8. **Wake them.** Tom and Claire won't wake to barking any more. Bring the CO alarm's battery to Lily so she puts it back. When the alarm screams, Tom stumbles in and pulls it out again. Show him the red tag, then Danny's jacket, and lead him out the front door.
 
 **Why Danny died, and why the furnace was never checked.** It all comes out through hall photographs, Claire's letter, Danny's room, the clipping and the tag. **Danny is not the monster.** He is a warm, gold figure who guides you. The thing that chases you is the furnace's poison, given a shape by a poisoned dog's mind, and the game tells you so the first time you see it.
 
@@ -73,7 +74,25 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 - **Speech you slowly learn.** Lines are voiced by formant synthesis and run through a garbler that shows only the words Biscuit knows. The vocabulary grows with each solved puzzle, and the voices get less muffled as he understands more.
 - They react to you. Barking adds strikes and three strikes get you locked in the laundry room. Whining earns forgiveness. Tugging a sleeve makes them follow you. Every object has a reaction from each person.
 
-**Horror**
+**Horror: you're never sure you'll survive**
+- **Lightning shows you things.** When lightning flashes, something is sometimes standing at the window: too tall and too thin, its grey face and long-fingered hand pressed flat to the glass, its mouth opening as you watch. Your head snaps round to it and the view punches in, so you can't miss it. It only appears in a window you can actually see from where you are. Outside, it stands at the treeline instead.
+- **It hunts you once the lights go out.** From chapter 6 the thing from the furnace walks the dark ground floor. You hear its heavy steps and its breathing coming closer, your heart speeds up, and its grey smell drifts ahead of it (follow THE BAD AIR scent to see where it is). It wanders toward wherever you are and hunts you if it sees you. You can outrun it, but not by walking. Hide by lying still in the dark (under the kitchen table or a bed is safest; not with the flashlight in your mouth). Bark at it face to face and it comes apart like smoke, but your throat needs time before that works again. It can't follow you outside, where the air is clean, but the cold drives you back in.
+- **Getting caught costs you.** You black out, drop what you were carrying and lose time, and the air gets worse. The second time you're told plainly that the third will be the last. The third time is the UNDER THE HOUSE ending.
+- **Something is always wrong.** A "dread director" keeps the house unsettled all night, more and more as the poison builds. The house never stops creaking, knocking and groaning in the pipes, and there are footsteps in an attic the house doesn't have. Every half minute or so, something bigger happens:
+  - Heavy footsteps behind you, then breathing.
+  - Knocks from right under your paws.
+  - Your name whispered beside your ear.
+  - A door easing shut by itself while you aren't looking.
+  - The whole family stopping and staring at you at once without blinking.
+  - The lights flickering off, then back on with something standing in the corner of the room.
+  - The phone ringing once at 1 a.m.
+  - Danny's ball bouncing down the dark hall to stop at your feet.
+  - Claire's voice calling you from a room she isn't in, and only the hot-box smell waiting when you get there.
+  - Small wet boot prints from the front door to the basement door.
+  - Tom out of bed, standing at the end of the hall with his face to the wall, turning to look at you with his eyes open and nobody behind them.
+  - The TV switching itself on to a face.
+  - Eyes looking back at you from under the furniture when you lie down.
+- A drone sits under everything, always slightly out of tune with itself, and it rises with the poison and with whatever is close. Fear makes your heart pound and slows you down.
 - A furnace that breathes, its grille growing teeth as the night goes on.
 - A face in the TV static, a figure outside every window in a lightning flash, and knocking at the front door.
 - Light and footsteps under Danny's locked door, and a whisper from inside.
@@ -86,7 +105,7 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 - Biscuit's own body has sounds too: sniffing in short bursts, a growl and teeth snapping on a bite, a thump and a long sigh when you lie down, claws raking snow when you dig, snow squeaking underfoot, the dog flap slapping shut behind you, and collar tags jingling when you shake off the snow. The wind is louder outside.
 - As the poison takes hold, the whole mix gets muffled.
 
-## Endings (5)
+## Endings (6)
 
 | # | Ending | How |
 | --- | --- | --- |
@@ -94,7 +113,8 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 | 2 | **THE LONG WAIT** | Be by the front door when the night ends |
 | 3 | **THE LAUNDRY ROOM** | Be locked in the laundry room (under its cracked window) when the night ends |
 | 4 | **BAD DOG** | Bite one of them once the poison is strong |
-| 5 | **HOME** *(true ending)* | Finish all seven chapters and lead Tom out of the front door |
+| 5 | **HOME** *(true ending)* | Finish all eight chapters and lead Tom out of the front door |
+| 6 | **UNDER THE HOUSE** | Let the thing in the dark catch you three times |
 
 Every ending starts with a **rewind**. The camera runs back through every moment of dialogue, in reverse, at the spot it happened, now in plain English. It stops on the lines that mattered and highlights them with a note on what they really meant.
 
@@ -112,7 +132,8 @@ Every ending starts with a **rewind**. The camera runs back through every moment
 | `js/yard.js` | the back yard: dog flap, fence and gate, oak, doghouse, snowman, the buried pipe and the dig spots |
 | `js/fx.js` | visible particles: falling snow, snow thrown by digging, breath, the pipe's steam |
 | `js/audio.js` | procedural audio |
-| `js/story.js` | chapters, puzzles, vocabulary, reactions, scares, the presence, endings, the rewind |
+| `js/story.js` | chapters, puzzles, vocabulary, reactions, scares, the presence and the stalker, the flashlight, endings, the rewind |
+| `js/dread.js` | the dread director: the constant small wrongness and the bigger scares, scheduled by where you are and how far the night has gone |
 | `js/lore.js` | Danny's room, photographs, letters, the clipping and tag, puzzle props |
 | `js/main.js` | bootstrap and render loop |
 

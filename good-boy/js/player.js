@@ -181,6 +181,16 @@ export function updateDog(dt, camera, co, t) {
   const d = dog;
   // look
   const sens = 0.0023;
+  if (d.forceLook) {
+    // something makes you look: your head snaps round to it and holds there
+    const F = d.forceLook;
+    F.t += dt;
+    let da = F.yaw - d.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+    const k = Math.min(1, dt * (F.t < 0.25 ? 16 : 6));
+    d.yaw += da * k; d.pitch += (F.pitch - d.pitch) * k;
+    input.mdx = 0; input.mdy = 0;
+    if (F.t > F.dur) d.forceLook = null;
+  }
   d.yaw -= input.mdx * sens; d.pitch -= input.mdy * sens;
   input.mdx = 0; input.mdy = 0;
   if (keys.has('arrowleft')) d.yaw += dt * 2.2;
@@ -208,7 +218,7 @@ export function updateDog(dt, camera, co, t) {
   const A = d.act, at = d.actT, ap = d.act ? at / d.actDur : 0;
   if (A === 'bite' || A === 'tug' || A === 'eat' || A === 'shake' || A === 'scratch' || A === 'pull') { mx = 0; mz = 0; }
   const run = keys.has('shift');
-  let sp = (run ? 3.9 : 1.9) * (1 - co * 0.5);
+  let sp = (run ? 3.3 : 1.6) * (1 - co * 0.5) * (d.fear ? 1 - d.fear * 0.3 : 1);
   if (input.sniff) sp *= 0.55;
   fwd.set(-Math.sin(d.yaw), 0, -Math.cos(d.yaw));
   right.set(Math.cos(d.yaw), 0, -Math.sin(d.yaw));
@@ -291,6 +301,12 @@ export function updateDog(dt, camera, co, t) {
   return d;
 }
 
+/** snap the view toward a world point */
+export function lookAtPoint(x, y, z, dur = 1.6) {
+  const eye = dog.y + dog.eye;
+  const dx = x - dog.pos.x, dz = z - dog.pos.z;
+  dog.forceLook = { yaw: Math.atan2(-dx, -dz), pitch: Math.max(-1, Math.min(1.1, Math.atan2(y - eye, Math.hypot(dx, dz)))), t: 0, dur };
+}
 export function dogForward() { return new THREE.Vector3(-Math.sin(dog.yaw), 0, -Math.cos(dog.yaw)); }
 export function inBasement() { return dog.y < -0.6; }
 export { BASE_Y };

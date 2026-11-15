@@ -700,3 +700,75 @@ export function shakeSnd() {
   // ears and collar tags flapping as you shake the snow off
   for (let i = 0; i < 7; i++) { const tt = t0 + i * 0.075; const n = noiseSrc(false, false); const f = bp(900 + (i % 2) * 500, 1.3); const g = ctx.createGain(); env(g, tt, 0.004, 0.12, 0.05); n.connect(f); f.connect(g); out(g, 0.15); n.stop(tt + 0.1); if (i % 2) knockSmall(tt, 0.08); }
 }
+
+// ---------------------------------------------------------------------------
+// Dread
+export function breathing(x, y, z, vol = 1) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // a slow, wet, too-deep breath: in, a catch, out
+  for (const [st, len, f0, f1, amp] of [[0, 1.0, 380, 620, 0.5], [1.15, 1.3, 520, 300, 0.6]]) {
+    const n = noiseSrc(false, false); const f = bp(f0, 1.4); const g = ctx.createGain();
+    f.frequency.setValueAtTime(f0, t0 + st); f.frequency.linearRampToValueAtTime(f1, t0 + st + len);
+    g.gain.setValueAtTime(0.0001, t0 + st); g.gain.linearRampToValueAtTime(amp * vol, t0 + st + len * 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t0 + st + len);
+    n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.3, 0.35); n.stop(t0 + st + len + 0.05);
+  }
+  const r = impulseTrain(0.5, 30, 22, 0.6); const rf = bp(260, 3); const rg = ctx.createGain(); env(rg, t0 + 1.2, 0.05, 0.25 * vol, 0.4);
+  r.connect(rf); rf.connect(rg); at(rg, x, y, z, 1, 1.3, 0.35); r.start(t0 + 1.2);
+}
+export function groan(x, y, z, vol = 1) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // pipes and joists, stressed: a long bowed-metal moan
+  const src = impulseTrain(2.6, 45, 28, 0.25);
+  const f1 = bp(180 + Math.random() * 80, 12), f2 = bp(430 + Math.random() * 120, 14), f3 = bp(1100, 10);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.7 * vol, t0 + 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.6);
+  src.connect(f1); src.connect(f2); src.connect(f3); f1.connect(g); f2.connect(g); f3.connect(g);
+  at(g, x, y, z, 2, 1.0, 0.6); src.start(t0);
+}
+export function phone(x, y, z, rings = 1) {
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  for (let r = 0; r < rings; r++) {
+    const t0 = now() + r * 3;
+    const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 20;
+    const b1 = ctx.createOscillator(); b1.frequency.value = 1100; const b2 = ctx.createOscillator(); b2.frequency.value = 1350;
+    const am = ctx.createGain(); am.gain.value = 0; o.connect(am.gain);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.18, t0 + 0.02); g.gain.setValueAtTime(0.18, t0 + 1.6); g.gain.linearRampToValueAtTime(0.0001, t0 + 1.7);
+    b1.connect(am); b2.connect(am); am.connect(g); at(g, x, y, z, 1, 1.2, 0.4);
+    for (const n of [o, b1, b2]) { n.start(t0); n.stop(t0 + 1.75); }
+  }
+}
+export function ballBounce(x, y, z, n = 5) {
+  if (!A.ready) return;
+  for (let i = 0; i < n; i++) {
+    const dt = 0.45 * Math.pow(0.72, i) * (i ? 1 : 0) ;
+    const t0 = now() + [0, 0.45, 0.77, 1.0, 1.17, 1.29, 1.38][i];
+    const ctx = A.ctx;
+    const o = ctx.createOscillator(); o.frequency.setValueAtTime(220, t0); o.frequency.exponentialRampToValueAtTime(110, t0 + 0.05);
+    const g = ctx.createGain(); env(g, t0, 0.002, 0.35 * Math.pow(0.75, i), 0.06); o.connect(g); at(g, x, y, z, 1, 1.4, 0.3); o.start(t0); o.stop(t0 + 0.1);
+    void dt;
+  }
+}
+export function startDrone() {
+  if (!A.ready || A.loops.drone) return;
+  const ctx = A.ctx;
+  // something enormous and very low, always there, a little out of tune with itself
+  const o1 = ctx.createOscillator(); o1.frequency.value = 41;
+  const o2 = ctx.createOscillator(); o2.frequency.value = 41.7;
+  const o3 = ctx.createOscillator(); o3.type = 'triangle'; o3.frequency.value = 61.3;
+  const n = noiseSrc(true, true); const nf = filt('lowpass', 90);
+  const g = ctx.createGain(); g.gain.value = 0;
+  const hi = ctx.createOscillator(); hi.frequency.value = 3170; const hg = ctx.createGain(); hg.gain.value = 0;
+  o1.connect(g); o2.connect(g); o3.connect(g); n.connect(nf); nf.connect(g); hi.connect(hg);
+  out(g, 0.2); out(hg, 0.6);
+  for (const x of [o1, o2, o3, hi]) x.start();
+  A.loops.drone = { g, hg, o3 };
+}
+export function setDrone(level, t) {
+  const L = A.loops.drone; if (!L) return;
+  const k = now();
+  L.g.gain.setTargetAtTime(0.05 + level * 0.22 + 0.04 * Math.sin(t * 0.13), k, 1.5);
+  L.hg.gain.setTargetAtTime(level > 0.5 ? (level - 0.5) * 0.012 * (0.5 + 0.5 * Math.sin(t * 0.37)) : 0, k, 2);
+  L.o3.frequency.setTargetAtTime(61.3 - level * 4, k, 3);
+}

@@ -2,15 +2,16 @@
 // the scares, the endings, and the rewind through everything they said.
 import * as THREE from '../vendor/three.module.js';
 import { G, P, ps1Mat } from './ps1.js';
-import { T, updateTV, updateWindow } from './textures.js';
+import { T, updateTV, updateWindow, figureWindow, paintFigureWindow } from './textures.js';
 import * as AU from './audio.js';
 import { doors, lights, items, spots, refs, windows, roomAt, floorAt, collide, isOutside, BASE_Y } from './house.js';
 import { Human, speechLog, showSubtitle, learnWords, VOCAB_STATE, speechHook, LABEL } from './humans.js';
 import { emit, SCENT, DANNY_TRAIL, DANNY_TRAIL_DOWN, DANNY_TRAIL_YARD, DANNY_TRAIL_GATE, DEER_TRAIL, TRACK, TRACK_NAME, setTrack, groupOf } from './scent.js';
-import { dog, input, inBasement, dogForward, act } from './player.js';
+import { dog, input, inBasement, dogForward, act, lookAtPoint } from './player.js';
 import { inspectables, puzzle, DOCS, PHOTOS } from './lore.js';
 import { yard, digHole, updateFlap, pawPrint } from './yard.js';
 import { puff, spray, breath } from './fx.js';
+import { initDread, updateDread } from './dread.js';
 
 export const S = {
   t: 0, co: 0, dogCO: 0, coOn: false, coT0: 0, strikes: 0, fired: new Set(), locked: false, ended: false, cut: null,
@@ -22,7 +23,7 @@ export const S = {
   coAcc: 0, outside: false, yardDone: { vent: false, tin: false, gate: false }, cold: 0, digNothing: 0,
 };
 
-const CO_DUR = 1750; // from the moment the furnace lights, the house has about half an hour
+const CO_DUR = 3300; // from the moment the furnace lights, the house has about half an hour
 const FATHER_YARD = [[14.3, 4.25], [16.5, 1.5], [19.0, -2.0], [20.6, -4.6]];
 let F, scene, ui;
 const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -35,6 +36,7 @@ const WORDS = {
   door: ['basement', 'door', 'hook', 'reach', 'dark', 'scared', 'voice', 'talking', 'heater', 'calling', 'open', 'latch', 'every', 'time', 'kicks', 'pulls', 'fix', 'going', 'get', 'up', 'too', 'dont', 'do', 'not', 'of', 'for', 'with', 'someone', 'downstairs', 'wants', 'first', 'bring', 'back', 'need', 'something', 'stand', 'are', 'hey', 'hear', 'holding', 'only', 'was', 'were'],
   room: ['furnace', 'smoke', 'alarm', 'thing', 'beeping', 'chirping', 'battery', 'took', 'out', 'new', 'check', 'broken', 'heat', 'turned', 'turning', 'seventy-eight', 'freezing', 'noise', 'making', 'weekend', 'tomorrow', 'year', 'room', 'key', 'never', 'nobody', 'tell', 'minute', 'lie', 'tonight', 'been', 'day', 'whole', 'will', 'ill', 'put', 'kitchen', 'said', 'always', 'smells', 'like', 'still', 'cold', 'its'],
   yard: ['outside', 'snow', 'dig', 'dug', 'digging', 'tree', 'treasure', 'buried', 'gate', 'came', 'come', 'always', 'mad', 'home', 'run', 'off', 'field', 'they', 'you', 'go', 'need', 'am', 'okay', 'good', 'boy', 'best', 'promise'],
+  home: ['dark', 'scared', 'stay', 'here', 'right', 'let', 'go', 'take', 'down', 'boxes', 'things', 'warm', 'sleep', 'together', 'where', 'why', 'see', 'not', 'will', 'anywhere'],
   pond: ['pond', 'ice', 'coat', 'jacket', 'storm', 'looking', 'ran', 'went', 'without', 'deer', 'after', 'christmas', 'wait', 'could', 'thought', 'drawer', 'god', 'head', 'headache', 'tired', 'sleep', 'feel', 'think', 'air', 'wrong', 'everybody', 'worst', 'pressure', 'did', 'why', 'hard', 'killing', 'gone', 'found', 'never', 'blamed', 'sweetheart', 'warning', 'us'],
 };
 function learn(group, why) {
@@ -59,6 +61,7 @@ export function initStory(family, sc, uiRefs) {
   // Danny: warm, gold, gentle. He is not the thing that chases you.
   for (const m of F.danny.mats) m.uniforms.uEmissive.value.set(0.22, 0.17, 0.06);
   dog.onStep = (x, z, yaw, side) => pawPrint(x, z, yaw, side);
+  initDread({ S, F, scene, later, scared: (k) => scared(k), say, ball: items.find((i) => i.name === 'ball') });
   speechHook.fn = (rec) => { rec.snap = snapshot(); rec.clock = clockStr(S.t); };
   setObj('Your bowl is empty. The woman forgot to feed you again.');
 }
@@ -86,16 +89,69 @@ function snapshot() {
 
 // ---------------------------------------------------------------------------
 // Lightning
+let figTex = null, figMat = null;
+const ray = new THREE.Raycaster();
+/** is there a clear line from your eyes to this point? */
+function canSee(pt, ignore) {
+  const eye = v3(dog.pos.x, dog.y + dog.eye, dog.pos.z);
+  const dir = pt.clone().sub(eye); const d = dir.length(); dir.normalize();
+  ray.set(eye, dir); ray.far = d - 0.05;
+  const hits = ray.intersectObjects(scene.children, true);
+  for (const h of hits) {
+    const o = h.object;
+    if (o === ignore || !o.isMesh || o.isSkinnedMesh) continue;
+    let vis = true; for (let q = o; q; q = q.parent) if (!q.visible) { vis = false; break; }
+    if (vis) return false;
+  }
+  return true;
+}
 function lightning(withFigure = false) {
   let best = windows[0], bd = 1e9;
   for (const w of windows) { const d = w.pos.distanceTo(dog.pos); if (d < bd) { bd = d; best = w; } }
   lights[7].pos.copy(best.pos).addScaledVector(best.out, 2.5);
   lights[7].pos.y = 2.2;
-  if (isOutside(dog.pos.x, dog.pos.z, dog.y)) { lights[7].pos.set(dog.pos.x + 6, 9, dog.pos.z - 4); S.deerShow = Math.random() < 0.6 || !S.fired.has('deerSeen'); if (S.deerShow) S.fired.add('deerSeen'); }
   S.flashSeq = [[0, 1], [0.07, 0.1], [0.14, 0.85], [0.3, 0]];
   S.flashT = 0;
-  S.figureFlash = withFigure;
   AU.thunder(1 + Math.random() * 0.6);
+  // something is out there, and the flash shows it to you
+  if (isOutside(dog.pos.x, dog.pos.z, dog.y)) { lights[7].pos.set(dog.pos.x + 6, 9, dog.pos.z - 4); S.deerShow = Math.random() < 0.5; }
+  const want = withFigure || (S.coOn && S.t - (S.lastFigure || -99) > 45 && Math.random() < 0.25 + S.co * 0.55);
+  if (!want || S.cut || S.inspectOpen) return;
+  if (isOutside(dog.pos.x, dog.pos.z, dog.y)) {
+    lights[7].pos.set(dog.pos.x + 6, 9, dog.pos.z - 4);
+    const spots2 = [[30.6, -2.5], [30.4, 6.5], [20.5, -7.4], [25.5, -7.2], [30.8, 1.5]];
+    let pick = null, pd = -1;
+    for (const [x, z] of spots2) { const d = Math.hypot(x - dog.pos.x, z - dog.pos.z); if (d < 16 && d > pd) { pd = d; pick = [x, z]; } }
+    if (!pick) return;
+    S.lastFigure = S.t;
+    refs.yardFigure.position.set(pick[0], 0, pick[1]);
+    refs.yardFigure.rotation.y = Math.atan2(dog.pos.x - pick[0], dog.pos.z - pick[1]);
+    S.yardFigureT = 2.2;
+    later(0.05, () => { lookAtPoint(pick[0], 1.6, pick[1], 1.9); AU.stinger(0.9); scared(0.8); });
+    return;
+  }
+  const room = roomAt(dog.pos.x, dog.pos.z, dog.y);
+  let win = null, wd = 1e9;
+  for (const w of windows) {
+    const inner = w.pos.clone().addScaledVector(w.out, -0.4);
+    if (roomAt(inner.x, inner.z, 0) !== room || inBasement()) continue;
+    const d = w.pos.distanceTo(dog.pos);
+    if (d < wd && d < 8 && canSee(w.pos, w.mesh)) { wd = d; win = w; }
+  }
+  if (!win) return;
+  S.lastFigure = S.t;
+  lights[7].pos.copy(win.pos).addScaledVector(win.out, 2.5); lights[7].pos.y = 2.2;
+  if (!figTex) { figTex = figureWindow(); figMat = ps1Mat({ map: figTex, unlit: true, unique: true }); }
+  S.figWin = { w: win, orig: win.mesh.material, t: 0 };
+  win.mesh.material = figMat;
+  later(0.04, () => { lookAtPoint(win.pos.x, win.pos.y + 0.15, win.pos.z, 2.0); AU.stinger(1); scared(1); });
+}
+// your heart jumps; you flinch and whimper
+function scared(k = 1) {
+  S.pulse = 1; S.fearT = Math.max(S.fearT || 0, 4 * k);
+  dog.shiverFear = 1;
+  if (Math.random() < 0.7) later(0.9, () => { AU.whine(); act('whine'); });
+  AU.heartbeat(0.8 * k); later(0.35, () => AU.heartbeat(0.8 * k)); later(0.65, () => AU.heartbeat(0.7 * k));
 }
 function updateLightning(dt) {
   if (S.flashSeq) {
@@ -105,6 +161,20 @@ function updateLightning(dt) {
     if (S.flashT > 0.5) { S.flashSeq = null; v = 0; S.figureFlash = false; }
     S.flash = v;
   } else S.flash = Math.max(0, S.flash - dt * 4);
+  if (S.figWin) {
+    // it stays in the glass a moment after the flash, faintly, and its mouth opens
+    const F = S.figWin; F.t += dt;
+    paintFigureWindow(figTex, S.flash, F.t > 0.7 ? 1 : 0);
+    if (F.t > 2.1) { F.w.mesh.material = F.orig; S.figWin = null; }
+  }
+  // the view punches in on it while you are made to look
+  const cam = ui.camera;
+  const wantFov = (S.figWin && S.figWin.t < 1.7) || (S.yardFigureT || 0) > 0.6 ? 44 : 72;
+  if (Math.abs(cam.fov - wantFov) > 0.1) { cam.fov += (wantFov - cam.fov) * Math.min(1, dt * (wantFov < 60 ? 9 : 3)); cam.updateProjectionMatrix(); }
+  if (refs.yardFigure) {
+    S.yardFigureT = Math.max(0, (S.yardFigureT || 0) - dt);
+    refs.yardFigure.visible = S.yardFigureT > 0 && (S.flash > 0.05 || S.yardFigureT > 0.6) && Math.random() > 0.08;
+  }
   lights[7].intensity = S.flash * (inBasement() ? 0.15 : S.outside ? 3.2 : 2.4);
   P.uFlash.value = S.flash * (inBasement() ? 0.02 : S.outside ? 0.22 : 0.12);
   S.lastWindow -= dt;
@@ -142,7 +212,7 @@ function startCrayons() {
   const l = F.lily;
   for (const c of puzzle.crayons) { c.gone = false; c.mesh.visible = true; }
   l.look(dogHead(), 6, S.t);
-  say(l, 'Biscuit! I lost my crayons. Can you find them? The red one, the blue one, the yellow one and the black one. Please?', 'calm');
+  say(l, 'Biscuit! I lost my crayons. All of them. The red one, the blue one, the yellow one, the black one, the green one and the purple one. Can you find them? Please?', 'calm');
   updateCrayonObj();
   // the grown-ups talk. Biscuit catches more of it than before.
   later(14, () => {
@@ -156,15 +226,15 @@ function startCrayons() {
   later(58, () => say(F.father, 'Did you call the gas company back?', 'calm'));
   later(62, () => say(F.mother, 'No. After Christmas. We cannot afford it before Christmas.', 'sad', { clue: 'The gas company had already been. They left a red tag on the furnace.', hl: 'After Christmas' }));
 }
-function updateCrayonObj() { setObj(`The girl lost her coloured sticks. Find them and bring them to her. (${S.crayons}/4)`); }
+function updateCrayonObj() { setObj(`The girl lost her coloured sticks all over the house. Find them and bring them to her. Sniff for her smell on them. (${S.crayons}/6)`); }
 function giveCrayon(it) {
   const l = F.lily;
   it.gone = true; it.mesh.visible = false;
   S.crayons++;
-  const lines = ['Red! Good boy!', 'Blue! You found it!', 'Yellow! You are so smart, Biscuit.', 'Black. That is the last one!'];
-  say(l, lines[Math.min(3, S.crayons - 1)], 'calm');
+  const lines = ['One! Good boy!', 'Two! You found another one!', 'Three! You are so smart, Biscuit.', 'Four. Where do they keep going?', 'Five! Just one more!', 'That is all of them! Good boy!'];
+  say(l, lines[Math.min(5, S.crayons - 1)], 'calm');
   updateCrayonObj();
-  if (S.crayons >= 4) later(3, finishDrawing);
+  if (S.crayons >= 6) later(3, finishDrawing);
 }
 function finishDrawing() {
   const l = F.lily;
@@ -321,11 +391,109 @@ function checkYard() {
   const Y = S.yardDone, c = (b) => (b ? '[x]' : '[ ]');
   const flap = yard.flapOpen ? '' : ' Your flap is at the end of the hall. Its storm cover is in.';
   setObj(`Out back, under the snow.${flap}  ${c(Y.vent)} dig out the furnace pipe (hold R)  ${c(Y.tin)} find what you and Danny buried (sniff)  ${c(Y.gate)} follow his last trail to where it ends (sniff, then T)`);
-  if (Y.vent && Y.tin && Y.gate && once('yardDone')) later(5, startBasementChapter);
+  if (Y.vent && Y.tin && Y.gate && once('yardDone')) later(4, startLightsOut);
 }
-function startBasementChapter() {
+// ===========================================================================
+// CHAPTER 6: lights out. The girl is gone.
+const LILY_TRAIL = [[7.25, 1.95], [6.6, 2.8], [5.95, 3.3], [6.0, 4.25], [9.0, 4.25], [11.45, 4.6], [11.6, 6.0], [12.8, 6.4], [12.4, 5.2], [12.6, 4.3], [13.35, 3.8]];
+const LILY_TRAIL_DOWN = [[13.3, 3.2, 0], [13.3, 2.0, -1.3], [13.3, 0.6, -2.6], [12.6, -0.3, -2.8], [10.5, -0.6, -2.8], [8.6, -0.55, -2.8], [7.75, -0.5, -2.8]];
+function startLightsOut() {
   if (S.ch >= 6) return;
   S.ch = 6;
+  S.pendingCut = true;
+  setObj('Go back inside. Something is wrong with the house.');
+}
+function powerCut() {
+  S.pendingCut = false; S.power = false;
+  lightning(); S.flashSeq = [[0, 1], [0.05, 0.2], [0.1, 1], [0.25, 0.6], [0.4, 0]];
+  AU.thunder(3); later(0.2, () => AU.stinger(0.8));
+  for (const i of [0, 1, 2, 3, 4, 6, 8, 10]) if (lights[i]) lights[i].on = false;
+  S.tvOn = false; AU.setTV(false); AU.setFridge(false);
+  S.clockStopped = true;
+  const fl = puzzle.flashlight;
+  if (!fl.carried && dist2d(fl.mesh.position, v3(9.1, 0, 2.25)) < 0.5) { fl.mesh.position.set(9.1, 0.03, 2.25); }
+  S.flashOn = true;
+  later(2.5, () => {
+    const l = F.lily;
+    AU.scream(); // small and far away
+    showSubtitle('lily', 'BISCUIT! It is dark! Danny? Danny, is that you?', 3);
+    later(2.2, () => {
+      // and then she is gone from her bed
+      l.path = []; l.activity = null; l.asleep = false; l.awakeUntil = 1e9;
+      l.setPos(7.75, -0.55, BASE_Y); l.yaw = Math.PI; l.pose = 'stand'; l.setFace(true);
+      S.lilyGone = true;
+      setObj('The lights are out. The girl screamed, and then she stopped. Find her. (Sniff for her, then T to follow only her smell.)');
+    });
+  });
+  later(8, () => ui.card('Lights out', 'The storm has taken the power. The furnace does not need it. It keeps breathing in the dark. And now that the house is dark, the thing that lives in the bad air does not have to stay under the house.'));
+  later(14, () => { S.stalkOn = true; S.stalk = { state: 'away', t: 20 }; });
+}
+function lilyFound() {
+  const l = F.lily;
+  l.look(dogHead(), 6, S.t);
+  say(l, 'Shh. Biscuit. Danny says it is warm down here. He says we can all go to sleep down here, together.', 'whisper',
+    { clue: 'The poisoned air was making Lily confused and sleepy. The furnace "voice" was telling her to lie down by it.', hl: 'we can all go to sleep down here' });
+  setObj('She does not know where she is. Snap her out of it. (Bark.)');
+  S.lilyDazed = true;
+  later(3, () => { if (!S.presenceActive) wakePresence(); });
+}
+function lilyWakesUp() {
+  const l = F.lily;
+  S.lilyDazed = false; l.setFace(false);
+  say(l, 'Biscuit? Where... why is it so dark? I am scared. I want to go up. Take me up, Biscuit. Do not let go.', 'sad');
+  setObj('Take her back up to her room. Stay close; she is slow, and she is scared of the dark.');
+  S.escort = { repath: 0 };
+}
+function updateEscort(dt) {
+  const E2 = S.escort; if (!E2) return;
+  const l = F.lily;
+  const d = dist2d(l.pos, dog.pos);
+  const inB = l.pos.y < -0.3 || (l.pos.x > 12.5 && l.pos.z < 3.1);
+  if (inB) {
+    // in the basement and on the stairs: straight at you, step by step
+    l.speed = 0.95;
+    l.path = d > 1.0 && d < 7 ? [v3(dog.pos.x, 0, dog.pos.z)] : [];
+    if (d >= 7 && S.t - (E2.cry || -99) > 6) { E2.cry = S.t; say(l, 'Biscuit! Where are you? I can not see!', 'sharp', { force: false, cooldown: 5 }); }
+    l.pos.y = floorAt(l.pos.x, l.pos.z, l.pos.y);
+  } else {
+    l.pos.y = 0;
+    E2.repath -= dt;
+    if (E2.repath <= 0) { E2.repath = 1.0; if (d > 1.3) l.goTo(v3(dog.pos.x, 0, dog.pos.z)); else l.path = []; }
+    l.speed = 1.0;
+    if (roomAt(l.pos.x, l.pos.z, 0) === 'lily' && roomAt(dog.pos.x, dog.pos.z, dog.y) === 'lily') {
+      S.escort = null; S.lilyGone = false;
+      l.setActivity({ spot: spots.lilySit.clone(), face: 0, pose: 'sit' });
+      say(l, 'I will stay right here. I will not go anywhere. Danny\'s things are down there, Biscuit. In his boxes. He wants you to find them.', 'whisper');
+      learn('home', 'You brought her home. You understand her better than ever.');
+      later(6, startBasementChapter);
+    }
+  }
+}
+function updateFlashlight(dt) {
+  const L = lights[12], fl = puzzle.flashlight;
+  if (!S.flashOn || fl.gone) { L.on = false; refs.flashLens.material.uniforms.uColor.value.setScalar(0.15); return; }
+  L.on = true;
+  // the batteries are old: it flickers, and sometimes it goes out for a terrible second
+  S.flashDie = (S.flashDie || 0) - dt;
+  if (S.flashDie < -3 && Math.random() < dt * (S.stalk && S.stalk.state === 'hunt' || S.presenceActive ? 0.5 : 0.08)) S.flashDie = 0.4 + Math.random() * 1.4;
+  const flick = S.flashDie > 0 ? (Math.random() < 0.15 ? 0.6 : 0.02) : 0.88 + Math.random() * 0.12;
+  L.intensity = flick * 1.6;
+  if (fl.carried) {
+    const f = dogForward(), c = ui.camera;
+    const pt = c.getWorldDirection(v3(0, 0, 0));
+    L.pos.set(c.position.x + pt.x * 1.0, c.position.y + pt.y * 1.0, c.position.z + pt.z * 1.0);
+    L.range = 6.5;
+  } else {
+    const p = fl.mesh.position, a = fl.mesh.rotation.y;
+    L.pos.set(p.x - Math.sin(a) * 0.7, p.y + 0.25, p.z - Math.cos(a) * 0.7);
+    L.range = 4;
+  }
+  refs.flashLens.material.uniforms.uColor.value.setScalar(flick > 0.3 ? 1 : 0.2);
+}
+
+function startBasementChapter() {
+  if (S.ch >= 7) return;
+  S.ch = 7;
   ui.card('Under the house', 'Danny\'s smell goes down the basement stairs, to his boxes, and into the dark where the hot box breathes. He wants you to find something.');
   checkBasement();
 }
@@ -465,14 +633,14 @@ function readClipping() {
   checkBasement();
 }
 function checkBasement() {
-  if (S.ch !== 6) return;
+  if (S.ch !== 7) return;
   const j = S.got.jacketUp ? '[x]' : '[ ]', t = S.got.tagUp ? '[x]' : '[ ]';
   setObj(`Find what Danny wants you to find. Carry it up out of the basement.  ${j} his jacket  ${t} a red paper`);
   if (S.got.jacketUp && S.got.tagUp) later(2, startWakeChapter);
 }
 function startWakeChapter() {
-  if (S.ch >= 7) return;
-  S.ch = 7;
+  if (S.ch >= 8) return;
+  S.ch = 8;
   setObj('The man and the woman will not wake up. The beeping box in the kitchen is silent. Its heart is lying on the kitchen floor.');
   if (puzzle.battery.gone) { puzzle.battery.gone = false; puzzle.battery.mesh.visible = true; puzzle.battery.mesh.position.set(10.55, 0.03, 5.45); }
 }
@@ -579,6 +747,11 @@ function phaseUpdate(dt) {
   if (S.fatherToAlarm && !father.path.length && dist2d(father.pos, v3(10.6, 0, 5.75)) < 0.3) { S.fatherToAlarm = false; fatherKillsAlarm(); }
   if (S.alarmOn) { lights[9].intensity = (Math.floor(S.t * 4) % 2) ? 1.6 : 0.2; refs.detectorLed.material.uniforms.uColor.value.set((Math.floor(S.t * 4) % 2) ? 1 : 0.2, 0, 0); }
 
+  // chapter 6: the power goes as soon as you are back under the roof
+  if (S.pendingCut) { S.cutWait = (S.outside || inBasement()) ? 0 : (S.cutWait || 0) + dt; if (S.cutWait > 2.5) powerCut(); }
+  if (S.lilyGone && !S.escort && roomAt(dog.pos.x, dog.pos.z, dog.y) === 'lily' && once('emptyBed')) ui.card('Her bed is empty', 'The blanket is still warm. Her smell goes out of the door and away down the hall.');
+  if (S.lilyGone && !S.escort && !S.lilyDazed && inBasement() && dist2d(dog.pos, lily.pos) < 2.8 && once('lilyFound')) lilyFound();
+  if (S.power === false) for (const i of [0, 1, 2, 3, 4, 6, 8, 10]) if (lights[i]) lights[i].on = false;
   // middle of the night
   if (co > 0.2 && !puzzle.dannyOpen && once('dannyLight')) { refs.dannyDoorLight.visible = true; S.dannyLightOn = true; }
   if (co > 0.3 && once('knock')) {
@@ -603,7 +776,7 @@ function phaseUpdate(dt) {
       else father.path = [];
     }
     father.look(dogHead(), 1, S.t);
-    if (dist2d(father.pos, spots.frontDoor) < 1.6 && dist2d(dog.pos, spots.frontDoor) < 1.8 && once('frontDoor')) {
+    if (dist2d(father.pos, spots.frontDoor) < 2.3 && dist2d(dog.pos, spots.frontDoor) < 1.6 && once('frontDoor')) {
       S.finalFollow = false; S.cut = 'home';
       father.path = []; father.yaw = Math.PI; father.pose = 'stand';
       doors.front.target = 1.6; doors.front.speed = 2; AU.creak(1.5, 1, 10, 1); S.windBoost = 0.7;
@@ -689,9 +862,107 @@ function wakePresence() {
     if (once('presenceCard')) ui.card('It is not Danny.', 'Danny smelled of snow and pencils. This smells of the hot box, of the bad air that has been filling the house. It has no shape. Your poisoned head is giving it one. RUN. Up the stairs.');
   });
 }
+// Upstairs, once the lights are out, it walks the dark rooms looking for you.
+const STALK_NODES = [[1.5, 7.6], [1.95, 4.25], [5.9, 4.25], [9.45, 4.25], [11.45, 4.25], [13.0, 4.25], [6, 6.2], [4.4, 8.6], [8.0, 8.4], [9.7, 8.6], [12.8, 8.6], [12.8, 5.8], [2.9, 2.6], [6.3, 2.5], [11.45, 2.3], [3.6, 6.0]];
+function dogHidden(d) {
+  if (dog.lying < 0.5 || dog.moving || (puzzle.flashlight.carried && S.flashOn)) return false;
+  const x = dog.pos.x, z = dog.pos.z;
+  const under = (x > 10.4 && x < 12.1 && z > 6.5 && z < 7.7) || (x > 0.3 && x < 2.62 && z < 2.6) || (x > 6.45 && x < 7.95 && z < 2.4);
+  return under ? d > 0.8 : d > 1.7;
+}
+function updateStalker(dt) {
+  const p = S.presence, K = S.stalk;
+  if (!S.stalkOn || !K || S.cut || S.finalFollow || S.alarmOn || S.ended || S.escortUp) { if (!(S.glimpse > 0) && !(S.jumpscare > 0)) p.root.visible = false; if (K && K.state !== 'away') { K.state = 'away'; K.t = 30; } return; }
+  K.t -= dt;
+  const dogIn = !S.outside && !inBasement() && dog.y > -0.3;
+  if (K.state === 'away') {
+    if (!(S.glimpse > 0) && !(S.jumpscare > 0)) p.root.visible = false;
+    p.visible = false;
+    if (K.t <= 0) {
+      K.t = 3;
+      if (!dogIn) return;
+      const fwd = dogForward();
+      const myRoom = roomAt(dog.pos.x, dog.pos.z, dog.y);
+      const opts = STALK_NODES.filter(([x, z]) => { const dx = x - dog.pos.x, dz = z - dog.pos.z, d = Math.hypot(dx, dz); return d > 4.5 && d < 12 && ((dx * fwd.x + dz * fwd.z) / d < 0.2 || roomAt(x, z, 0) !== myRoom); });
+      if (!opts.length) return;
+      const [x, z] = opts[Math.floor(Math.random() * opts.length)];
+      p.setPos(x, z, 0); p.path = []; p.arrived = null;
+      K.state = 'roam'; K.t = 45 + Math.random() * 35; K.re = 0;
+      AU.knock(x, 0.2, z, 2, 0.5); // something under the floor, coming up
+    }
+    return;
+  }
+  p.visible = true;
+  p.root.visible = Math.random() > 0.05;
+  const d = dist2d(p.pos, dog.pos);
+  const pr = roomAt(p.pos.x, p.pos.z, 0), dr = roomAt(dog.pos.x, dog.pos.z, dog.y);
+  const sees = dogIn && !dogHidden(d) && (d < 3.2 || (d < 8 && pr === dr));
+  if (K.state === 'roam') {
+    p.speed = 0.75;
+    if (!p.path.length) {
+      // it drifts toward wherever you are, room by room
+      const near = STALK_NODES.filter(([x, z]) => Math.hypot(x - dog.pos.x, z - dog.pos.z) < 6.5);
+      const [x, z] = near.length && Math.random() < 0.7 ? near[Math.floor(Math.random() * near.length)] : STALK_NODES[Math.floor(Math.random() * STALK_NODES.length)];
+      p.goTo(v3(x, 0, z));
+    }
+    if (sees) { K.state = 'hunt'; K.lost = 0; K.re = 0; AU.stinger(0.8); scared(1); AU.whoomp(p.pos.x, 1.2, p.pos.z); }
+    if (K.t <= 0 && !sees) { K.state = 'away'; K.t = 50 + Math.random() * 50 - S.co * 30; }
+  } else if (K.state === 'hunt') {
+    p.speed = 1.35 + S.co * 0.9;
+    K.re -= dt;
+    if (K.re <= 0) { K.re = 0.6; p.goTo(v3(dog.pos.x, 0, dog.pos.z)); }
+    K.lost = sees ? 0 : K.lost + dt;
+    if (K.lost > 4 || !dogIn) { K.state = 'roam'; K.t = 14; p.path = []; if (!dogIn) { K.state = 'away'; K.t = 25; } }
+    if (d < 0.75 && dogIn) caughtUpstairs();
+  }
+  p.update(dt, S.t, 0, dog.pos);
+  p.pos.y = 0; p.root.position.y = 0;
+  for (const a of p.arms) a.sh.rotation.x = K.state === 'hunt' ? -1.45 + Math.sin(S.t * 9) * 0.05 : -0.2 + Math.sin(S.t * 1.3) * 0.1;
+  for (let i = 0; i < 2; i++) emit(p.pos.x, 0.5 + Math.random() * 1.8, p.pos.z, 'wrong', { spread: 0.5, life: 2, size: 0.06 });
+  S.breathT = (S.breathT || 0) - dt;
+  if (S.breathT <= 0 && d < 9) { S.breathT = 2.6; AU.breathing(p.pos.x, 1.9, p.pos.z, 1 - d / 10); }
+  S.stalkNear = d < 7 ? 1 - d / 7 : 0;
+}
+function caughtUpstairs() {
+  S.jumpscare = 1.2; dog.frozen = true;
+  AU.scream();
+  const K = S.stalk; K.state = 'away'; K.t = 70;
+  later(1.1, () => {
+    S.blackout = 2.8;
+    if (dog.carrying) dropItem(dog.carrying, true);
+    releaseStool();
+    S.coAcc += 45 / CO_DUR;
+    caughtCount();
+  });
+  later(3.6, () => { if (!S.cut && !S.ended) dog.frozen = false; });
+}
+function caughtCount() {
+  S.catches = (S.catches || 0) + 1;
+  if (S.catches >= 3) { S.cut = 'dark'; later(1.5, () => finish('dark')); return; }
+  later(3, () => ui.card(S.catches === 1 ? 'You wake up on the floor' : 'Again', S.catches === 1
+    ? 'Your head is pounding. You do not know how long you were gone. The air is thicker than it was. It is still in the house.'
+    : 'Longer, this time. It was harder to come back. You know, the way animals know things, that if it takes you again you will not wake up.'));
+}
+// barking scatters it, like smoke. But not twice in a row.
+function barkRepel() {
+  const p = S.presence, fwd = dogForward();
+  const near = (S.presenceActive || (S.stalk && S.stalk.state !== 'away')) && p.root.visible !== undefined && p.visible;
+  if (!near) return false;
+  const dx = p.pos.x - dog.pos.x, dz = p.pos.z - dog.pos.z, d = Math.hypot(dx, dz);
+  if (d > 4.5 || Math.abs(p.pos.y - dog.y) > 1.2 || (dx * fwd.x + dz * fwd.z) / d < 0.45) return false;
+  if (S.t < (S.repelCD || 0)) { if (once('rawThroat')) showSubtitle('note', '<span class="note">(Your throat is raw. It does not work twice so fast.)</span>', 3); return false; }
+  S.repelCD = S.t + 25;
+  AU.stinger(0.5);
+  for (let i = 0; i < 40; i++) emit(p.pos.x, p.pos.y + Math.random() * 2.2, p.pos.z, 'wrong', { spread: 1.2, life: 1.5, size: 0.07, vy: 0.4 });
+  if (S.presenceActive) S.presenceSleep = 12;
+  else { S.stalk.state = 'away'; S.stalk.t = 40; }
+  p.root.visible = false; p.visible = false;
+  if (once('repelNote')) showSubtitle('note', '<span class="note">(It comes apart when you bark at it, like smoke. It is not gone. It will come back.)</span>', 3.5);
+  return true;
+}
 function updatePresence(dt) {
   const p = S.presence;
-  if (!S.presenceActive) { p.root.visible = false; return; }
+  if (!S.presenceActive) { updateStalker(dt); return; }
   if (S.presenceSleep > 0) { S.presenceSleep -= dt; p.root.visible = false; return; }
   p.visible = true;
   const target = dog.pos;
@@ -704,7 +975,7 @@ function updatePresence(dt) {
   for (const a of p.arms) a.sh.rotation.x = -1.45 + Math.sin(S.t * 9) * 0.05;
   p.root.visible = Math.random() > 0.06;
   for (let i = 0; i < 3; i++) emit(p.pos.x, p.pos.y + 0.6 + Math.random() * 1.6, p.pos.z, 'wrong', { spread: 0.5, life: 1.5, size: 0.06 });
-  if (!inBasement() || dog.y > -0.25) { S.presenceActive = false; p.root.visible = false; AU.stinger(0.4); return; }
+  if (!inBasement() || dog.y > -0.25) { S.presenceActive = false; p.root.visible = false; AU.stinger(0.4); if (S.stalk) { S.stalk.state = 'away'; S.stalk.t = 30; } return; }
   if (d < 0.75) caught();
 }
 function caught() {
@@ -720,8 +991,10 @@ function caught() {
     if (it) dropItem(it, true);
     for (const x of [puzzle.jacket, puzzle.tag]) if (!x.carried && x.mesh.position.y < -1) { x.mesh.position.copy(x === puzzle.tag ? v3(10.5, BASE_Y + 0.02, -3.05) : x.home); x.mesh.rotation.set(0, 0.3, 0); }
     dog.pos.set(12.0, BASE_Y, -1.8); dog.y = BASE_Y; dog.yaw = Math.PI * 0.8;
+    if (S.escort || S.lilyDazed) { F.lily.path = []; F.lily.setPos(12.5, -2.3, BASE_Y); }
     p.pos.set(spots.furnace.x, BASE_Y, spots.furnace.z);
     S.coAcc += 20 / CO_DUR; // it costs you
+    caughtCount();
   });
 }
 
@@ -741,6 +1014,8 @@ export function onBark() {
   AU.bark(1); dog.barkKick = 1;
   if (S.outside) { const f = dogForward(); breath(dog.pos.x, dog.y + 0.33, dog.pos.z, f.x, f.z, 2); }
   const { father, mother, lily } = F;
+  if (S.lilyDazed && dist2d(lily.pos, dog.pos) < 3.8 && Math.abs(lily.pos.y - dog.y) < 1) { lilyWakesUp(); return; }
+  if (barkRepel()) return;
   if (inBasement()) { if (S.coOn) later(0.9, () => AU.whoomp(spots.furnace.x, BASE_Y + 1, spots.furnace.z)); return; }
   for (const h of [father, mother, lily]) {
     if (!sameFloor(h)) continue;
@@ -834,6 +1109,12 @@ function nearestItem(maxD) {
     if (it.carried || it.gone || !it.mesh.visible) continue;
     const p = it.mesh.position;
     if (Math.abs(p.y - dog.y) > 0.8) continue;
+    if (it.under) {
+      // under furniture: only lying flat, with a paw stretched in
+      const d = dist2d(p, dog.pos);
+      if (dog.lying > 0.5 && d < 1.05 && d < bd) { bd = d; best = it; }
+      continue;
+    }
     const to = v3(p.x - dog.pos.x, 0, p.z - dog.pos.z); const d = to.length();
     if (d < bd && (d < 0.35 || fwd.dot(to.normalize()) > 0.3)) { bd = d; best = it; }
   }
@@ -999,7 +1280,7 @@ function reactToItem(h, it) {
     return say(h, 'Where did you get that? Give me that.', 'sad');
   }
   if (n === 'battery') {
-    if (h === lily && S.ch >= 7 && !S.alarmDone && !S.alarmOn) { it.gone = true; it.mesh.visible = false; return lilyFixesAlarm(); }
+    if (h === lily && S.ch >= 8 && !S.alarmDone && !S.alarmOn) { it.gone = true; it.mesh.visible = false; return lilyFixesAlarm(); }
     if (h === lily) return say(h, 'That is from the beeping thing. Mommy said it was broken.', 'calm');
     if (h === mother) return say(h, 'Oh. That. I will get a new one tomorrow.', 'sleepy');
     return say(h, 'A battery? Huh.', 'calm');
@@ -1149,7 +1430,8 @@ function emitScents(dt) {
   if (Math.random() < 0.15 * k) {
     const i = Math.floor(Math.random() * (DANNY_TRAIL_DOWN.length - 1)), f = Math.random();
     const a = DANNY_TRAIL_DOWN[i], b = DANNY_TRAIL_DOWN[i + 1];
-    emit(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f + 0.05, a[2] + (b[2] - a[2]) * f, 'danny', { spread: 0.15, life: 3, vy: 0.01, size: 0.025 });
+    // points are [x, z, y]
+    emit(a[0] + (b[0] - a[0]) * f, a[2] + (b[2] - a[2]) * f + 0.05, a[1] + (b[1] - a[1]) * f, 'danny', { spread: 0.15, life: 3, vy: 0.01, size: 0.025 });
   }
   for (const it of items) {
     if (it.gone || !it.mesh.visible) continue;
@@ -1158,9 +1440,13 @@ function emitScents(dt) {
     if (it.name === 'ball' && Math.random() < 0.08 * k) emit(p.x, p.y, p.z, 'dannyFaint', { spread: 0.1, life: 2 });
     if ((it.crayon || it.name === 'drawing') && Math.random() < 0.2 * k) emit(p.x, p.y + 0.05, p.z, 'lily', { spread: 0.15, life: 2, vy: 0.06 });
     if ((it.name === 'key' || it.name === 'tag') && Math.random() < 0.2 * k) emit(p.x, p.y + 0.05, p.z, it.name === 'key' ? 'mother' : 'father', { spread: 0.15, life: 2, vy: 0.06 });
-    if (it.name === 'battery' && S.ch >= 7 && Math.random() < 0.2 * k) emit(p.x, p.y + 0.05, p.z, 'mother', { spread: 0.15, life: 2, vy: 0.06 });
+    if (it.name === 'battery' && S.ch >= 8 && Math.random() < 0.2 * k) emit(p.x, p.y + 0.05, p.z, 'mother', { spread: 0.15, life: 2, vy: 0.06 });
   }
   if (Math.random() < 0.05 * k) emit(spots.bowl.x, 0.08, spots.bowl.z + 0.4, 'food', { spread: 0.3, life: 2 });
+  if (S.lilyGone && !S.escort) {
+    if (Math.random() < 0.5 * k) { const i = Math.floor(Math.random() * (LILY_TRAIL.length - 1)), f = Math.random(); const a = LILY_TRAIL[i], b = LILY_TRAIL[i + 1]; emit(a[0] + (b[0] - a[0]) * f, 0.05, a[1] + (b[1] - a[1]) * f, 'lily', { spread: 0.15, life: 3.5, vy: 0.01, size: 0.028, faint: 1 }); }
+    if (Math.random() < 0.3 * k) { const i = Math.floor(Math.random() * (LILY_TRAIL_DOWN.length - 1)), f = Math.random(); const a = LILY_TRAIL_DOWN[i], b = LILY_TRAIL_DOWN[i + 1]; emit(a[0] + (b[0] - a[0]) * f, a[2] + (b[2] - a[2]) * f + 0.05, a[1] + (b[1] - a[1]) * f, 'lily', { spread: 0.15, life: 3.5, vy: 0.01, size: 0.028, faint: 1 }); }
+  }
   // out back: old trails under the snow, too faint to see unless you follow them
   const trail = (pts, kind, rate, o) => {
     if (Math.random() >= rate * k) return;
@@ -1211,6 +1497,7 @@ function sniffLabel() {
   if (S.coOn && (inBasement() || dist2d(p, v3(13.4, 0, 3.6)) < 2.5 || dist2d(p, spots.lilyVent) < 1.5)) cand.push([0.3, 'wrong']);
   if (S.co > 0.5) cand.push([1.4 - S.co, 'wrong']);
   cand.push([dist2d(p, spots.bowl) - 0.3, 'food']);
+  if (S.lilyGone && !S.escort) for (const q of LILY_TRAIL) cand.push([Math.hypot(q[0] - p.x, q[1] - p.z) + 0.2, 'lily']);
   if (S.outside || p.x > 12.5) {
     const segD = (pts, q) => { let m = 1e9; for (let i = 0; i < pts.length - 1; i++) { const [ax, az] = pts[i], [bx, bz] = pts[i + 1]; const vx = bx - ax, vz = bz - az; const t = Math.max(0, Math.min(1, ((q.x - ax) * vx + (q.z - az) * vz) / (vx * vx + vz * vz))); m = Math.min(m, Math.hypot(q.x - ax - vx * t, q.z - az - vz * t)); } return m; };
     cand.push([segD(DANNY_TRAIL_YARD, p) + 0.35, 'dannyOld']);
@@ -1256,7 +1543,9 @@ function computePrompt() {
   const ins = nearestInspect();
   if (ins && !ins.read) return '<b>E</b> look closer <span class="new">new</span>';
   const it = nearestItem(0.85);
-  if (it) return `<b>E</b> take ${it.label} in your mouth`;
+  if (it) return it.under ? `<b>E</b> stretch under ${it.underWhat} and drag out ${it.label}` : `<b>E</b> take ${it.label} in your mouth`;
+  const un = puzzle.crayons.find((c) => c.under && !c.gone && !c.carried && c.mesh.visible && dist2d(c.mesh.position, dog.pos) < 1.05);
+  if (un && dog.lying < 0.5) return `it rolled under ${un.underWhat}. hold <b>C</b> to lie flat and reach`;
   if (ins && !ins.item) return '<b>E</b> look again';
   if (nearRope()) return '<b>E</b> pull the rope';
   if (nearCover()) return '<b>E</b> pull the storm cover off your flap';
@@ -1280,6 +1569,7 @@ const ENDINGS = {
   laundry: { n: 3, title: 'THE LAUNDRY ROOM' },
   baddog: { n: 4, title: 'BAD DOG' },
   home: { n: 5, title: 'HOME' },
+  dark: { n: 6, title: 'UNDER THE HOUSE' },
 };
 function endByTime() {
   const inLaundry = roomAt(dog.pos.x, dog.pos.z, dog.y) === 'laundry' && Math.abs(doors.laundry.angle) < 0.3;
@@ -1327,6 +1617,12 @@ function ENDING_TEXT(id) {
       'The fire department found the cracked furnace at 4 a.m. Everyone lived.',
       'They said Biscuit had turned. They said it was kinder this way. Lily was eight.',
       'She is thirty now. She has never once ignored an animal that would not stop barking.',
+    ];
+    case 'dark': return [
+      'It took you a third time, and this time you did not fight it.',
+      'It was warm, where it took you. Warm and close and quiet, like the inside of his jacket when you were small.',
+      'The house went on breathing without you.',
+      'They found all four of them on the eighteenth, when the mail piled up. The dog was lying across the girl\'s doorway, as if he had been guarding it.',
     ];
     case 'home': return [
       'He carried Lily out in his arms and half dragged Claire through the snow, and they stood in the yard in their pajamas, breathing.',
@@ -1470,6 +1766,12 @@ export function updateStory(dt) {
   updateStool();
   updateDigging(dt);
   updateYard(dt);
+  updateEscort(dt);
+  updateFlashlight(dt);
+  updateDread(dt);
+  // fear: your heart races, you slow down, you shake
+  S.fearT = Math.max(0, (S.fearT || 0) - dt);
+  dog.fear = Math.min(1, S.fearT / 4 + (S.stalkNear || 0) * 0.5);
   if (puzzle.drawerOpen && S.drawerAnim !== undefined && S.drawerAnim < 1) { S.drawerAnim = Math.min(1, S.drawerAnim + dt * 3); refs.drawer.position.z = -3.55 + S.drawerAnim * 0.3; }
 
   const m = F.mother;
@@ -1515,12 +1817,12 @@ export function updateStory(dt) {
 
   S.clockAcc += dt;
   const tickEvery = S.co > 0.6 ? 1 + Math.sin(S.t) * 0.6 : 1;
-  if (S.clockAcc > tickEvery) { S.clockAcc = 0; AU.clockTick(12.8, 2, 5.1, 0.6); refs.clockHand.rotation.z -= Math.PI / 30; }
+  if (S.clockAcc > tickEvery && !S.clockStopped) { S.clockAcc = 0; AU.clockTick(12.8, 2, 5.1, 0.6); refs.clockHand.rotation.z -= Math.PI / 30; }
 
-  if (S.dogCO > 0.42 && S.t > S.nextBeat) {
-    const bpm = 62 + S.dogCO * 70 + (S.presenceActive ? 50 : 0);
+  if ((S.dogCO > 0.42 || (S.stalkNear || 0) > 0.2 || (dog.fear || 0) > 0.3) && S.t > S.nextBeat) {
+    const bpm = 62 + S.dogCO * 70 + (S.presenceActive ? 50 : 0) + (S.stalkNear || 0) * 60 + (dog.fear || 0) * 30;
     S.nextBeat = S.t + 60 / bpm;
-    AU.heartbeat((S.dogCO - 0.4) * 0.9 + (S.presenceActive ? 0.3 : 0));
+    AU.heartbeat(Math.max(0.15, (S.dogCO - 0.4) * 0.9) + (S.presenceActive ? 0.3 : 0) + (S.stalkNear || 0) * 0.4);
     S.pulse = 1;
   }
   S.pulse = Math.max(0, (S.pulse || 0) - dt * 5);
@@ -1560,11 +1862,13 @@ export function updateStory(dt) {
   // out under the sky: brighter snow-light, longer sight, paler fog
   S.outK = (S.outK || 0) + ((S.outside ? 1 : 0) - (S.outK || 0)) * Math.min(1, dt * 1.5);
   const ok = S.outK;
-  G.uAmbient.value.set(0.06 + ok * 0.05 + S.flash * 0.1, 0.065 + ok * 0.055 + S.flash * 0.1, 0.095 + ok * 0.07 + S.flash * 0.12);
+  // with the power out, the house is nearly black: what you can see, you see by lightning and the flashlight
+  const dk = S.power === false && !S.outside ? 0.5 : 1;
+  G.uAmbient.value.set((0.06 + ok * 0.05) * dk + S.flash * 0.1, (0.065 + ok * 0.055) * dk + S.flash * 0.1, (0.095 + ok * 0.07) * dk + S.flash * 0.12);
   G.uFogFar.value = 9 + ok * 6;
   G.uFogColor.value.set(0.03 + ok * 0.05, 0.029 + ok * 0.055, 0.033 + ok * 0.07);
   if (S.debugLight) G.uAmbient.value.setScalar(S.debugLight); // testing aid only
 }
 
 // testing hooks
-export const DBG = { ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
+export const DBG = { powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
