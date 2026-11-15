@@ -46,9 +46,11 @@ export function initInput(canvas, handlers) {
   });
   addEventListener('mouseup', (e) => { if (e.button === 2) input.sniff = false; input.drag = false; });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-  document.addEventListener('pointerlockchange', () => { input.locked = document.pointerLockElement === canvas; });
+  document.addEventListener('pointerlockchange', () => { input.locked = document.pointerLockElement === canvas; input.skipMove = 2; input.mdx = 0; input.mdy = 0; });
   addEventListener('mousemove', (e) => {
     if (!input.enabled) return;
+    if (input.skipMove > 0) { input.skipMove--; return; }
+    if (Math.abs(e.movementX) > 250 || Math.abs(e.movementY) > 250) return; // browser glitch on lock
     if (input.locked || input.drag) { input.mdx += e.movementX; input.mdy += e.movementY; }
   });
   addEventListener('blur', () => { keys.clear(); input.sniff = false; input.eDown = false; input.cDown = false; });
@@ -135,7 +137,7 @@ export function updateDog(dt, camera, co, t) {
   const eye = d.eye - d.lying * 0.24 + d.paws * 0.42;
   const bob = d.moving ? Math.sin(d.bob) * 0.018 : Math.sin(t * 1.6) * 0.004;
   camera.position.set(d.pos.x, d.y + eye + bob, d.pos.z);
-  const targetRoll = (d.moving ? Math.cos(d.bob * 0.5) * 0.012 : 0) + (co > 0.4 ? Math.sin(t * 0.37) * (co - 0.4) * 0.22 : 0);
+  const targetRoll = (d.moving ? Math.cos(d.bob * 0.5) * 0.012 : 0) ;
   d.roll += (targetRoll - d.roll) * Math.min(1, dt * 3);
   camera.rotation.set(d.pitch + d.barkKick * 0.08, d.yaw, d.roll, 'YXZ');
   d.barkKick = Math.max(0, d.barkKick - dt * 5);

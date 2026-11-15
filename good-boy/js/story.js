@@ -27,7 +27,7 @@ export function initStory(family, sc, uiRefs) {
   mother.setPos(11.75, 9.15); mother.yaw = 0; mother.activity = { spot: spots.sink.clone(), face: 0, pose: 'sink' }; mother.settle();
   lily.setPos(5.3, 6.55); lily.yaw = 2.6; lily.activity = { spot: spots.lilyDraw.clone(), face: 2.6, pose: 'floor' }; lily.settle();
   // the thing in the basement
-  S.presence = new Human('presence', { height: 2.35, shirtCol: 0x040404, pantsCol: 0x040404, skinCol: 0x030303, face: T.presence, faceWrong: T.presence, hair: null, voice: 'father' }, scene);
+  S.presence = new Human('presence', { height: 2.35, build: 'man', presence: true, shirtCol: 0x040404, pantsCol: 0x040404, skinCol: 0x030303, face: T.headPresence, faceClosed: T.headPresence, faceWrong: T.headPresence, hairStyle: 'none', voice: 'father' }, scene);
   for (const m of S.presence.mats) { m.uniforms.uColor.value.set(0.02, 0.02, 0.02); m.uniforms.uEmissive.value.set(0.05, 0.012, 0.006); }
   S.presence.faceMat.uniforms.uUnlit.value = 1;
   S.presence.faceMat.uniforms.uColor.value.set(1, 1, 1);

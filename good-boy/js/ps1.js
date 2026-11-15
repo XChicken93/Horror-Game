@@ -1,4 +1,4 @@
-// PS1-style rendering: vertex lighting, vertex snapping, affine texture warping,
+// PS1-style rendering: vertex lighting, perspective-correct textures (no warping or jitter),
 // per-vertex fog, low internal resolution, 15-bit colour with ordered dithering.
 import * as THREE from '../vendor/three.module.js';
 
@@ -40,7 +40,7 @@ uniform float uFogFar;
 uniform float uUnlit;
 uniform float uWobble;
 uniform vec3 uEmissive;
-varying vec3 vUvW;
+varying vec2 vUv;
 varying vec3 vLight;
 varying float vFog;
 
@@ -52,12 +52,6 @@ float inBox(vec3 p, vec3 mn, vec3 mx){
 
 void main(){
   vec4 wp = modelMatrix * vec4(position, 1.0);
-  float co = uCO;
-  float wob = co * co * 0.07 * uWobble;
-  wp.xyz += wob * vec3(
-    sin(wp.y * 3.1 + uTime * 1.3 + wp.z),
-    sin(wp.x * 2.3 + uTime * 0.9) * 0.6,
-    cos(wp.z * 2.7 + uTime * 1.1 + wp.x));
   vec3 n = normalize(mat3(modelMatrix) * normal);
   vec3 L = uAmbient;
   for (int i = 0; i < ${MAX_LIGHTS}; i++) {
@@ -77,12 +71,9 @@ void main(){
 
   vec4 mv = viewMatrix * wp;
   vec4 p = projectionMatrix * mv;
-  // vertex snapping to a coarse screen grid (the famous PS1 jitter)
-  vec2 snap = uSnap * (1.0 - co * 0.35);
-  p.xy = floor(p.xy / p.w * snap + 0.5) / snap * p.w;
+  // stable geometry and perspective-correct textures: no jitter, no warping
   gl_Position = p;
-  // affine texture mapping (no perspective correction)
-  vUvW = vec3(uv * p.w, p.w);
+  vUv = uv;
   float fd = length(mv.xyz);
   vFog = clamp((fd - uFogNear) / (uFogFar - uFogNear), 0.0, 1.0);
 }`;
@@ -95,11 +86,11 @@ uniform vec3 uFogColor;
 uniform float uSniff;
 uniform float uOpacity;
 uniform float uNoFog;
-varying vec3 vUvW;
+varying vec2 vUv;
 varying vec3 vLight;
 varying float vFog;
 void main(){
-  vec2 uv = vUvW.xy / vUvW.z;
+  vec2 uv = vUv;
   vec4 t = uHasMap > 0.5 ? texture2D(map, uv) : vec4(1.0);
   if (t.a < 0.5) discard;
   vec3 c = t.rgb * uColor * min(vLight, vec3(2.2));
@@ -180,16 +171,13 @@ void main(){
   float h = smoothstep(0.25, 1.0, co);
   // breathing tunnel stretch
   vec2 cc = uv - 0.5;
-  cc *= 1.0 - uStretch * 0.12 * (0.5 + 0.5 * sin(uTime * 0.6));
-  cc.x *= 1.0 + uStretch * 0.08 * sin(uTime * 0.4 + cc.y * 3.0);
+  cc *= 1.0 - uStretch * 0.08; // tunnel vision, steady
   uv = cc + 0.5;
-  uv.x += sin(uv.y * 11.0 + uTime * 1.7) * 0.006 * h;
-  uv.y += cos(uv.x * 8.0 + uTime * 1.2) * 0.004 * h;
   vec2 px = floor(uv * uRes) + 0.5;
   vec2 suv = px / uRes;
   vec3 c = texture2D(tDiffuse, suv).rgb;
   // double vision
-  float dv = h * 0.018 * (0.6 + 0.4 * sin(uTime * 0.7));
+  float dv = h * 0.012;
   vec3 c2 = texture2D(tDiffuse, suv + vec2(dv, dv * 0.35)).rgb;
   c = mix(c, max(c, c2 * 0.9), 0.55 * h);
   // chromatic split

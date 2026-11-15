@@ -1,5 +1,6 @@
 // Procedurally painted low-resolution textures. No external assets.
 import * as THREE from '../vendor/three.module.js';
+import { buildFaces } from './faces.js';
 
 let seed = 1337;
 export function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
@@ -174,7 +175,7 @@ export function buildTextures() {
     noise(g, 16, 16, 14);
   });
   T.cardigan = make(16, 16, (g) => { g.fillStyle = '#6a5068'; g.fillRect(0, 0, 16, 16); for (let y = 0; y < 16; y += 2) for (let x = (y % 4) / 2; x < 16; x += 2) px(g, x, y, '#5a4058'); noise(g, 16, 16, 10); });
-  T.pajama = make(16, 16, (g) => { g.fillStyle = '#5a78a8'; g.fillRect(0, 0, 16, 16); for (let i = 0; i < 8; i++) { g.fillStyle = '#e8e0a0'; g.fillRect(ri(0, 14), ri(0, 14), 2, 2); } noise(g, 16, 16, 10); });
+  T.pajama = make(32, 32, (g) => { g.fillStyle = '#6a84ac'; g.fillRect(0, 0, 32, 32); for (let y = 0; y < 32; y += 4) for (let x = (y % 8) / 2; x < 32; x += 4) { g.fillStyle = '#d8d0a8'; g.fillRect(x, y, 1, 1); } g.fillStyle = 'rgba(40,50,80,0.3)'; for (let x = 0; x < 32; x += 8) g.fillRect(x, 0, 1, 32); noise(g, 32, 32, 12); });
   T.jeans = make(16, 16, (g) => { g.fillStyle = '#2a3a5a'; g.fillRect(0, 0, 16, 16); noise(g, 16, 16, 20); });
   T.slacks = make(16, 16, (g) => { g.fillStyle = '#3a3430'; g.fillRect(0, 0, 16, 16); noise(g, 16, 16, 14); });
   T.quilt = make(32, 32, (g) => {
@@ -382,6 +383,7 @@ export function buildTextures() {
   T.hairLily = make(8, 8, (g) => { g.fillStyle = '#8a5a2a'; g.fillRect(0, 0, 8, 8); noise(g, 8, 8, 14); }, { repeat: false });
   T.skin = make(8, 8, (g) => { g.fillStyle = '#b88a6a'; g.fillRect(0, 0, 8, 8); noise(g, 8, 8, 8); }, { repeat: false });
   T.presence = make(16, 16, (g) => { g.fillStyle = '#050505'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#ff5a10'; g.fillRect(3, 6, 3, 2); g.fillRect(10, 6, 3, 2); g.fillStyle = '#ffb040'; g.fillRect(4, 6, 1, 1); g.fillRect(11, 6, 1, 1); g.fillStyle = '#ff3000'; g.fillRect(5, 11, 6, 1); g.fillRect(4, 12, 8, 1); }, { repeat: false });
+  buildFaces(T);
   return T;
 }
 

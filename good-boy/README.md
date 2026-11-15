@@ -32,8 +32,8 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 ## What's in the prototype
 
 **Look and feel**
-- A custom PS1 renderer. Lighting is per-vertex (Gouraud), vertices snap to a coarse screen grid so geometry jitters, textures are mapped affinely so they warp, and fog is per-vertex. The scene renders at 240p and is upscaled with nearest-neighbour filtering, with 15-bit colour and 4×4 ordered dithering.
-- Carbon-monoxide hallucination effects build up over the night: the whole world wobbles, you get double vision and chromatic split, the vignette pulses with your heartbeat, the corridors stretch, faces go wrong and you black out briefly.
+- A custom PS1-style renderer. Lighting and fog are per-vertex (Gouraud) and textures are low-resolution with crunchy nearest-neighbour filtering. The scene renders at 240p and is upscaled, with 15-bit colour and 4×4 ordered dithering. Geometry and textures are rock-steady, with no jitter or warping.
+- Carbon-monoxide effects build up over the night: double vision, chromatic split, tunnel vision, a vignette that pulses with your heartbeat, faces that go wrong, and brief blackouts.
 - All 60+ textures are painted procedurally on canvas: wallpapers, the farmhouse floors, faces, the daughter's drawings, the calendar with tomorrow circled, the thermostat cranked to 78.
 
 **The house**
@@ -41,6 +41,7 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 - Every room holds details that tell the story. There are four stockings and four place settings, one of each still for Danny. His sneakers are still on the boot tray. Sympathy cards sit on the coffee table. The CO detector's LED is dark, and its battery lies on the floor below it. A dollhouse of the farmhouse has a little figure in its basement. Lily's drawing puts Danny *under the house*.
 
 **The family**
+- Each family member has sculpted low-poly anatomy: a head with a jaw, brow ridge, eye sockets, nose and cheekbones, a shaped torso, tapered limbs and hands with fingers. Their faces are painted, uncanny-realistic textures, PS1-era photo-face style: bloodshot, tired eyes, eyebags, stubble, creases, freckles and red-rimmed eyes from crying. They blink, close their eyes when asleep, and turn their heads to follow you. When the poison gets into your head, their faces go pale, the eyes turn black, the mouth hangs open and veins show.
 - Tom, Claire and Lily walk the house on a schedule that runs through the evening, bedtime, the slow poisoning, and sleep that turns into something worse.
 - **Muffled speech.** Lines are voiced by formant synthesis and run through a garbler, so the subtitles show only the words a dog knows (*Biscuit, no, bed, Danny, good boy…*). Everything else comes out as noise. They tell you exactly what's wrong in the first minute, and you can't understand it.
 - They react to you. Barking adds strikes. Whining earns forgiveness. Tugging a sleeve makes them follow you. Leading them to the basement door makes them close it, because they can't face going down there. Three strikes and you get locked in the laundry room. Bringing them objects (Danny's ball, the leash, the battery, Lily's drawing) gets a reaction to each.
@@ -77,7 +78,8 @@ Every ending finishes with **"What they said tonight"**: a full, unscrambled tra
 | `js/ps1.js` | PS1 material (vertex lighting, snapping, affine UVs, fog) and post-processing (dither, hallucination) |
 | `js/textures.js` | procedural canvas textures |
 | `js/house.js` | geometry, colliders, doors, lights, props, items |
-| `js/humans.js` | family models, animation, pathfinding, speech garbler |
+| `js/humans.js` | family bodies (sculpted heads, shaped torsos, hands), animation, pathfinding, speech garbler |
+| `js/faces.js` | painted head textures: open, closed and "wrong" faces for each family member |
 | `js/player.js` | dog controller and input |
 | `js/scent.js` | scent-vision particles |
 | `js/audio.js` | procedural audio |

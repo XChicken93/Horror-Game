@@ -20,15 +20,14 @@ const vel = new Float32Array(MAX * 3);
 const maxLife = new Float32Array(MAX);
 let head = 0;
 export const mat = new THREE.ShaderMaterial({
-  uniforms: { uSniff: G.uSniff, uSnap: G.uSnap, uTime: G.uTime },
+  uniforms: { uSniff: G.uSniff, uTime: G.uTime },
   vertexShader: `
     attribute vec3 color; attribute float size; attribute float life;
-    uniform float uSniff; uniform vec2 uSnap;
+    uniform float uSniff;
     varying vec3 vCol; varying float vA;
     void main(){
       vec4 mv = modelViewMatrix * vec4(position, 1.0);
       vec4 p = projectionMatrix * mv;
-      p.xy = floor(p.xy / p.w * uSnap) / uSnap * p.w;
       gl_Position = p;
       gl_PointSize = clamp(size * 110.0 / max(-mv.z, 0.3), 1.0, 4.0);
       vCol = color;
