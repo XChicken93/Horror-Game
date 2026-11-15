@@ -132,7 +132,7 @@ $('title').addEventListener('click', startGame);
 // ---------------------------------------------------------------------------
 const clock = new THREE.Clock();
 const fwdV = new THREE.Vector3();
-let lastPrompt = '', lastLabel = '', titleT = 0;
+let lastPrompt = '', lastLabel = '', titleT = 0, lastClock = '';
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
@@ -156,6 +156,12 @@ function frame() {
   if (AU.A.ready) { camera.getWorldDirection(fwdV); AU.setListener(camera.position, fwdV); }
   if (S.prompt !== lastPrompt) { lastPrompt = S.prompt; $('prompt').innerHTML = S.prompt; }
   if (S.label !== lastLabel) { lastLabel = S.label; $('label').innerHTML = S.label; $('label').style.opacity = S.label ? 1 : 0; }
+  if (introDone) {
+    const mins = 21 * 60 + 40 + Math.floor((S.t || 0) * 24 / 60);
+    const h = Math.floor(mins / 60) % 24, m = mins % 60;
+    const txt = `${h >= 12 ? 'PM' : 'AM'} ${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')}<br>${h < 12 ? 'DEC.14' : 'DEC.13'} 1998`;
+    if (txt !== lastClock) { lastClock = txt; $('osdTime').innerHTML = txt; }
+  }
   $('lockHint').style.display = introDone && !input.locked && !S.ended ? 'block' : 'none';
 
   renderer.setRenderTarget(rt);

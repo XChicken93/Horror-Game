@@ -99,14 +99,16 @@ export function findPath(from, to) {
 // ---------------------------------------------------------------------------
 // Body building: tapered limbs, a shaped torso, a sculpted head, real hands.
 function pivot(parent, x, y, z) { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; }
+function facet(g) { const n = g.toNonIndexed(); n.computeVertexNormals(); return n; }
 function scaleUV(geo, su, sv) {
   const uv = geo.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv);
 }
 function limb(rt, rb, len, mat, parent, y, o = {}) {
-  const g = new THREE.CylinderGeometry(rt, rb, len, o.seg ?? 9, 3);
+  let g = new THREE.CylinderGeometry(rt, rb, len, o.seg ?? 6, 1);
   if (o.sz) g.scale(1, 1, o.sz);
   scaleUV(g, Math.max(1, Math.round((Math.PI * (rt + rb)) / 0.28)), len / 0.28);
+  g = facet(g);
   const m = new THREE.Mesh(g, mat);
   m.position.set(o.x ?? 0, y, o.z ?? 0);
   parent.add(m);
@@ -114,7 +116,7 @@ function limb(rt, rb, len, mat, parent, y, o = {}) {
 }
 // a cylinder re-shaped by width/depth profiles along its height
 function shaped(len, prof, mat, parent, y, o = {}) {
-  const g = new THREE.CylinderGeometry(1, 1, len, 14, prof.length - 1, !!o.open);
+  let g = new THREE.CylinderGeometry(1, 1, len, 8, prof.length - 1, !!o.open);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const vy = p.getY(i), t = Math.max(0, Math.min(1, vy / len + 0.5));
@@ -126,8 +128,8 @@ function shaped(len, prof, mat, parent, y, o = {}) {
     const front = prof[i0][2] !== undefined ? (prof[i0][2] + ((prof[i0 + 1][2] ?? prof[i0][2]) - prof[i0][2]) * k) : 0;
     p.setXYZ(i, dx * w * r, vy, dz * (d + (dz > 0 ? front * dz : 0)) * r);
   }
-  g.computeVertexNormals();
-  scaleUV(g, 3, len / 0.28);
+  scaleUV(g, 2, len / 0.32);
+  g = facet(g);
   const m = new THREE.Mesh(g, mat);
   m.position.y = y;
   parent.add(m);
@@ -137,7 +139,7 @@ const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a
 const gauss = (x, y, sx, sy) => Math.exp(-(x * x) / (sx * sx) - (y * y) / (sy * sy));
 // sculpted head: jaw, chin, brow, sockets, nose, cheekbones, lips
 function headGeo(r, o = {}) {
-  const g = new THREE.SphereGeometry(r, 24, 18, -Math.PI / 2);
+  let g = new THREE.SphereGeometry(r, 12, 10, -Math.PI / 2);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     let x = p.getX(i) / r, y = p.getY(i) / r, z = p.getZ(i) / r;
@@ -163,20 +165,16 @@ function headGeo(r, o = {}) {
     if (y < -0.8) rad -= (y + 0.8) * -0.2;
     p.setXYZ(i, x * rad * r, y * rad * r * 1.18, z * rad * r);
   }
-  g.computeVertexNormals();
-  return g;
+  return facet(g);
 }
 function hand(mat, parent, y, s, side) {
   const h = pivot(parent, 0, y, 0);
-  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.07 * s, 0.085 * s, 0.028 * s, 2, 2, 1), mat);
+  const palm = new THREE.Mesh(facet(new THREE.BoxGeometry(0.06 * s, 0.085 * s, 0.024 * s)), mat);
   palm.position.y = -0.04 * s; h.add(palm);
-  for (let f = 0; f < 4; f++) {
-    const fl = (f === 1 || f === 2 ? 0.075 : 0.062) * s;
-    const fm = limb(0.0085 * s, 0.007 * s, fl, mat, h, -0.085 * s - fl / 2, { x: (-0.025 + f * 0.0167) * s, seg: 5 });
-    fm.rotation.x = 0.25; fm.position.z = 0.008 * s;
-  }
-  const th = limb(0.01 * s, 0.008 * s, 0.055 * s, mat, h, -0.05 * s, { x: -side * 0.042 * s, z: 0.012 * s, seg: 5 });
-  th.rotation.z = side * 0.6;
+  const fingers = new THREE.Mesh(facet(new THREE.BoxGeometry(0.056 * s, 0.1 * s, 0.016 * s)), mat);
+  fingers.position.set(0, -0.13 * s, 0.006 * s); fingers.rotation.x = 0.18; h.add(fingers);
+  const thumb = new THREE.Mesh(facet(new THREE.BoxGeometry(0.016 * s, 0.06 * s, 0.016 * s)), mat);
+  thumb.position.set(-side * 0.036 * s, -0.06 * s, 0.012 * s); thumb.rotation.z = side * 0.5; h.add(thumb);
   return h;
 }
 
@@ -196,8 +194,10 @@ export class Human {
     const shoe = ps1Mat({ color: spec.shoeCol ?? 0x1a1410, unique: uniq });
     this.faceMat = ps1Mat({ map: spec.face, unique: true });
     this.mats = [shirt, pants, skin, hair, this.faceMat, shoe];
-    const fem = spec.build === 'woman', kid = spec.build === 'child', thin = spec.presence ? 0.62 : 1;
-    const leg = 0.9 * s * (spec.presence ? 1.1 : 1), torso = 0.56 * s, headR = 0.098 * (kid ? Math.max(s, 0.8) : s);
+    // retro-realism: everything is almost right. Limbs a little too long and thin,
+    // the torso too tall, the shoulders sunk, the neck a touch long.
+    const fem = spec.build === 'woman', kid = spec.build === 'child', thin = spec.presence ? 0.62 : 0.84;
+    const leg = 0.96 * s * (spec.presence ? 1.1 : 1), torso = 0.66 * s, headR = 0.098 * (kid ? Math.max(s, 0.8) : s);
     this.legLen = leg;
     const hips = pivot(body, 0, leg, 0); this.hips = hips;
     // pelvis
@@ -219,16 +219,16 @@ export class Human {
     // torso: hips -> waist -> chest -> shoulders -> collar
     const chest = pivot(hips, 0, 0.04 * s, 0); this.chest = chest;
     const prof = fem
-      ? [[0.15, 0.1], [0.125, 0.085], [0.14, 0.09, 0.03], [0.16, 0.095, 0.035], [0.17, 0.085], [0.06, 0.05]]
-      : kid ? [[0.14, 0.095], [0.135, 0.09], [0.14, 0.09], [0.15, 0.09], [0.16, 0.08], [0.06, 0.05]]
-        : [[0.155, 0.11], [0.155, 0.11, 0.015], [0.175, 0.115], [0.195, 0.115], [0.205, 0.095], [0.07, 0.055]];
+      ? [[0.16, 0.1], [0.125, 0.085], [0.135, 0.09, 0.03], [0.15, 0.095, 0.035], [0.145, 0.08], [0.05, 0.045]]
+      : kid ? [[0.15, 0.095], [0.135, 0.09], [0.135, 0.09], [0.14, 0.085], [0.135, 0.075], [0.05, 0.045]]
+        : [[0.165, 0.11], [0.15, 0.11, 0.02], [0.165, 0.115], [0.18, 0.11], [0.165, 0.09], [0.055, 0.05]];
     shaped(torso, prof.map(([w, d, f]) => [w * s * thin, d * s * thin, (f || 0) * s]), shirt, chest, torso / 2);
     // arms: sleeve, forearm, wrist, hand
-    const armL = spec.presence ? 1.45 : 1;
+    const armL = spec.presence ? 1.55 : 1.2;
     this.arms = [-1, 1].map((side) => {
-      const sh = pivot(chest, side * (fem ? 0.165 : kid ? 0.165 : 0.19) * s * thin, torso - 0.06 * s, 0);
+      const sh = pivot(chest, side * (fem ? 0.15 : kid ? 0.15 : 0.17) * s * (thin / 0.84), torso - 0.11 * s, 0);
       limb(0.052 * s * thin, 0.042 * s * thin, 0.3 * s * armL, shirt, sh, -0.15 * s * armL);
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.05 * s * thin, 8, 6), shirt); sh.add(ball);
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.045 * s * thin, 5, 4), shirt); sh.add(ball);
       const el = pivot(sh, 0, -0.3 * s * armL, 0);
       limb(0.042 * s * thin, 0.034 * s * thin, 0.24 * s * armL, spec.rolled ? skin : shirt, el, -0.12 * s * armL);
       limb(0.03 * s * thin, 0.028 * s * thin, 0.03 * s, skin, el, -0.25 * s * armL);
@@ -237,20 +237,22 @@ export class Human {
     });
     // neck and head
     const neck = pivot(chest, 0, torso - 0.02 * s, 0); this.neck = neck;
-    limb(0.048 * s * thin, 0.056 * s * thin, 0.09 * s, skin, neck, 0.025 * s);
+    limb(0.04 * s, 0.048 * s, 0.11 * s, skin, neck, 0.035 * s);
     const hg = headGeo(headR, { child: kid, wide: !fem && !kid, fem });
     this.head = new THREE.Mesh(hg, this.faceMat);
-    this.head.position.set(0, 0.035 * s + headR * 0.98, 0.014 * s);
+    this.head.position.set(0, 0.068 * s + headR * 0.98, 0.018 * s);
+    this.totalLen = leg + 0.04 * s + torso + 0.068 * s + headR * 2.1;
+    this.headH = leg + 0.04 * s + torso + 0.068 * s + headR;
     neck.add(this.head);
     // hair volume
     if (spec.hairStyle && spec.hairStyle !== 'none') {
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(headR * 1.06, 18, 10, -Math.PI / 2, Math.PI * 2, 0, Math.PI * (spec.hairStyle === 'short' ? 0.42 : 0.5)), hair);
+      const cap = new THREE.Mesh(facet(new THREE.SphereGeometry(headR * 1.06, 10, 5, -Math.PI / 2, Math.PI * 2, 0, Math.PI * (spec.hairStyle === 'short' ? 0.42 : 0.5))), hair);
       cap.scale.set(0.95, 1.18, 1.14);
       cap.rotation.x = -0.42;
       cap.position.set(0, headR * 0.06, -headR * 0.05);
       this.head.add(cap);
       if (spec.hairStyle === 'long') {
-        const back = new THREE.Mesh(new THREE.CylinderGeometry(headR * 1.08, headR * 1.25, headR * 2.6, 14, 3, true, Math.PI * 0.62, Math.PI * 1.76), hair);
+        const back = new THREE.Mesh(facet(new THREE.CylinderGeometry(headR * 1.08, headR * 1.25, headR * 2.6, 8, 2, true, Math.PI * 0.62, Math.PI * 1.76)), hair);
         back.material.side = THREE.DoubleSide;
         back.position.set(0, -headR * 0.7, -headR * 0.12);
         back.scale.set(1, 1, 0.85);
@@ -264,6 +266,7 @@ export class Human {
       }
     }
     this.blinkAt = 2 + Math.random() * 4; this.blinkUntil = 0;
+    this.nextTick = 0; this.twitchAt = 3 + Math.random() * 6; this.twitch = null; this._rOff = new THREE.Vector3(); this._rRot = new THREE.Euler();
     this.pos = new THREE.Vector3(); this.yaw = 0; this.headYaw = 0; this.headPitch = 0;
     this.path = []; this.walkPhase = 0; this.moving = false;
     this.pose = 'stand'; this.poseBlend = 0;
@@ -320,6 +323,86 @@ export class Human {
   headWorld() { const v = new THREE.Vector3(); this.head.getWorldPosition(v); return v; }
   look(target, secs, now) { this.lookAt = target; this.lookUntil = now + secs; }
 
+  poseStep(now, co) {
+    const L = this.legs, Ar = this.arms;
+    let hipY = this.legLen;
+    const sway = co > 0.5 && this.moving ? Math.sin(now * 2.1) * 0.12 * co : 0;
+    this.body.rotation.set(0, 0, sway);
+    for (const a of Ar) { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); }
+    this.chest.rotation.set(0, 0, 0);
+    if (this.pose === 'sit' || this.pose === 'slump') {
+      hipY = 0.47;
+      for (const l of L) { l.hip.rotation.set(-Math.PI / 2, 0, 0); l.knee.rotation.set(Math.PI / 2, 0, 0); }
+      for (const a of Ar) { a.sh.rotation.set(-0.45, 0, 0); a.el.rotation.set(-0.6, 0, 0); }
+      this.chest.rotation.x = this.pose === 'slump' ? 0.3 : -0.08;
+      if (this.pose === 'slump') for (const a of Ar) { a.sh.rotation.set(-0.15, 0, a === Ar[0] ? 0.18 : -0.18); a.el.rotation.set(0, 0, 0); }
+    } else if (this.pose === 'floor') {
+      hipY = 0.12;
+      for (const [i, l] of L.entries()) { l.hip.rotation.set(-Math.PI / 2, i ? 0.4 : -0.4, 0); l.knee.rotation.set(1.6, 0, 0); }
+      for (const a of Ar) { a.sh.rotation.set(-1.0, 0, 0); a.el.rotation.set(-0.3, 0, 0); }
+      this.chest.rotation.x = 0.35;
+    } else if (this.pose === 'kneel') {
+      hipY = 0.5;
+      L[0].hip.rotation.set(-1.4, 0, 0); L[0].knee.rotation.set(1.4, 0, 0);
+      L[1].hip.rotation.set(0.1, 0, 0); L[1].knee.rotation.set(1.6, 0, 0);
+      for (const a of Ar) { a.sh.rotation.set(-1.1, 0, 0); a.el.rotation.set(-0.6, 0, 0); }
+      this.chest.rotation.x = 0.2;
+    } else if (this.pose === 'sleep') {
+      for (const l of L) { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); }
+      for (const [i, a] of Ar.entries()) a.sh.rotation.set(0, 0, i ? -0.08 : 0.08);
+    } else if (this.pose === 'sink') {
+      for (const l of L) { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); }
+      for (const [i, a] of Ar.entries()) { a.sh.rotation.set(-0.9 + (Math.floor(now * 2 + i) % 2) * 0.2, 0, 0); a.el.rotation.set(-0.6, 0, 0); }
+      this.chest.rotation.x = 0.12;
+    } else if (this.pose === 'stare') {
+      for (const l of L) { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); }
+      this.chest.rotation.x = 0.06;
+    } else {
+      // stiff walk: hips swing, knees barely bend, arms hang almost dead
+      const w = this.moving ? Math.sign(Math.sin(this.walkPhase)) * Math.min(1, Math.abs(Math.sin(this.walkPhase)) * 2) : 0;
+      L[0].hip.rotation.set(w * 0.34, 0, 0); L[1].hip.rotation.set(-w * 0.34, 0, 0);
+      L[0].knee.rotation.set(Math.max(0, -w) * 0.25, 0, 0); L[1].knee.rotation.set(Math.max(0, w) * 0.25, 0, 0);
+      Ar[0].sh.rotation.set(-w * 0.1, 0, 0.04); Ar[1].sh.rotation.set(w * 0.1, 0, -0.04);
+      if (this.override?.type === 'rub') { Ar[1].sh.rotation.set(-2.6, 0, -0.3); Ar[1].el.rotation.set(-1.6, 0, 0); }
+    }
+    this.hips.position.y = hipY;
+    // the root: snapped facing; lying down for sleep
+    if (this.pose === 'sleep') {
+      this._rRot.set(-Math.PI / 2, 0, 0);
+      this._rOff.set(0, 0.12, this.totalLen * 0.5);
+    } else {
+      this._rRot.set(0, this.yaw, 0);
+      this._rOff.set(0, 0, 0);
+    }
+    // head look: no easing, it just snaps to you
+    let ty = 0, tp = 0;
+    if (this.pose === 'slump') tp = 0.75;
+    if (this.lookAt && now < this.lookUntil && this.pose !== 'sleep') {
+      const hp = this.headWorld();
+      const dx = this.lookAt.x - hp.x, dz = this.lookAt.z - hp.z, dy = this.lookAt.y - hp.y;
+      let a = Math.atan2(dx, dz) - this.yaw; while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2;
+      ty = Math.max(-1.3, Math.min(1.3, a));
+      tp = Math.max(-0.6, Math.min(0.95, -Math.atan2(dy, Math.hypot(dx, dz))));
+      if (Math.abs(a) > 1.2 && !this.moving && (this.pose === 'stand' || this.pose === 'stare')) this.yaw += Math.sign(a) * 0.35;
+    }
+    this.headYaw = ty; this.headPitch = tp;
+    // twitches: a head jerk, a shoulder spasm, a whole-body flinch
+    if (now > this.twitchAt && this.pose !== 'sleep') {
+      const kinds = ['head', 'head', 'shoulder', 'flinch', 'tilt'];
+      this.twitch = { kind: kinds[Math.floor(Math.random() * kinds.length)], until: now + 0.12 + Math.random() * 0.25, v: (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.45) };
+      this.twitchAt = now + (2.5 + Math.random() * 7) / (1 + co * 2.5 + (this.spec.ghost ? 2 : 0));
+    }
+    let nz = 0;
+    if (this.twitch && now < this.twitch.until) {
+      const t = this.twitch;
+      if (t.kind === 'head') { this.headYaw += t.v; this.headPitch += t.v * 0.3; }
+      if (t.kind === 'tilt') nz = t.v * 0.7;
+      if (t.kind === 'shoulder') Ar[t.v > 0 ? 1 : 0].sh.rotation.z += t.v * 0.5;
+      if (t.kind === 'flinch') { this.chest.rotation.x += 0.15; this._rRot.y += t.v * 0.25; }
+    }
+    this.neck.rotation.set(this.headPitch, this.headYaw, nz);
+  }
+
   update(dt, now, co, dogPos) {
     // movement along path
     this.moving = false;
@@ -338,85 +421,24 @@ export class Human {
         const mv = Math.min(d, sp * dt);
         this.pos.x += (dx / d) * mv; this.pos.z += (dz / d) * mv;
         this.moving = true;
-        this.walkPhase += dt * sp * 5.2;
+        this.walkPhase += dt * 6.2;
         this.stepTimer -= dt;
         if (this.stepTimer <= 0) { this.stepTimer = 0.55 / (sp + 0.1) * 1.1; step('heavy', this.pos.x, 0.05, this.pos.z, this.s * 0.7); }
       }
     }
-    // pose
+    // ---- pose: PS1-era NPC animation. Limbs update in stiff steps at ~8 fps while the
+    // body slides smoothly underneath them, with sudden twitches.
     const R = this.root;
-    R.position.copy(this.pos);
-    R.rotation.set(0, this.yaw, 0);
-    const L = this.legs, Ar = this.arms, s = this.s;
-    let hipY = this.legLen;
-    const sway = co > 0.5 && this.moving ? Math.sin(now * 2.1) * 0.12 * co : 0;
-    this.body.rotation.set(0, 0, sway);
-    for (const a of Ar) { a.sh.rotation.set(0, 0, 0); a.el.rotation.set(0, 0, 0); }
-    this.chest.rotation.set(0, 0, 0);
-    if (this.pose === 'sit' || this.pose === 'slump') {
-      hipY = 0.47;
-      for (const l of L) { l.hip.rotation.set(-Math.PI / 2, 0, 0); l.knee.rotation.set(Math.PI / 2, 0, 0); }
-      for (const [i, a] of Ar.entries()) { a.sh.rotation.set(-0.5, 0, 0); a.el.rotation.set(-0.7, 0, 0); }
-      this.chest.rotation.x = this.pose === 'slump' ? 0.25 : -0.1;
-      if (this.pose === 'slump') for (const a of Ar) { a.sh.rotation.set(-0.2, 0, a === Ar[0] ? 0.15 : -0.15); a.el.rotation.set(0, 0, 0); }
-    } else if (this.pose === 'floor') {
-      hipY = 0.12;
-      for (const [i, l] of L.entries()) { l.hip.rotation.set(-Math.PI / 2, i ? 0.4 : -0.4, 0); l.knee.rotation.set(1.6, 0, 0); }
-      for (const a of Ar) { a.sh.rotation.set(-1.0, 0, 0); a.el.rotation.set(-0.3, 0, 0); }
-      this.chest.rotation.x = 0.35;
-    } else if (this.pose === 'kneel') {
-      hipY = 0.5;
-      L[0].hip.rotation.set(-1.4, 0, 0); L[0].knee.rotation.set(1.4, 0, 0);
-      L[1].hip.rotation.set(0.1, 0, 0); L[1].knee.rotation.set(1.6, 0, 0);
-      for (const a of Ar) { a.sh.rotation.set(-1.1, 0, 0); a.el.rotation.set(-0.6, 0, 0); }
-      this.chest.rotation.x = 0.2;
-    } else if (this.pose === 'sleep') {
-      hipY = this.legLen;
-      for (const l of L) { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); }
-      for (const [i, a] of Ar.entries()) a.sh.rotation.set(0, 0, i ? -0.1 : 0.1);
-    } else if (this.pose === 'sink') {
-      for (const l of L) { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); }
-      for (const [i, a] of Ar.entries()) { a.sh.rotation.set(-0.9 + Math.sin(now * 3 + i) * 0.15, 0, 0); a.el.rotation.set(-0.6, 0, 0); }
-      this.chest.rotation.x = 0.12;
-    } else if (this.pose === 'stare') {
-      for (const l of L) { l.hip.rotation.set(0, 0, 0); l.knee.rotation.set(0, 0, 0); }
-      this.chest.rotation.x = 0.04;
-    } else {
-      // stand / walk cycle
-      const w = this.moving ? Math.sin(this.walkPhase) : 0;
-      const k = this.moving ? 1 : 0;
-      L[0].hip.rotation.set(w * 0.5, 0, 0); L[1].hip.rotation.set(-w * 0.5, 0, 0);
-      L[0].knee.rotation.set(Math.max(0, -w) * 0.7 * k, 0, 0); L[1].knee.rotation.set(Math.max(0, w) * 0.7 * k, 0, 0);
-      Ar[0].sh.rotation.set(-w * 0.4, 0, 0.06); Ar[1].sh.rotation.set(w * 0.4, 0, -0.06);
-      Ar[0].el.rotation.set(-0.2 * k, 0, 0); Ar[1].el.rotation.set(-0.2 * k, 0, 0);
-      if (!this.moving) { const br = Math.sin(now * 1.3 + this.s * 10) * 0.012; this.chest.rotation.x = br; }
-      if (this.override?.type === 'rub') { Ar[1].sh.rotation.set(-2.6, 0, -0.3); Ar[1].el.rotation.set(-1.6, 0, 0); }
+    const tick = now >= this.nextTick || this.pose !== this._lastPose;
+    if (tick) {
+      this.nextTick = now + 0.11 + Math.random() * 0.05;
+      this._lastPose = this.pose;
+      this.poseStep(now, co);
     }
-    this.hips.position.y = hipY + (this.moving ? Math.abs(Math.cos(this.walkPhase)) * 0.03 : 0);
-    if (this.pose === 'sleep') {
-      // lying on the back along the bed, head north
-      R.rotation.set(-Math.PI / 2, 0, 0);
-      R.position.set(this.pos.x, this.pos.y + 0.12, this.pos.z + this.spec.height * 0.5);
-    } else if (this.pose === 'sit' || this.pose === 'slump' || this.pose === 'floor') {
-      R.position.y = this.pos.y;
-    }
-    // head look
-    let ty = 0, tp = 0;
-    if (this.pose === 'slump') tp = 0.7;
-    if (this.lookAt && now < this.lookUntil && this.pose !== 'sleep') {
-      const hp = this.headWorld();
-      const dx = this.lookAt.x - hp.x, dz = this.lookAt.z - hp.z, dy = this.lookAt.y - hp.y;
-      let a = Math.atan2(dx, dz) - this.yaw; while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2;
-      ty = Math.max(-1.3, Math.min(1.3, a));
-      tp = Math.max(-0.6, Math.min(0.9, -Math.atan2(dy, Math.hypot(dx, dz))));
-      // turn the body if the head can't reach
-      if (Math.abs(a) > 1.2 && !this.moving && (this.pose === 'stand' || this.pose === 'stare')) this.yaw += Math.sign(a) * dt * 2.5;
-    }
-    this.headYaw += (ty - this.headYaw) * Math.min(1, dt * 5);
-    this.headPitch += (tp - this.headPitch) * Math.min(1, dt * 5);
-    this.neck.rotation.set(this.headPitch, this.headYaw, 0);
+    R.position.copy(this.pos).add(this._rOff);
+    R.rotation.copy(this._rRot);
     // talking head bob
-    if (now < this.speechUntil) this.head.rotation.x = Math.sin(now * 18) * 0.05; else this.head.rotation.x = 0;
+    if (now < this.speechUntil) this.head.rotation.x = (Math.floor(now * 9) % 2) * 0.07; else this.head.rotation.x = 0;
     if (this._spk && now < this.speechUntil + 0.5) { const p = this.headWorld(); setPos(this._spk, p.x, p.y, p.z); }
     // eyes: open, blinking, closed in sleep, or wrong
     if (now > this.blinkAt) { this.blinkUntil = now + 0.13; this.blinkAt = now + 2.5 + Math.random() * 5; }

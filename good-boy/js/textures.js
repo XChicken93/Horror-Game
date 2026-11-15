@@ -168,16 +168,6 @@ export function buildTextures() {
     for (let i = 0; i < 32; i += 8) { g.fillStyle = '#9a5a20'; g.fillRect(i, 0, 3, 32); g.fillRect(0, i, 32, 3); g.fillStyle = '#2a3020'; g.fillRect(i + 5, 0, 1, 32); g.fillRect(0, i + 5, 32, 1); }
     g.globalAlpha = 1; noise(g, 32, 32, 18);
   });
-  T.flannel = make(16, 16, (g) => {
-    g.fillStyle = '#6a1414'; g.fillRect(0, 0, 16, 16);
-    g.fillStyle = '#140808'; g.fillRect(0, 4, 16, 4); g.fillRect(4, 0, 4, 16);
-    g.fillStyle = '#2a0c0c'; g.fillRect(12, 0, 1, 16); g.fillRect(0, 12, 16, 1);
-    noise(g, 16, 16, 14);
-  });
-  T.cardigan = make(16, 16, (g) => { g.fillStyle = '#6a5068'; g.fillRect(0, 0, 16, 16); for (let y = 0; y < 16; y += 2) for (let x = (y % 4) / 2; x < 16; x += 2) px(g, x, y, '#5a4058'); noise(g, 16, 16, 10); });
-  T.pajama = make(32, 32, (g) => { g.fillStyle = '#6a84ac'; g.fillRect(0, 0, 32, 32); for (let y = 0; y < 32; y += 4) for (let x = (y % 8) / 2; x < 32; x += 4) { g.fillStyle = '#d8d0a8'; g.fillRect(x, y, 1, 1); } g.fillStyle = 'rgba(40,50,80,0.3)'; for (let x = 0; x < 32; x += 8) g.fillRect(x, 0, 1, 32); noise(g, 32, 32, 12); });
-  T.jeans = make(16, 16, (g) => { g.fillStyle = '#2a3a5a'; g.fillRect(0, 0, 16, 16); noise(g, 16, 16, 20); });
-  T.slacks = make(16, 16, (g) => { g.fillStyle = '#3a3430'; g.fillRect(0, 0, 16, 16); noise(g, 16, 16, 14); });
   T.quilt = make(32, 32, (g) => {
     const cols = ['#7a3a30', '#3a5a6a', '#8a7a50', '#4a6a3a', '#6a4a6a', '#8a5a3a'];
     for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.fillStyle = cols[ri(0, 5)]; g.fillRect(x * 8, y * 8, 8, 8); g.fillStyle = '#d8c8a0'; g.fillRect(x * 8, y * 8, 8, 1); g.fillRect(x * 8, y * 8, 1, 8); }
@@ -381,8 +371,56 @@ export function buildTextures() {
   T.hairFather = make(8, 8, (g) => { g.fillStyle = '#3a2a1a'; g.fillRect(0, 0, 8, 8); noise(g, 8, 8, 14); }, { repeat: false });
   T.hairMother = make(8, 8, (g) => { g.fillStyle = '#6a3a1a'; g.fillRect(0, 0, 8, 8); noise(g, 8, 8, 14); }, { repeat: false });
   T.hairLily = make(8, 8, (g) => { g.fillStyle = '#8a5a2a'; g.fillRect(0, 0, 8, 8); noise(g, 8, 8, 14); }, { repeat: false });
-  T.skin = make(8, 8, (g) => { g.fillStyle = '#b88a6a'; g.fillRect(0, 0, 8, 8); noise(g, 8, 8, 8); }, { repeat: false });
   T.presence = make(16, 16, (g) => { g.fillStyle = '#050505'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#ff5a10'; g.fillRect(3, 6, 3, 2); g.fillRect(10, 6, 3, 2); g.fillStyle = '#ffb040'; g.fillRect(4, 6, 1, 1); g.fillRect(11, 6, 1, 1); g.fillStyle = '#ff3000'; g.fillRect(5, 11, 6, 1); g.fillRect(4, 12, 8, 1); }, { repeat: false });
+
+  // ---- photographic fabrics & skin (retro-realism: photo textures on jagged meshes)
+  const folds = (g, w, h, amt) => {
+    for (let i = 0; i < 7; i++) {
+      const x = rnd() * w, wd = 3 + rnd() * 8;
+      const gr = g.createLinearGradient(x - wd, 0, x + wd, 0);
+      gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.45, `rgba(0,0,0,${amt})`); gr.addColorStop(0.55, `rgba(255,255,255,${amt * 0.5})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = gr; g.fillRect(x - wd, 0, wd * 2, h);
+    }
+    for (let i = 0; i < 4; i++) { // creases across
+      const y = rnd() * h; g.fillStyle = `rgba(0,0,0,${amt * 0.7})`; g.fillRect(0, y, w, 1); g.fillStyle = `rgba(255,255,255,${amt * 0.3})`; g.fillRect(0, y + 1, w, 1);
+    }
+  };
+  const weave = (g, w, h, a) => { const d = g.getImageData(0, 0, w, h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; const v = ((x + y) % 2 ? a : -a) + (rnd() - 0.5) * a * 2; d.data[i] += v; d.data[i + 1] += v; d.data[i + 2] += v; } g.putImageData(d, 0, 0); };
+  T.flannel = make(64, 64, (g) => {
+    g.fillStyle = '#5e1414'; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = 'rgba(12,6,6,0.85)'; for (let k = 0; k < 64; k += 32) { g.fillRect(0, k + 8, 64, 9); g.fillRect(k + 8, 0, 9, 64); }
+    g.fillStyle = 'rgba(20,10,10,0.5)'; for (let k = 0; k < 64; k += 32) { g.fillRect(0, k + 24, 64, 2); g.fillRect(k + 24, 0, 2, 64); }
+    g.fillStyle = 'rgba(200,170,120,0.25)'; for (let k = 0; k < 64; k += 32) { g.fillRect(0, k + 29, 64, 1); g.fillRect(k + 29, 0, 1, 64); }
+    weave(g, 64, 64, 9); folds(g, 64, 64, 0.35);
+    stain(g, 20, 50, 6, '#2a1410', 0.35);
+  });
+  T.jeans = make(64, 64, (g) => {
+    g.fillStyle = '#2c3e5e'; g.fillRect(0, 0, 64, 64);
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) if ((x + y * 2) % 4 === 0) { g.fillStyle = 'rgba(160,180,210,0.18)'; g.fillRect(x, y, 1, 1); }
+    const gr = g.createLinearGradient(0, 0, 64, 0); gr.addColorStop(0.3, 'rgba(180,200,230,0)'); gr.addColorStop(0.5, 'rgba(180,200,230,0.22)'); gr.addColorStop(0.7, 'rgba(180,200,230,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = 'rgba(200,150,60,0.6)'; g.fillRect(0, 0, 1, 64); g.fillRect(2, 0, 1, 64);
+    weave(g, 64, 64, 8); folds(g, 64, 64, 0.4);
+  });
+  T.cardigan = make(64, 64, (g) => {
+    g.fillStyle = '#5c4660'; g.fillRect(0, 0, 64, 64);
+    for (let y = 0; y < 64; y += 3) for (let x = 0; x < 64; x += 4) { g.fillStyle = 'rgba(30,15,30,0.35)'; g.fillRect(x + (y % 6 ? 2 : 0), y, 2, 2); g.fillStyle = 'rgba(200,170,200,0.15)'; g.fillRect(x + 1, y + 1, 1, 1); }
+    for (let i = 0; i < 25; i++) { g.fillStyle = 'rgba(220,200,220,0.35)'; g.fillRect(rnd() * 64, rnd() * 64, 1, 1); } // pilling
+    weave(g, 64, 64, 6); folds(g, 64, 64, 0.35);
+  });
+  T.slacks = make(64, 64, (g) => { g.fillStyle = '#3a3430'; g.fillRect(0, 0, 64, 64); weave(g, 64, 64, 7); folds(g, 64, 64, 0.45); });
+  T.pajama = make(64, 64, (g) => {
+    g.fillStyle = '#6a84ac'; g.fillRect(0, 0, 64, 64);
+    for (let y = 0; y < 64; y += 6) for (let x = (y % 12) / 2; x < 64; x += 6) { g.fillStyle = '#e0d8b0'; g.fillRect(x, y, 2, 2); g.fillStyle = 'rgba(90,60,30,0.6)'; g.fillRect(x + 1, y + 1, 1, 1); }
+    weave(g, 64, 64, 7); folds(g, 64, 64, 0.35); stain(g, 40, 20, 5, '#4a5a70', 0.3);
+  });
+  T.skin = make(64, 64, (g) => {
+    g.fillStyle = '#c8987a'; g.fillRect(0, 0, 64, 64);
+    for (let i = 0; i < 300; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(150,80,60,0.12)' : 'rgba(255,230,210,0.12)'; g.fillRect(rnd() * 64, rnd() * 64, 2 + rnd() * 3, 2 + rnd() * 3); }
+    for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(80,40,30,0.25)'; g.fillRect(rnd() * 64, rnd() * 64, 1, 1); }
+    for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(70,40,90,0.15)'; g.fillRect(rnd() * 64, 0, 1, 64); } // veins
+    noise(g, 64, 64, 18);
+  });
   buildFaces(T);
   return T;
 }

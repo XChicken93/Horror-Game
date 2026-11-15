@@ -3,7 +3,7 @@
 // v = polar angle from the crown. Features are placed with the same coordinates the sculpt uses.
 import * as THREE from '../vendor/three.module.js';
 
-const W = 384, HH = 192, K = W / 256;
+const W = 512, HH = 256, K = W / 256;
 export const X = (th) => W / 2 + (th / (Math.PI * 2)) * W;
 export const Y = (yn) => (Math.acos(Math.max(-1, Math.min(1, yn))) / Math.PI) * HH;
 
@@ -82,6 +82,17 @@ export function paintHead(o) {
   // jawline
   line(g, [[X(-1.2), Y(-0.45)], [X(-0.7), Y(-0.62)], [X(-0.25), Y(-0.7)], [X(0.25), Y(-0.7)], [X(0.7), Y(-0.62)], [X(1.2), Y(-0.45)]], dark, 0.25, 2.2 * K);
 
+  // photo look: harsh on-camera flash, falling off hard toward the ears
+  if (!pres) {
+    blob(g, X(0), Y(0.05), 70 * K, 60 * K, mix(skin, [255, 245, 235], 0.35), 0.35);
+    for (const [th, yn, rx, ry, a] of [[0, 0.45, 18, 7, 0.28], [0, 0.05, 3, 9, 0.35], [0, -0.06, 3.5, 3, 0.45], [-0.5, 0.02, 7, 4, 0.18], [0.5, 0.02, 7, 4, 0.18], [0, -0.6, 6, 3, 0.2]]) {
+      blob(g, X(th), Y(yn), rx * K, ry * K, [255, 250, 240], blank ? a * 0.5 : a);
+    }
+    // moles, blemishes, broken capillaries
+    for (let i = 0; i < 6; i++) ell(g, X((rnd() - 0.5) * 1.4), Y(0.3 - rnd() * 0.9), (0.5 + rnd() * 0.7) * K, (0.5 + rnd() * 0.7) * K, [70, 40, 30], 0.7);
+    for (let i = 0; i < 18; i++) blob(g, X((rnd() - 0.5) * 1.2), Y(0.2 - rnd() * 0.7), 1.2 * K, 1.2 * K, [170, 70, 60], 0.25);
+    if (o.wrinkles) for (let i = 0; i < 14; i++) { const th = (rnd() < 0.5 ? -1 : 1) * (0.3 + rnd() * 0.3), yn = -0.05 - rnd() * 0.15; line(g, [[X(th), Y(yn)], [X(th) + (rnd() - 0.5) * 3 * K, Y(yn) + (rnd() - 0.5) * 3 * K]], [180, 60, 60], 0.35, 0.5 * K); }
+  }
   // ears
   for (const s of [-1, 1]) {
     const ex = X(s * Math.PI / 2), ey = Y(0.05);
@@ -124,9 +135,16 @@ export function paintHead(o) {
       ell(g, cx, cy, 5.8 * K, 2.5 * K, [214, 204, 192]);
       line(g, [[cx + s * 4 * K, cy], [cx + s * 1.8 * K, cy + 0.6 * K]], [190, 70, 60], 0.5, 0.6 * K); // bloodshot
       const ix = cx - s * 0.6 * K;
-      ell(g, ix, cy, 2.4 * K, 2.4 * K, o.iris || [80, 60, 40]);
-      ell(g, ix, cy, 1.1 * K, 1.1 * K, [8, 6, 6]);
-      ell(g, ix - 0.7 * K, cy - 0.8 * K, 0.5 * K, 0.5 * K, [255, 255, 255], 0.9);
+      for (const sd of [-1, 1]) for (let v = 0; v < 3; v++) line(g, [[cx + sd * 5.5 * K, cy + (rnd() - 0.5) * 2 * K], [cx + sd * (3 + rnd()) * K, cy + (rnd() - 0.5) * 1.5 * K]], [180, 50, 50], 0.45, 0.35 * K);
+      const ir = o.iris || [80, 60, 40];
+      ell(g, ix, cy, 2.5 * K, 2.5 * K, mix(ir, [0, 0, 0], 0.55));
+      ell(g, ix, cy, 2.1 * K, 2.1 * K, ir);
+      for (let r = 0; r < 16; r++) { const an = (r / 16) * Math.PI * 2; line(g, [[ix + Math.cos(an) * 0.9 * K, cy + Math.sin(an) * 0.9 * K], [ix + Math.cos(an) * 2.1 * K, cy + Math.sin(an) * 2.1 * K]], rnd() < 0.5 ? mix(ir, [255, 240, 200], 0.35) : mix(ir, [0, 0, 0], 0.4), 0.6, 0.3 * K); }
+      ell(g, ix, cy, 1.05 * K, 1.05 * K, [6, 4, 4]);
+      ell(g, ix - 0.8 * K, cy - 0.9 * K, 0.55 * K, 0.45 * K, [255, 255, 255], 0.95);
+      ell(g, ix + 0.9 * K, cy + 0.7 * K, 0.25 * K, 0.25 * K, [255, 255, 255], 0.6);
+      blob(g, cx, cy - 1.4 * K, 6 * K, 1.6 * K, [40, 20, 15], 0.45); // lid shadow over the eye
+      for (let l = 0; l < 9; l++) { const lx = cx - 5 * K + l * 1.25 * K; line(g, [[lx, cy - 2.2 * K + Math.abs(l - 4) * 0.12 * K], [lx + s * 0.4 * K, cy - 3.4 * K]], [15, 8, 6], 0.8, 0.35 * K); }
       // upper lid & crease, lower lid
       g.save(); g.beginPath(); g.ellipse(cx, cy, 5.8 * K, 2.5 * K, 0, 0, Math.PI * 2); g.clip();
       g.fillStyle = rgba(mix(skin, [80, 40, 30], 0.3)); g.fillRect(cx - 7 * K, cy - 3 * K, 14 * K, 1.4 * K); g.restore();
@@ -163,6 +181,7 @@ export function paintHead(o) {
       ell(g, X(0), my - 1.1 * K, mw, 1.6 * K, mix(lips, [60, 20, 20], 0.2));
       ell(g, X(0), my + 1.5 * K, mw * 0.85, 2.1 * K, lips);
       blob(g, X(0), my + 1.2 * K, mw * 0.5, 1 * K, [255, 220, 210], 0.25);
+      for (let l = 0; l < 14; l++) { const lx = X(0) - mw * 0.8 + l * mw * 0.12; line(g, [[lx, my + 0.4 * K], [lx + (rnd() - 0.5) * 0.4 * K, my + 3 * K]], mix(lips, [60, 20, 20], 0.4), 0.35, 0.3 * K); }
       const down = (o.sad ? 1.6 : 0.6) * K;
       line(g, [[X(0) - mw - 0.5 * K, my + down], [X(0) - mw * 0.5, my + 0.1 * K], [X(0), my + 0.3 * K], [X(0) + mw * 0.5, my + 0.1 * K], [X(0) + mw + 0.5 * K, my + down]], [45, 15, 15], 0.95, 1.0 * K);
       blob(g, X(0), my + 5 * K, 6 * K, 2 * K, dark, 0.25); // under the lip
@@ -218,7 +237,7 @@ export function paintHead(o) {
 
   // grain
   const d = g.getImageData(0, 0, W, HH);
-  for (let i = 0; i < d.data.length; i += 4) { const n = (rnd() - 0.5) * (pres ? 6 : 14); d.data[i] += n; d.data[i + 1] += n; d.data[i + 2] += n; }
+  for (let i = 0; i < d.data.length; i += 4) { const n = (rnd() - 0.5) * (pres ? 6 : 22) + ((i / 4) % 3 === 0 ? (rnd() - 0.5) * 10 : 0); d.data[i] += n; d.data[i + 1] += n; d.data[i + 2] += n; }
   g.putImageData(d, 0, 0);
   return toTex(c);
 }

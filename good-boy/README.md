@@ -33,6 +33,7 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 
 **Look and feel**
 - A custom PS1-style renderer. Lighting and fog are per-vertex (Gouraud) and textures are low-resolution with crunchy nearest-neighbour filtering. The scene renders at 240p and is upscaled, with 15-bit colour and 4×4 ordered dithering. Geometry and textures are rock-steady, with no jitter or warping.
+- **VHS tape and fog.** Chroma bleed, scanlines, white dropout streaks, a slow tracking band of snow, washed-out colour, thick fog, and a camcorder overlay (`PLAY ▶` and a running timestamp from 9:40 PM, December 13th 1998).
 - Carbon-monoxide effects build up over the night: double vision, chromatic split, tunnel vision, a vignette that pulses with your heartbeat, faces that go wrong, and brief blackouts.
 - All 60+ textures are painted procedurally on canvas: wallpapers, the farmhouse floors, faces, the daughter's drawings, the calendar with tomorrow circled, the thermostat cranked to 78.
 
@@ -41,7 +42,10 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 - Every room holds details that tell the story. There are four stockings and four place settings, one of each still for Danny. His sneakers are still on the boot tray. Sympathy cards sit on the coffee table. The CO detector's LED is dark, and its battery lies on the floor below it. A dollhouse of the farmhouse has a little figure in its basement. Lily's drawing puts Danny *under the house*.
 
 **The family**
-- Each family member has sculpted low-poly anatomy: a head with a jaw, brow ridge, eye sockets, nose and cheekbones, a shaped torso, tapered limbs and hands with fingers. Their faces are painted, uncanny-realistic textures, PS1-era photo-face style: bloodshot, tired eyes, eyebags, stubble, creases, freckles and red-rimmed eyes from crying. They blink, close their eyes when asleep, and turn their heads to follow you. When the poison gets into your head, their faces go pale, the eyes turn black, the mouth hangs open and veins show.
+- **Retro-realism.** The family are jagged, faceted low-poly meshes wearing photographic textures: painted faces with harsh camera-flash lighting, oily skin sheen, pores, moles, broken capillaries, bloodshot eyes with detailed irises and lashes, and fabric textures with weave and folds. The realism of the skin on blocky heads is what makes them wrong.
+- **Warped anatomy.** Everyone is almost right. Torsos are slightly too tall, shoulders sunk, necks a touch long, and the arms long and spindly enough that the hands hang near the knees. The thing in the basement is the same body, stretched further.
+- **PS1 NPC movement.** Limbs update in stiff steps at about 8 frames a second while the body slides smoothly underneath, so the feet don't match the speed. Heads snap to look at you with no easing, turns happen in jumps, and everyone has random twitches: head jerks, shoulder spasms, flinches and tilts, more often as the poison builds.
+- Faces blink, close in sleep, and have a "wrong" version: pale skin, fully black eyes, a hanging mouth and veins.
 - Tom, Claire and Lily walk the house on a schedule that runs through the evening, bedtime, the slow poisoning, and sleep that turns into something worse.
 - **Muffled speech.** Lines are voiced by formant synthesis and run through a garbler, so the subtitles show only the words a dog knows (*Biscuit, no, bed, Danny, good boy…*). Everything else comes out as noise. They tell you exactly what's wrong in the first minute, and you can't understand it.
 - They react to you. Barking adds strikes. Whining earns forgiveness. Tugging a sleeve makes them follow you. Leading them to the basement door makes them close it, because they can't face going down there. Three strikes and you get locked in the laundry room. Bringing them objects (Danny's ball, the leash, the battery, Lily's drawing) gets a reaction to each.

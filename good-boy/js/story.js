@@ -920,7 +920,7 @@ export function updateStory(dt) {
     p.root.visible = true;
     const cam = ui.camera;
     const f = dogForward();
-    p.root.position.set(cam.position.x + f.x * 0.55, cam.position.y - p.spec.height * 0.93, cam.position.z + f.z * 0.55);
+    p.root.position.set(cam.position.x + f.x * 0.55, cam.position.y - p.headH - 0.05, cam.position.z + f.z * 0.55);
     p.root.rotation.set(0, dog.yaw, 0);
     p.neck.rotation.set(0.2, 0, Math.sin(S.t * 40) * 0.2);
     P.uRed.value = 0.7;
