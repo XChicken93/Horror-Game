@@ -34,6 +34,14 @@ Use headphones and play in the dark. A first playthrough to the true ending is m
 | hold **R** | **dig** (outside, in the snow) |
 | hold **C** | lie down (hold it in your bed to sleep) |
 
+**You are Biscuit**, the Hales' golden retriever mix: eight years old, with one ear that never stood up. Danny picked you out of a box at the feed store when you were small enough to fit inside his jacket.
+
+**The time limit.** From the moment the furnace lights, a **TIME LIMIT** counts down in the bottom left: how long the air in the house will let the family live. Digging out the furnace pipe outside slows it down. Getting caught by the thing in the dark, or collapsing in the cold, costs time. In the last five minutes it turns red and blinks.
+
+**Cold.** Outside, the cold builds up in you. The screen drains to blue and frost creeps in from the edges as it gets worse, and faster still out in the open field. Go back inside to warm up. If you stay out too long, the cold puts you down, and you come to inside your flap, having lost time.
+
+**Learning words slowly.** Each solved puzzle teaches only about nine new words and saves the rest for later. Every photograph, letter, drawing and keepsake you look at teaches three to five words connected to it, shown underlined, so you understand the family a little at a time.
+
 **You can see yourself.** Biscuit has a body: look down to see your chest, front legs and paws. Everything you do shows. Your paws come up and scratch at a door, leaving claw marks; your legs stretch out in front of you when you lie down; your paws dig and throw snow; your jaw opens with teeth showing when you bark or bite; you lunge and shake your head when you bite, brace and pull when you tug or pull a rope, put your head down to eat, carry or drop something, and shake the snow off when you come back inside. Out in the cold your breath smokes, and you leave paw prints in the snow.
 
 **You always know what to do next.** Under the objective in the top right, a **NEXT** line says exactly what to do, which key to press and where, and it updates the moment you do it. A marker at the top of the screen points toward the target, tells you how far away it is and which room it's in, and says "upstairs", "downstairs, in the basement" or "outside, through your flap" when the target is on another level.
@@ -45,11 +53,13 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 1. **Dinner.** Your bowl is empty. Carry it to the woman, sit for her (X) the way Danny taught you, then eat.
 2. **Lily's crayons.** Lily lost six crayons all over the house, from the laundry room to the parents' room. Sniff for her green scent on them. Two have rolled under furniture (the couch, the parents' bed): lie flat with **C** and stretch in to drag them out. She draws the family and tells you she can hear Danny *under the house*.
 3. **The voice under the house.** At bedtime the furnace lights. The basement door rattles on its hook every time the furnace cycles, and Tom explains why: it pulls air, and only the old latch holds the door shut. Find what Lily hears through the vent in her room. She goes to the basement door but can't reach the hook, so push the kitchen step stool over for her.
-4. **Danny's room.** Claire goes to bed and drops the key she keeps in her pocket. Bring it to Lily so she unlocks Danny's room, shut for a year. Read his furnace checklist, his essay *My Dog Biscuit*, his photographs.
+4. **Danny's room.** Claire goes to bed and puts Danny's key in the cookie jar, high on the kitchen counter. Climb up after it: jump (Space) onto the kitchen chair nearest the counter, then jump from the chair up onto the counter (run at it if you fall short), walk to the jar and push it off (E). It smashes, and the key is in the pieces. Bring it to Lily so she unlocks Danny's room, shut for a year. Read his furnace checklist, his essay *My Dog Biscuit*, his photographs.
 5. **Out back.** Danny's list has one more job: *after a big snow, dig out the furnace pipe by the back door, or the bad air comes back inside.* Pull the storm cover off your dog flap at the end of the hall (the family stops you while they're awake) and go out into the snow. The yard has the old oak with Danny's tire swing, the doghouse he built you, Lily's snowman wearing his scarf, the woodpile, a sheet frozen on the clothesline, and deer tracks along the fence. There are three things to do:
    - **Dig out the furnace pipe** buried in the drift against the house. Afterwards the bad air builds more slowly for the rest of the night.
    - **Find what you and Danny buried.** Nothing on the snow shows where it is; you have to smell it. Dig up the treasure tin under the oak, with Danny's letter to himself in 2010.
-   - **Follow his last trail to the field gate.** So many smells cross there that you have to follow only Danny's (sniff, then **T**). It is where he went, the night you ran after the deer.
+   - **Follow his last trail to the field gate.** Danny's ghost is waiting just past it. It is where he went, the night you ran after the deer.
+
+   Then, if you want, **dig under the gate** (hold **R** at the snow piled against it) and follow his trail across the field, through the gap in the pines, to the frozen pond with a hole in the ice. Something of his is buried in the reeds at the edge. It's colder out there.
 
    The air outside is clean: your head clears out there and the poison's effects fade, then come back when you go in.
 6. **Lights out.** Back inside, lightning takes the power. Every light in the house dies; only the furnace keeps glowing. Lily screams, then stops, and her bed is empty and still warm. Follow only her scent (sniff, **T**) through the dark house and down the basement stairs. Danny's flashlight fell off his nightstand when the thunder hit and clicked on: carry it in your mouth and it lights wherever you look, though the old batteries flicker and cut out at the worst moments. You find Lily standing in front of the furnace, talking to it, saying Danny wants everyone to go to sleep down there. Bark to snap her out of it, then lead her back up to her room while the thing from the furnace comes after you. She is slow, and she is scared of the dark.
@@ -61,6 +71,8 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 ## What's in the prototype
 
 **Look and feel**
+- A frightening title screen: the dark hall at dog height, the title flickering and bleeding red over a heartbeat-pulsing vignette, and at the far end of the hall something standing. Every time the screen flickers, it is a little closer.
+- Things you can pick up catch the light, with small glints rising off them, so you can find them on the floor.
 - A custom PS1-style renderer. Lighting and fog are per-vertex (Gouraud) and textures are low-resolution with crunchy nearest-neighbour filtering. The scene renders at 240p and is upscaled, with 15-bit colour and 4×4 ordered dithering. Geometry and textures are rock-steady, with no jitter or warping.
 - Thick, dark fog swallows the far end of every room.
 - Carbon-monoxide effects build up over the night: double vision, chromatic split, tunnel vision, a vignette that pulses with your heartbeat, faces that go wrong, and brief blackouts.
@@ -109,6 +121,8 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 **Sound**
 - Every sound is synthesised in WebAudio and placed in 3D, modelled on how the real sound is made. Barks are formant-filtered bursts with a chest thump. Creaks and scratches are stick-slip impulse trains through wood resonances. Knocks excite a resonant body. Footsteps are paw pads with nail clicks, or a heel and toe with the odd floorboard creak. Voices have three vowel formants and consonants. There's also the CO alarm's real temporal pattern, the latch rattle, eating, the drawer, paper, and the furnace breathing through a vent like a voice.
 - Biscuit's own body has sounds too: sniffing in short bursts, a growl and teeth snapping on a bite, a thump and a long sigh when you lie down, claws raking snow when you dig, snow squeaking underfoot, the dog flap slapping shut behind you, and collar tags jingling when you shake off the snow. The wind is louder outside.
+- **The world goes on around you.** Outside there are owls in the pines, a coyote far across the fields, a neighbour's dog a long way off and the wind chimes on the back porch. Inside, doors open and close in other rooms, the toilet flushes, Claire clinks dishes at the sink, and the pipes groan. Through the evening Tom, Claire and Lily talk to each other in the next room (about the roads, the tree they haven't put up, where the big flashlight is). You only catch the words if you are close. The wind is soft low gusts indoors and a howl around the eaves outside, rather than a hiss.
+- All the dog sounds were rebalanced to be neutral: a rounder bark with no distortion, quieter paw pads with only the occasional soft claw click, softer scratching, digging and landing, and a gentle tail thump.
 - As the poison takes hold, the whole mix gets muffled.
 
 ## Endings (6)

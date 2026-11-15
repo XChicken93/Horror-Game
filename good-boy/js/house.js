@@ -51,6 +51,7 @@ function wallZ(z, x0, x1, y0, y1, matN, matS, openings = [], t = 0.12) {
     if (op.a > x) box(x, y0, z - t / 2, op.a, y1, z + t / 2, mats, { solid: true });
     if (op.y0 > y0) box(op.a, y0, z - t / 2, op.b, op.y0, z + t / 2, mats, { solid: true });
     if (op.y1 < y1) box(op.a, op.y1, z - t / 2, op.b, y1, z + t / 2, mats, { solid: true });
+    if (op.y0 > y0) colliders.push({ minX: op.a, maxX: op.b, minZ: z - t / 2, maxZ: z + t / 2, minY: op.y0 - 0.05, maxY: op.y1 }); // the glass
     // door/window frame
     const fm = ps1Mat({ map: T.trim });
     box(op.a - 0.06, op.y0, z - t / 2 - 0.02, op.a, op.y1, z + t / 2 + 0.02, fm);
@@ -71,6 +72,7 @@ function wallX(x, z0, z1, y0, y1, matW, matE, openings = [], t = 0.12) {
     if (op.a > z) box(x - t / 2, y0, z, x + t / 2, y1, op.a, mats, { solid: true });
     if (op.y0 > y0) box(x - t / 2, y0, op.a, x + t / 2, op.y0, op.b, mats, { solid: true });
     if (op.y1 < y1) box(x - t / 2, op.y1, op.a, x + t / 2, y1, op.b, mats, { solid: true });
+    if (op.y0 > y0) colliders.push({ minX: x - t / 2, maxX: x + t / 2, minZ: op.a, maxZ: op.b, minY: op.y0 - 0.05, maxY: op.y1 }); // the glass
     const fm = ps1Mat({ map: T.trim });
     box(x - t / 2 - 0.02, op.y0, op.a - 0.06, x + t / 2 + 0.02, op.y1, op.a, fm);
     box(x - t / 2 - 0.02, op.y0, op.b, x + t / 2 + 0.02, op.y1, op.b + 0.06, fm);
@@ -624,6 +626,14 @@ export const SURFACES = [
   { name: 'coffee table', x0: 5.45, x1: 6.55, z0: 7.0, z1: 7.6, top: 0.445 },
   { name: 'bench', x0: 2.4, x1: 2.8, z0: 8.0, z1: 9.2, top: 0.48 },
   { name: 'your bed', x0: 3.8, x1: 4.6, z0: 6.68, z1: 7.32, top: 0.12 },
+  // the kitchen: a chair, then the counter
+  { name: 'a kitchen chair', x0: 11.04, x1: 11.46, z0: 6.09, z1: 6.51, top: 0.47 },
+  { name: 'a kitchen chair', x0: 11.04, x1: 11.46, z0: 7.74, z1: 8.16, top: 0.47 },
+  { name: 'a kitchen chair', x0: 9.99, x1: 10.41, z0: 6.89, z1: 7.31, top: 0.47 },
+  { name: 'a kitchen chair', x0: 12.06, x1: 12.56, z0: 6.86, z1: 7.34, top: 0.47 },
+  { name: 'the kitchen table', x0: 10.55, x1: 11.95, z0: 6.6, z1: 7.6, top: 0.785 },
+  { name: 'the counter', x0: 13.38, x1: 14.0, z0: 5.05, z1: 9.55, top: 0.94 },
+  { name: 'the counter', x0: 11.0, x1: 13.6, z0: 9.38, z1: 10.0, top: 0.94 },
 ];
 /** the highest surface under (x, z) that you could be standing on from height y */
 export function surfaceAt(x, z, y) {

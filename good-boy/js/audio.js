@@ -33,9 +33,9 @@ export function initAudio() {
   noiseBuf = mkNoise(ctx, 3, false);
   brownBuf = mkNoise(ctx, 4, true);
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -14; comp.ratio.value = 4;
+  comp.threshold.value = -20; comp.ratio.value = 3.5; comp.knee.value = 14; comp.attack.value = 0.01; comp.release.value = 0.3;
   comp.connect(ctx.destination);
-  A.master = ctx.createGain(); A.master.gain.value = 0.9;
+  A.master = ctx.createGain(); A.master.gain.value = 0.85;
   A.muffle = ctx.createBiquadFilter(); A.muffle.type = 'lowpass'; A.muffle.frequency.value = 18000;
   A.master.connect(A.muffle); A.muffle.connect(comp);
   A.reverb = ctx.createConvolver(); A.reverb.buffer = impulse(ctx, 2.2, 2.6);
@@ -87,24 +87,17 @@ function noiseSrc(brown, loop = true) {
 // Ambient loops
 export function startAmbience(pos) {
   const ctx = A.ctx;
-  // storm wind
+  // storm wind: soft low gusts, and a hollow howl around the eaves when they are strong
   {
-    const s = noiseSrc(true);
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 320; f.Q.value = 0.7;
-    const g = ctx.createGain(); g.gain.value = 0.25;
-    s.connect(f); f.connect(g); out(g, 0.1);
-    const s2 = noiseSrc(false);
-    const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 900; f2.Q.value = 6;
-    const g2 = ctx.createGain(); g2.gain.value = 0.02;
-    s2.connect(f2); f2.connect(g2); out(g2, 0.2);
+    const s1 = noiseSrc(true);
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260; f.Q.value = 0.5;
+    const g = ctx.createGain(); g.gain.value = 0.0;
+    s1.connect(f); f.connect(g); out(g, 0.15);
+    const s2 = noiseSrc(true);
+    const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 520; f2.Q.value = 9;
+    const g2 = ctx.createGain(); g2.gain.value = 0.0;
+    s2.connect(f2); f2.connect(g2); out(g2, 0.3);
     A.loops.wind = { g, f, g2, f2 };
-  }
-  // snow/sleet hiss on the windows
-  {
-    const s = noiseSrc(false);
-    const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 4000;
-    const g = ctx.createGain(); g.gain.value = 0.012;
-    s.connect(f); f.connect(g); out(g, 0);
   }
   // furnace drone (positional, in the basement)
   {
@@ -114,7 +107,7 @@ export function startAmbience(pos) {
     const o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 46;
     const o2 = ctx.createOscillator(); o2.type = 'sawtooth'; o2.frequency.value = 49.5;
     const n = noiseSrc(true); const nf = ctx.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 90; nf.Q.value = 1;
-    const ng = ctx.createGain(); ng.gain.value = 1.4;
+    const ng = ctx.createGain(); ng.gain.value = 0.7;
     o1.connect(lp); o2.connect(lp); n.connect(nf); nf.connect(ng); ng.connect(lp);
     lp.connect(g); g.connect(p); out(p, 0.4);
     o1.start(); o2.start();
@@ -140,9 +133,9 @@ export function startAmbience(pos) {
   // laundry window draught
   {
     const p = panner(11.6, 1.7, 0.1, 0.5, 2.5);
-    const s = noiseSrc(false);
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 3;
-    const g = ctx.createGain(); g.gain.value = 0.08;
+    const s = noiseSrc(true);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 700; f.Q.value = 4;
+    const g = ctx.createGain(); g.gain.value = 0.015;
     s.connect(f); f.connect(g); g.connect(p); out(p, 0.1);
   }
   // heartbeat + tinnitus (non-positional)
@@ -158,11 +151,13 @@ export function updateAmbience(co, t, wind) {
   const L = A.loops;
   const k = now();
   if (L.wind) {
-    const gust = 0.18 + 0.14 * Math.sin(t * 0.21) + 0.08 * Math.sin(t * 0.77 + 1) + wind;
-    L.wind.g.gain.setTargetAtTime(Math.max(0.05, gust), k, 0.3);
-    L.wind.f.frequency.setTargetAtTime(260 + 120 * Math.sin(t * 0.13), k, 0.5);
-    L.wind.g2.gain.setTargetAtTime(Math.max(0, 0.03 * Math.sin(t * 0.31)) + wind * 0.05, k, 0.4);
-    L.wind.f2.frequency.setTargetAtTime(800 + 400 * Math.sin(t * 0.17), k, 0.4);
+    // wind > 0.3 means you are outside in it; inside it is the walls you hear, low and muffled
+    const outK = Math.min(1, Math.max(0, wind) / 0.45);
+    const gust = Math.max(0, 0.5 + 0.35 * Math.sin(t * 0.21) + 0.25 * Math.sin(t * 0.77 + 1));
+    L.wind.g.gain.setTargetAtTime((0.035 + outK * 0.11) * (0.5 + gust), k, 0.6);
+    L.wind.f.frequency.setTargetAtTime(200 + outK * 260 + gust * 120, k, 0.6);
+    L.wind.g2.gain.setTargetAtTime(Math.max(0, gust - 0.75) * (0.02 + outK * 0.05), k, 0.8);
+    L.wind.f2.frequency.setTargetAtTime(430 + 160 * Math.sin(t * 0.17) + gust * 120, k, 0.8);
   }
   if (L.furnace) {
     const on = co > 0.02 ? 1 : 0;
@@ -240,35 +235,28 @@ export function bark(loud = 1) {
   const ctx = A.ctx;
   const n = loud > 0.8 ? 2 : 1;
   for (let i = 0; i < n; i++) {
-    const t0 = now() + i * (0.19 + Math.random() * 0.05);
-    const f0 = 230 + Math.random() * 40;
-    // voiced source: two detuned saws, slightly overdriven
-    const o1 = ctx.createOscillator(); o1.type = 'sawtooth';
-    const o2 = ctx.createOscillator(); o2.type = 'square';
-    for (const o of [o1, o2]) {
-      o.frequency.setValueAtTime(f0 * 1.1, t0);
-      o.frequency.linearRampToValueAtTime(f0 * 2.1, t0 + 0.035);
-      o.frequency.exponentialRampToValueAtTime(f0 * 1.15, t0 + 0.16);
-    }
-    o2.detune.value = 9;
-    const mix = ctx.createGain(); mix.gain.value = 0.5;
-    o1.connect(mix); o2.connect(mix);
-    const sh = shaper(2.5); mix.connect(sh);
-    const breath = noiseSrc(false, false); const bg = ctx.createGain(); env(bg, t0, 0.004, 0.5, 0.12); breath.connect(bg);
-    // vocal tract: "wouf" formants
+    const t0 = now() + i * (0.21 + Math.random() * 0.05);
+    const f0 = 210 + Math.random() * 30;
+    // a medium dog: one voiced source, rounded off, through "woof" formants. No distortion.
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * 1.15, t0);
+    o.frequency.linearRampToValueAtTime(f0 * 1.75, t0 + 0.04);
+    o.frequency.exponentialRampToValueAtTime(f0 * 1.05, t0 + 0.17);
+    const soft = filt('lowpass', 1900, 0.6);
+    o.connect(soft);
+    const breath = noiseSrc(true, false); const bg = ctx.createGain(); env(bg, t0, 0.006, 0.18, 0.1); breath.connect(bg);
     const sum = ctx.createGain(); sum.gain.value = 1;
-    for (const [fr, q, gn] of [[650, 5, 1], [1250, 6, 0.7], [2700, 8, 0.35]]) {
+    for (const [fr, q, gn] of [[560, 4, 1], [1150, 5, 0.55], [2300, 6, 0.18]]) {
       const f = bp(fr, q); const fg = ctx.createGain(); fg.gain.value = gn;
-      sh.connect(f); bg.connect(f); f.connect(fg); fg.connect(sum);
-      f.frequency.setValueAtTime(fr * 0.75, t0); f.frequency.linearRampToValueAtTime(fr, t0 + 0.04); f.frequency.linearRampToValueAtTime(fr * 0.85, t0 + 0.17);
+      soft.connect(f); bg.connect(f); f.connect(fg); fg.connect(sum);
+      f.frequency.setValueAtTime(fr * 0.8, t0); f.frequency.linearRampToValueAtTime(fr, t0 + 0.04); f.frequency.linearRampToValueAtTime(fr * 0.88, t0 + 0.17);
     }
-    const g = ctx.createGain(); env(g, t0, 0.006, 0.9 * loud, 0.2);
+    const g = ctx.createGain(); env(g, t0, 0.01, 0.42 * loud, 0.18);
     sum.connect(g);
-    // chest thump
-    const th = ctx.createOscillator(); th.frequency.setValueAtTime(150, t0); th.frequency.exponentialRampToValueAtTime(70, t0 + 0.08);
-    const tg = ctx.createGain(); env(tg, t0, 0.004, 0.5 * loud, 0.09); th.connect(tg); tg.connect(g);
-    out(g, 0.45);
-    for (const o of [o1, o2, th]) { o.start(t0); o.stop(t0 + 0.3); }
+    const th = ctx.createOscillator(); th.frequency.setValueAtTime(130, t0); th.frequency.exponentialRampToValueAtTime(70, t0 + 0.08);
+    const tg = ctx.createGain(); env(tg, t0, 0.006, 0.18 * loud, 0.08); th.connect(tg); tg.connect(g);
+    out(g, 0.35);
+    for (const x of [o, th]) { x.start(t0); x.stop(t0 + 0.3); }
     breath.stop(t0 + 0.3);
   }
 }
@@ -294,18 +282,18 @@ export function step(kind, x, y, z, vol = 1) {
   if (kind === 'snow') {
     // a paw pressing into deep snow: a soft compression squeak and a crunch
     const n = noiseSrc(false, false); const f = bp(1400 + Math.random() * 900, 1.1); const g = ctx.createGain();
-    env(g, t0, 0.012, 0.22 * vol, 0.11); n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.6, 0.05); n.stop(t0 + 0.25);
+    env(g, t0, 0.012, 0.09 * vol, 0.11); n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.6, 0.05); n.stop(t0 + 0.25);
     const tr = impulseTrain(0.09, 900, 300, 0.9); const tf = bp(3200, 1.5); const tg = ctx.createGain();
-    env(tg, t0 + 0.02, 0.004, 0.18 * vol, 0.08); tr.connect(tf); tf.connect(tg); at(tg, x, y, z, 1, 1.6, 0.05); tr.start(t0 + 0.02);
+    env(tg, t0 + 0.02, 0.004, 0.06 * vol, 0.08); tr.connect(tf); tf.connect(tg); at(tg, x, y, z, 1, 1.6, 0.05); tr.start(t0 + 0.02);
     return;
   }
   if (kind === 'claw' || kind === 'soft' || kind === 'stair') {
     // paw pad thump + nail clicks (no clicks on carpet)
     const pad = noiseSrc(true, false); const pf = filt('lowpass', kind === 'stair' ? 500 : 280); const pg = ctx.createGain();
-    env(pg, t0, 0.004, (kind === 'stair' ? 0.35 : 0.12) * vol, 0.07); pad.connect(pf); pf.connect(pg); at(pg, x, y, z, 1, 1.6, 0.15); pad.stop(t0 + 0.2);
-    if (kind !== 'soft') for (let i = 0; i < 2; i++) {
-      const c = noiseSrc(false, false); const cf = bp(4200 + Math.random() * 1800, 3); const cg = ctx.createGain();
-      env(cg, t0 + 0.01 + i * (0.012 + Math.random() * 0.01), 0.001, 0.07 * vol, 0.012); c.connect(cf); cf.connect(cg); at(cg, x, y, z, 1, 1.6, 0.15); c.stop(t0 + 0.1);
+    env(pg, t0, 0.006, (kind === 'stair' ? 0.18 : 0.06) * vol, 0.07); pad.connect(pf); pf.connect(pg); at(pg, x, y, z, 1, 1.6, 0.15); pad.stop(t0 + 0.2);
+    if (kind !== 'soft' && Math.random() < 0.6) for (let i = 0; i < 1; i++) {
+      const c = noiseSrc(false, false); const cf = bp(2600 + Math.random() * 800, 2); const cg = ctx.createGain();
+      env(cg, t0 + 0.015, 0.002, 0.018 * vol, 0.015); c.connect(cf); cf.connect(cg); at(cg, x, y, z, 1, 1.6, 0.15); c.stop(t0 + 0.1);
     }
     return;
   }
@@ -379,7 +367,7 @@ export function stinger(intensity = 1) {
   const ctx = A.ctx, t0 = now();
   const freqs = [110, 116.5, 155.6, 233, 246.9, 349.2];
   const f = filt('lowpass', 300); f.frequency.setValueAtTime(300, t0); f.frequency.exponentialRampToValueAtTime(3200 * intensity, t0 + 0.4); f.frequency.exponentialRampToValueAtTime(200, t0 + 4);
-  const g = ctx.createGain(); env(g, t0, 0.03, 0.2 * intensity, 4.0);
+  const g = ctx.createGain(); env(g, t0, 0.05, 0.13 * intensity, 4.0);
   f.connect(g); out(g, 0.8);
   for (const fr of freqs) {
     const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr * (1 + (Math.random() - 0.5) * 0.02);
@@ -387,7 +375,7 @@ export function stinger(intensity = 1) {
     o.connect(f); o.start(t0); o.stop(t0 + 4.2);
   }
   // a bowed-metal scrape on top
-  const sc = impulseTrain(2.5, 180, 90, 0.2); const sb = bp(1900, 20); const sg = ctx.createGain(); sg.gain.setValueAtTime(0.0001, t0); sg.gain.linearRampToValueAtTime(0.9 * intensity, t0 + 0.2); sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.5);
+  const sc = impulseTrain(2.5, 180, 90, 0.2); const sb = bp(1900, 20); const sg = ctx.createGain(); sg.gain.setValueAtTime(0.0001, t0); sg.gain.linearRampToValueAtTime(0.35 * intensity, t0 + 0.2); sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.5);
   sc.connect(sb); sb.connect(sg); out(sg, 0.9); sc.start(t0);
 }
 
@@ -448,7 +436,7 @@ export function scratch() {
   for (let i = 0; i < 3; i++) {
     const t0 = now() + i * 0.14;
     const src = impulseTrain(0.11, 600, 300, 0.8);
-    const b = bp(2600 + Math.random() * 1500, 2.5); const g = ctx.createGain(); env(g, t0, 0.005, 0.9, 0.1);
+    const b = bp(1800 + Math.random() * 900, 1.8); const g = ctx.createGain(); env(g, t0, 0.008, 0.3, 0.1);
     src.connect(b); b.connect(g); out(g, 0.3); src.start(t0);
   }
 }
@@ -654,16 +642,16 @@ export function dig(snow = true) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
   // claws raking through packed snow, then the spray landing behind you
-  const tr = impulseTrain(0.16, 1400, 500, 0.9); const f = bp(snow ? 2400 : 1200, 1.2); const g = ctx.createGain();
-  env(g, t0, 0.01, 0.35, 0.13); tr.connect(f); f.connect(g); out(g, 0.1); tr.start(t0);
+  const tr = impulseTrain(0.16, 1200, 400, 0.9); const f = bp(snow ? 1600 : 900, 1.0); const g = ctx.createGain();
+  env(g, t0, 0.015, 0.15, 0.13); tr.connect(f); f.connect(g); out(g, 0.1); tr.start(t0);
   const n = noiseSrc(false, false); const nf = bp(snow ? 1800 : 700, 0.9); const ng = ctx.createGain();
-  env(ng, t0 + 0.1, 0.02, 0.12, 0.18); n.connect(nf); nf.connect(ng); out(ng, 0.15); n.stop(t0 + 0.5);
+  env(ng, t0 + 0.1, 0.03, 0.06, 0.18); n.connect(nf); nf.connect(ng); out(ng, 0.15); n.stop(t0 + 0.5);
 }
 export function thunk(x, y, z, vol = 1) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
   const o = ctx.createOscillator(); o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(60, t0 + 0.12);
-  const g = ctx.createGain(); env(g, t0, 0.002, 0.5 * vol, 0.14); o.connect(g);
+  const g = ctx.createGain(); env(g, t0, 0.004, 0.28 * vol, 0.14); o.connect(g);
   const n = noiseSrc(false, false); const nf = bp(500, 1.0); const ng = ctx.createGain(); env(ng, t0, 0.002, 0.3 * vol, 0.06); n.connect(nf); nf.connect(ng);
   const sum = ctx.createGain(); g.connect(sum); ng.connect(sum); at(sum, x, y, z, 1, 1.4, 0.3);
   o.start(t0); o.stop(t0 + 0.3); n.stop(t0 + 0.2);
@@ -757,10 +745,10 @@ export function startDrone() {
   const o1 = ctx.createOscillator(); o1.frequency.value = 41;
   const o2 = ctx.createOscillator(); o2.frequency.value = 41.7;
   const o3 = ctx.createOscillator(); o3.type = 'triangle'; o3.frequency.value = 61.3;
-  const n = noiseSrc(true, true); const nf = filt('lowpass', 90);
+  const n = noiseSrc(true, true); const nf = filt('lowpass', 60); const nq = ctx.createGain(); nq.gain.value = 0.25; n.connect(nq);
   const g = ctx.createGain(); g.gain.value = 0;
   const hi = ctx.createOscillator(); hi.frequency.value = 3170; const hg = ctx.createGain(); hg.gain.value = 0;
-  o1.connect(g); o2.connect(g); o3.connect(g); n.connect(nf); nf.connect(g); hi.connect(hg);
+  o1.connect(g); o2.connect(g); o3.connect(g); nq.connect(nf); nf.connect(g); hi.connect(hg);
   out(g, 0.2); out(hg, 0.6);
   for (const x of [o1, o2, o3, hi]) x.start();
   A.loops.drone = { g, hg, o3 };
@@ -768,7 +756,7 @@ export function startDrone() {
 export function setDrone(level, t) {
   const L = A.loops.drone; if (!L) return;
   const k = now();
-  L.g.gain.setTargetAtTime(0.05 + level * 0.22 + 0.04 * Math.sin(t * 0.13), k, 1.5);
+  L.g.gain.setTargetAtTime(0.03 + level * 0.15 + 0.02 * Math.sin(t * 0.13), k, 1.5);
   L.hg.gain.setTargetAtTime(level > 0.5 ? (level - 0.5) * 0.012 * (0.5 + 0.5 * Math.sin(t * 0.37)) : 0, k, 2);
   L.o3.frequency.setTargetAtTime(61.3 - level * 4, k, 3);
 }
@@ -776,11 +764,102 @@ export function setDrone(level, t) {
 export function tailThump(x, y, z) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  const n = noiseSrc(true, false); const f = filt('lowpass', 260); const g = ctx.createGain(); env(g, t0, 0.003, 0.22, 0.07);
+  const n = noiseSrc(true, false); const f = filt('lowpass', 220); const g = ctx.createGain(); env(g, t0, 0.005, 0.1, 0.07);
   n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.6, 0.1); n.stop(t0 + 0.15);
 }
 export function wagSwish() {
   if (!A.ready) return;
   const ctx = A.ctx;
   for (let i = 0; i < 6; i++) { const t0 = now() + i * 0.18; const n = noiseSrc(false, false); const f = bp(1500 + (i % 2) * 400, 0.9); const g = ctx.createGain(); env(g, t0, 0.03, 0.035, 0.08); n.connect(f); f.connect(g); out(g, 0.1); n.stop(t0 + 0.15); }
+}
+
+// ---------------------------------------------------------------------------
+// The world going on around you: animals outside, the house's own noises
+export function owl(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  // a great horned owl: hoo, h-hoo, hoo, hoo
+  [[0, 0.32], [0.55, 0.12], [0.72, 0.3], [1.25, 0.34], [1.85, 0.4]].forEach(([st, len]) => {
+    const t0 = now() + st;
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(330, t0); o.frequency.linearRampToValueAtTime(300, t0 + len);
+    const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 660;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.09, t0 + 0.06); g.gain.setValueAtTime(0.09, t0 + len - 0.06); g.gain.linearRampToValueAtTime(0.0001, t0 + len);
+    const g2 = ctx.createGain(); g2.gain.value = 0.12; o2.connect(g2); g2.connect(g);
+    o.connect(g); at(g, x, y, z, 6, 0.7, 0.5); o.start(t0); o.stop(t0 + len + 0.05); o2.start(t0); o2.stop(t0 + len + 0.05);
+  });
+}
+export function coyote(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // far off: a rising howl that breaks into yips
+  const o = ctx.createOscillator(); o.type = 'triangle';
+  o.frequency.setValueAtTime(420, t0); o.frequency.linearRampToValueAtTime(880, t0 + 0.8); o.frequency.setValueAtTime(880, t0 + 1.6); o.frequency.linearRampToValueAtTime(600, t0 + 2.4);
+  const v = ctx.createOscillator(); v.frequency.value = 5.5; const vg = ctx.createGain(); vg.gain.value = 14; v.connect(vg); vg.connect(o.frequency);
+  const f = filt('lowpass', 1600);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.06, t0 + 0.4); g.gain.setValueAtTime(0.06, t0 + 2.0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.6);
+  o.connect(f); f.connect(g); at(g, x, y, z, 10, 0.5, 0.8); o.start(t0); v.start(t0); o.stop(t0 + 2.7); v.stop(t0 + 2.7);
+  for (let i = 0; i < 4; i++) {
+    const tt = t0 + 2.7 + i * 0.16;
+    const y2 = ctx.createOscillator(); y2.type = 'triangle'; y2.frequency.setValueAtTime(900, tt); y2.frequency.exponentialRampToValueAtTime(600, tt + 0.1);
+    const yg = ctx.createGain(); env(yg, tt, 0.01, 0.04, 0.09); y2.connect(f); f.connect(yg); y2.connect(yg); at(yg, x, y, z, 10, 0.5, 0.8); y2.start(tt); y2.stop(tt + 0.15);
+  }
+}
+export function farDog(x, y, z) {
+  if (!A.ready) return;
+  // a neighbour's dog, a long way off across the fields: thin, high, swallowed by the snow
+  const ctx = A.ctx;
+  for (let i = 0; i < 3; i++) {
+    const t0 = now() + i * 0.5 + Math.random() * 0.1;
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(380, t0); o.frequency.linearRampToValueAtTime(520, t0 + 0.04); o.frequency.exponentialRampToValueAtTime(360, t0 + 0.14);
+    const f = bp(900, 3); const g = ctx.createGain(); env(g, t0, 0.01, 0.05, 0.13);
+    o.connect(f); f.connect(g); at(g, x, y, z, 12, 0.4, 0.8); o.start(t0); o.stop(t0 + 0.2);
+  }
+}
+export function chimes(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  const notes = [523.3, 587.3, 659.3, 784, 880];
+  for (let i = 0; i < 4; i++) {
+    const t0 = now() + i * (0.2 + Math.random() * 0.4);
+    const fr = notes[Math.floor(Math.random() * notes.length)];
+    const o = ctx.createOscillator(); o.frequency.value = fr; const o2 = ctx.createOscillator(); o2.frequency.value = fr * 2.76;
+    const g = ctx.createGain(); env(g, t0, 0.003, 0.035, 2.2); const g2 = ctx.createGain(); g2.gain.value = 0.3;
+    o.connect(g); o2.connect(g2); g2.connect(g); at(g, x, y, z, 2, 1, 0.4); o.start(t0); o2.start(t0); o.stop(t0 + 2.4); o2.stop(t0 + 2.4);
+  }
+}
+export function flush(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // the handle, the rush, the tank refilling with a thin hiss
+  knockSmall(t0, 0.15);
+  const n = noiseSrc(true, false); const f = bp(500, 0.8); const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0 + 0.1); g.gain.linearRampToValueAtTime(0.14, t0 + 0.4); g.gain.setValueAtTime(0.14, t0 + 2.0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.0);
+  f.frequency.setValueAtTime(400, t0); f.frequency.linearRampToValueAtTime(900, t0 + 1.2); f.frequency.linearRampToValueAtTime(300, t0 + 3);
+  n.connect(f); f.connect(g); at(g, x, y, z, 1.5, 1.2, 0.4); n.stop(t0 + 3.1);
+  const r = noiseSrc(false, false); const rf = bp(1800, 3); const rg = ctx.createGain();
+  rg.gain.setValueAtTime(0.0001, t0 + 2.6); rg.gain.linearRampToValueAtTime(0.025, t0 + 3.0); rg.gain.setValueAtTime(0.025, t0 + 9); rg.gain.linearRampToValueAtTime(0.0001, t0 + 9.5);
+  r.connect(rf); rf.connect(rg); at(rg, x, y, z, 1.5, 1.2, 0.3); r.stop(t0 + 9.6);
+}
+export function doorSomewhere(x, y, z) {
+  if (!A.ready) return;
+  // a door in another room: the hinge, then the latch catching
+  creak(x, y, z, 0.5 + Math.random() * 0.4, 0.5);
+  const t0 = now() + 0.6 + Math.random() * 0.3;
+  const o = ctx2().createOscillator(); o.frequency.setValueAtTime(240, t0); o.frequency.exponentialRampToValueAtTime(90, t0 + 0.06);
+  const g = ctx2().createGain(); env(g, t0, 0.002, 0.18, 0.08); o.connect(g); at(g, x, y, z, 1.5, 1.3, 0.35); o.start(t0); o.stop(t0 + 0.15);
+  const n = noiseSrc(false, false); const f = bp(2600, 4); const ng = ctx2().createGain(); env(ng, t0, 0.001, 0.05, 0.02); n.connect(f); f.connect(ng); at(ng, x, y, z, 1.5, 1.3, 0.3); n.stop(t0 + 0.1);
+}
+function ctx2() { return A.ctx; }
+export function dishes(x, y, z) {
+  if (!A.ready) return;
+  for (let i = 0; i < 4; i++) { const t0 = now() + i * (0.25 + Math.random() * 0.3); const o = A.ctx.createOscillator(); o.frequency.value = 1800 + Math.random() * 1600; const g = A.ctx.createGain(); env(g, t0, 0.001, 0.03, 0.18); o.connect(g); at(g, x, y, z, 1.5, 1.3, 0.3); o.start(t0); o.stop(t0 + 0.25); }
+}
+export function crash(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // a ceramic jar hitting the floor and breaking
+  const n = noiseSrc(false, false); const f = bp(2400, 0.9); const g = ctx.createGain(); env(g, t0, 0.001, 0.4, 0.25);
+  n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.3, 0.4); n.stop(t0 + 0.5);
+  for (let i = 0; i < 9; i++) { const tt = t0 + 0.02 + Math.random() * 0.5; const o = ctx.createOscillator(); o.frequency.value = 2500 + Math.random() * 3000; const og = ctx.createGain(); env(og, tt, 0.001, 0.05, 0.05); o.connect(og); at(og, x, y, z, 1, 1.3, 0.3); o.start(tt); o.stop(tt + 0.1); }
+  const th = ctx.createOscillator(); th.frequency.setValueAtTime(160, t0); th.frequency.exponentialRampToValueAtTime(60, t0 + 0.1); const tg = ctx.createGain(); env(tg, t0, 0.002, 0.3, 0.12); th.connect(tg); at(tg, x, y, z, 1, 1.3, 0.3); th.start(t0); th.stop(t0 + 0.2);
 }

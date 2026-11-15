@@ -17,7 +17,10 @@ export const dog = {
 
 function jump() {
   const d = dog;
-  if (d.frozen || d.air || d.lying > 0.3 || d.digging || d.y < -0.3) return;
+  if (d.frozen || d.lying > 0.3 || d.digging || d.y < -0.3) return;
+  // a moment of grace after stepping off an edge; and a press just before landing still counts
+  if (d.air && !(d.coyote > 0)) { d.jumpBuffer = 0.18; return; }
+  d.coyote = 0;
   d.sitting = false;
   d.air = true; d.vy = 3.75; // about 0.7 m: enough for the couch and the beds
   thunk(d.pos.x, d.y + 0.1, d.pos.z, 0.25);
@@ -260,10 +263,12 @@ export function updateDog(dt, camera, co, t) {
   const surf = d.y > -0.3 ? surfaceAt(d.pos.x, d.pos.z, d.y) : null;
   const fy = Math.max(floorAt(d.pos.x, d.pos.z, d.y), surf ? surf.top : -99);
   d.surface = surf && Math.abs(d.y - surf.top) < 0.05 ? surf : null;
+  d.coyote = Math.max(0, (d.coyote || 0) - dt);
+  d.jumpBuffer = Math.max(0, (d.jumpBuffer || 0) - dt);
   if (d.air) {
     d.vy -= 9.8 * dt; d.y += d.vy * dt;
-    if (d.vy < 0 && d.y <= fy) { d.y = fy; d.air = false; d.vy = 0; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; }
-  } else if (fy < d.y - 0.12) { d.air = true; d.vy = 0; } // walked off the edge
+    if (d.vy < 0 && d.y <= fy) { d.y = fy; d.air = false; d.vy = 0; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; if (d.jumpBuffer > 0) { d.jumpBuffer = 0; jump(); } }
+  } else if (fy < d.y - 0.12) { d.air = true; d.vy = 0; d.coyote = 0.2; } // walked off the edge
   else d.y += (fy - d.y) * Math.min(1, dt * 14);
   d.pos.y = d.y;
   d.landKick = Math.max(0, (d.landKick || 0) - dt * 5);

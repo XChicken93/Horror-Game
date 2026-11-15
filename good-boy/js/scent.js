@@ -128,6 +128,6 @@ export const DANNY_TRAIL = [
 // Out back: Danny's old path from the back door to the oak where you buried things together,
 // and the last trail of all, a year old, from the tree to the field gate.
 export const DANNY_TRAIL_YARD = [[14.3, 4.25], [16.0, 4.6], [17.8, 5.6], [19.6, 6.8], [21.4, 7.6], [22.5, 8.1]];
-export const DANNY_TRAIL_GATE = [[22.5, 8.1], [23.6, 6.6], [24.8, 5.2], [26.2, 4.4], [27.5, 3.95], [29.5, 3.6], [32, 3.0]];
+export const DANNY_TRAIL_GATE = [[22.5, 8.1], [23.6, 6.6], [24.8, 5.2], [26.2, 4.4], [27.5, 3.95], [29.5, 3.6], [32, 3.6], [34.2, 4.0], [35.4, 4.0], [36.6, 3.7]];
 export const DEER_TRAIL = [[27.9, -4.5], [26.0, -3.0], [24.2, -1.0], [23.0, 1.2], [24.5, 2.8], [26.5, 3.6], [27.6, 3.9], [30, 4.5]];
 export const DANNY_TRAIL_DOWN = [[13.3, 3.2, 0], [13.3, 2.0, -1.3], [13.3, 0.6, -2.6], [13.0, -0.5, -2.8], [12.6, -2.2, -2.8], [12.4, -3.1, -2.8]];

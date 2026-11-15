@@ -158,12 +158,13 @@ export const P = {
   uRed: { value: 0 },
   uBlackout: { value: 0 },
   uStretch: { value: 0 },
+  uCold: { value: 0 },
 };
 
 const postFrag = /* glsl */ `
 uniform sampler2D tDiffuse;
 uniform vec2 uRes;
-uniform float uTime, uCO, uFlash, uFade, uSniff, uPulse, uRed, uBlackout, uStretch;
+uniform float uTime, uCO, uFlash, uFade, uSniff, uPulse, uRed, uBlackout, uStretch, uCold;
 varying vec2 vUv;
 float b2(vec2 p){ return mod(p.x + p.y, 2.0) * 2.0 + p.y; }
 float bayer4(vec2 p){
@@ -199,6 +200,11 @@ void main(){
   float v = length(vUv - 0.5);
   c *= 1.0 - smoothstep(0.32, 0.8, v) * (0.38 + h * 0.6 + uPulse * h * 0.35);
   c *= 1.0 - uPulse * 0.22 * h;
+  // cold: everything drains to blue, and frost creeps in from the edges
+  float gl = dot(c, vec3(0.3, 0.59, 0.11));
+  c = mix(c, vec3(gl * 0.75, gl * 0.9, gl * 1.25 + 0.03), uCold * 0.85);
+  float fr = smoothstep(0.32, 0.72, v + hash(floor(vUv * uRes * 0.5)) * 0.06);
+  c = mix(c, vec3(0.72, 0.84, 1.0), fr * uCold * 0.7);
   // flashes, red, blackout
   c += vec3(uFlash * 0.9, uFlash * 0.92, uFlash);
   c = mix(c, c * vec3(1.3, 0.25, 0.2) + vec3(0.12, 0.0, 0.0), uRed);

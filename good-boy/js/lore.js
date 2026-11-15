@@ -261,6 +261,7 @@ DOCS.tin = {
 <p class="hand">Is Dad still sad about Grandpa? He thinks it was his fault. Tell him it wasn't. Somebody should tell him. — Danny, 13</p>`,
   memory: 'You remember the summer dirt, warm on your paws, and his laugh. He let you do most of the digging. He said you were the best digger in Cutter County, and you believed him.',
 };
+DOCS.mitten = { style: 'memory', title: 'A red mitten, frozen stiff in the reeds', memory: 'It was a year under the snow. It still smells of him, very faintly, and of the cold water. He was holding it in his teeth when he called you, to keep his hand free. You remember him calling. You were so far away.' };
 DOCS.doghouse = { style: 'memory', title: 'The doghouse with your name on it', memory: 'He built this for you the summer he was twelve, with the man\'s hammer and too many nails. You never slept in it once. You slept on the end of his bed. He knew. He built it anyway.' };
 DOCS.snowman = { style: 'memory', title: 'A small snowman by the back door', memory: 'The girl built him this afternoon, all by herself, while the woman watched from the window. She gave him Danny\'s blue hockey scarf so he would not be cold.' };
 for (const k of ['lake', 'school', 'puppy', 'christmas', 'furnace', 'birthday', 'porch']) DOCS['photo_' + k] = { style: 'photo', photo: k };
@@ -440,6 +441,18 @@ export function buildLore(scene, M) {
   puzzle.drawing = items.find((i) => i.name === 'drawing');
   puzzle.drawing.gone = true; puzzle.drawing.mesh.visible = false;
   puzzle.drawingDoc = inspect('drawing', 0, 0, 0, 0.8, { item: puzzle.drawing });
+
+  // ---- the cookie jar on the counter, where Claire hides Danny's key ------------
+  const jar = new THREE.Group();
+  const jarM = ps1Mat({ color: 0xd8c8a0, emissive: 0x141008 });
+  prop(0, 0.1, 0, 0.18, 0.2, 0.18, jarM, { parent: jar });
+  prop(0, 0.215, 0, 0.14, 0.03, 0.14, ps1Mat({ color: 0x8a5a3a }), { parent: jar });
+  prop(0, 0.24, 0, 0.04, 0.03, 0.04, ps1Mat({ color: 0x8a5a3a }), { parent: jar });
+  prop(0, 0.1, 0.091, 0.12, 0.06, 0.005, ps1Mat({ color: 0xa04030 }), { parent: jar }); // a painted apple
+  jar.position.set(13.72, 0.94, 7.55); scene.add(jar);
+  refs.jar = jar;
+  spots.jar = new THREE.Vector3(13.72, 0.94, 7.55);
+  puzzle.jarFallen = false;
 
   // ---- Danny's flashlight: knocked off his nightstand. It still works, mostly. ----------
   const fl = new THREE.Group();

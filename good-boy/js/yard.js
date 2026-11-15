@@ -41,7 +41,7 @@ export function buildYard(scene, M) {
   const dark = ps1Mat({ color: 0x0a0908 });
 
   // ---- the ground out back ----------------------------------------------------
-  box(14.06, -0.3, -9, 40, 0.0, 13.3, snow, { uvScale: 2.2 });
+  box(14.06, -0.3, -9.5, 46, 0.0, 14, snow, { uvScale: 2.2 });
   box(-6, -0.3, -9, 14.06, -0.01, -0.06, snow, { uvScale: 2.2 }); // behind the bedrooms
 
   // ---- a roof, so the house looks like a house from outside --------------------
@@ -110,28 +110,41 @@ export function buildYard(scene, M) {
   for (const y of [0.4, 0.8, 1.2]) prop(0, y, 0.65, 0.05, 0.1, 1.3, fence, { parent: gate });
   prop(0, 0.8, 0.65, 0.05, 0.1, 1.5, fence, { parent: gate, rx: 0.65 });
   prop(0, 0.9, 1.27, 0.09, 0.14, 0.09, ps1Mat({ color: 0x5a5a5a }), { parent: gate });
-  solid(27.9, 3.3, 28.1, 4.7, 1.4, 'gate');
+  refs.gateCol = { minX: 27.9, maxX: 28.1, minZ: 3.3, maxZ: 4.7, minY: -0.5, maxY: 1.4, tag: 'gate' }; colliders.push(refs.gateCol);
   spots.gate = new THREE.Vector3(27.45, 0, 4.0);
 
   // ---- beyond the fence: the field running down toward the pond ---------------
   const pine = ps1Mat({ color: 0x0c1410, emissive: 0x020403 });
   const snowCap = ps1Mat({ map: T.drift, emissive: 0x141824 });
-  const tree = (x, z, h) => {
+  const tree = (x, z, h, isSolid = false) => {
     const c = new THREE.Mesh(new THREE.ConeGeometry(h * 0.28, h, 6, 1), pine); c.position.set(x, h / 2, z); scene.add(c);
+    if (isSolid) solid(x - 0.35, z - 0.35, x + 0.35, z + 0.35, 3);
     const s = new THREE.Mesh(new THREE.ConeGeometry(h * 0.16, h * 0.3, 6, 1), snowCap); s.position.set(x, h * 0.86, z); scene.add(s);
   };
   for (let i = 0; i < 26; i++) {
     const z = -9 + i * 1.0 + Math.sin(i * 3.7) * 0.6;
-    if (z > 2 && z < 6) continue; // the gap the path runs through
-    tree(31 + Math.sin(i * 1.9) * 1.4, z, 3.2 + (i * 37 % 10) * 0.25);
+    if (z > 1.6 && z < 6.4) continue; // the gap the path runs through, down to the pond
+    tree(31 + Math.sin(i * 1.9) * 1.4, z, 3.2 + (i * 37 % 10) * 0.25, true);
   }
-  for (let i = 0; i < 12; i++) tree(35 + Math.sin(i * 2.3) * 2, -8 + i * 1.8, 4 + (i * 13 % 7) * 0.4);
+  for (let i = 0; i < 12; i++) { const z = -8 + i * 1.8; if (z > -1 && z < 7) continue; tree(36 + Math.sin(i * 2.3) * 2, z, 4 + (i * 13 % 7) * 0.4, true); }
+  // the edge of the world, past the pond
+  solid(28.1, -9.2, 44, -8.9, 3); solid(28.1, 13.4, 44, 13.7, 3); solid(43.6, -9.2, 44, 13.7, 3);
+  for (let i = 0; i < 14; i++) tree(42.5 + Math.sin(i) * 0.8, -8 + i * 1.6, 4.5 + (i % 4) * 0.5);
   for (let i = 0; i < 14; i++) tree(15 + i * 1.1, -8.2 - Math.sin(i * 1.3) * 0.8, 3.5 + (i * 17 % 6) * 0.3);
   // the dead tree at the pond, far off: you can only see it in the lightning
-  const dead = new THREE.Group(); dead.position.set(38, 0, 2.5); scene.add(dead);
+  const dead = new THREE.Group(); dead.position.set(40.6, 0, 0.6); scene.add(dead);
   prop(0, 1.6, 0, 0.2, 3.2, 0.2, dark, { parent: dead });
   prop(0.5, 2.6, 0, 1.1, 0.08, 0.08, dark, { parent: dead, rz: 0.6 });
   prop(-0.4, 2.2, 0, 0.9, 0.07, 0.07, dark, { parent: dead, rz: -0.7 });
+  // the pond: frozen over, except where it isn't
+  const ice = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, 0.02, 14), ps1Mat({ color: 0x8aa0b8, emissive: 0x1a2430 }));
+  ice.position.set(38.0, 0.01, 3.2); scene.add(ice);
+  const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.6, 0.025, 9), ps1Mat({ color: 0x05080c }));
+  hole.position.set(38.6, 0.02, 3.6); scene.add(hole);
+  for (let i = 0; i < 6; i++) { const a = i * 0.7 + 0.3; prop(38.6 + Math.cos(a) * 0.85, 0.022, 3.6 + Math.sin(a) * 0.85, 0.3, 0.012, 0.08, ps1Mat({ color: 0xc8d4e0 }), { ry: a }); } // broken edges
+  solid(37.85, 2.85, 39.35, 4.35, 2, 'hole'); // you will not go near it
+  for (let i = 0; i < 22; i++) { const a = i / 22 * Math.PI * 2; prop(38.0 + Math.cos(a) * 3.55, 0.3, 3.2 + Math.sin(a) * 3.55, 0.03, 0.6, 0.03, ps1Mat({ color: 0x5a5030 }), { rz: Math.sin(i) * 0.2 }); } // reeds
+  spots.pond = new THREE.Vector3(35.2, 0, 3.4);
   // a deer, standing in the field, watching. Most of the time it is not there.
   const deer = new THREE.Group(); deer.position.set(31.2, 0, -1.2); deer.rotation.y = -Math.PI / 2 + 0.3; scene.add(deer);
   const dm = ps1Mat({ color: 0x2a1c14, emissive: 0x050302 });
@@ -243,6 +256,9 @@ export function buildYard(scene, M) {
   yard.vent = spot('vent', 14.75, 1.6, 4.5, { mound: ventDrift, scent: 'exhaust', reach: 0.95 });
   yard.tin = spot('tin', 22.0, 7.75, 5.5, { scent: 'tin', r: 0.5, h: 0.24, hidden: true, reach: 0.75 });
   yard.bone = spot('bone', 18.6, -3.45, 2.5, { scent: 'bone', r: 0.32, h: 0.16, hidden: true, reach: 0.7 });
+  // snow piled against the bottom of the gate: dig under it
+  yard.gateDig = spot('gateDig', 27.6, 4.0, 4.0, { scent: 'outside', r: 0.55, h: 0.3, reach: 0.9 });
+  yard.mitten = spot('mitten', 34.95, 4.4, 4.0, { scent: 'dannyOld', r: 0.4, h: 0.15, hidden: true, reach: 0.8 });
 
   // the tin, once it is dug up
   const tinM = canvasTex(32, 16, (g) => { g.fillStyle = '#7a1a1a'; g.fillRect(0, 0, 32, 16); g.fillStyle = '#c8a040'; g.fillRect(0, 0, 32, 2); g.fillRect(0, 14, 32, 2); g.font = 'bold 6px monospace'; g.fillText('DANNY+', 2, 8); g.fillText('BISCUIT', 2, 13); for (let i = 0; i < 18; i++) { g.fillStyle = 'rgba(90,50,20,0.7)'; g.fillRect(Math.random() * 32, Math.random() * 16, 2, 1); } });
@@ -259,6 +275,13 @@ export function buildYard(scene, M) {
   yard.boneItem = addItem('bone', 'your old bone', bone, { scent: 'bone' });
   yard.boneItem.gone = true;
 
+  const mit = new THREE.Group();
+  prop(0, 0, 0, 0.12, 0.03, 0.16, ps1Mat({ color: 0xa02018 }), { parent: mit });
+  prop(0.07, 0, -0.03, 0.05, 0.03, 0.07, ps1Mat({ color: 0xa02018 }), { parent: mit, ry: 0.5 });
+  prop(0, 0.016, 0.06, 0.12, 0.005, 0.03, ps1Mat({ color: 0xe8e0d0 }), { parent: mit });
+  mit.position.set(34.95, 0.03, 4.4); scene.add(mit); mit.visible = false;
+  yard.mittenItem = addItem('mitten', "Danny's mitten", mit, { scent: 'danny' });
+  yard.mittenItem.gone = true;
   yard.dirtM = dirtM;
   yard.scene = scene;
   lights[10].on = true;

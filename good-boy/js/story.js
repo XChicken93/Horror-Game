@@ -5,7 +5,7 @@ import { G, P, ps1Mat } from './ps1.js';
 import { T, updateTV, updateWindow, figureWindow, paintFigureWindow } from './textures.js';
 import * as AU from './audio.js';
 import { doors, lights, items, spots, refs, windows, roomAt, floorAt, collide, isOutside, BASE_Y } from './house.js';
-import { Human, speechLog, showSubtitle, learnWords, VOCAB_STATE, speechHook, LABEL } from './humans.js';
+import { Human, speechLog, showSubtitle, learnWords, knows, VOCAB_STATE, speechHook, LABEL } from './humans.js';
 import { emit, SCENT, DANNY_TRAIL, DANNY_TRAIL_DOWN, DANNY_TRAIL_YARD, DANNY_TRAIL_GATE, DEER_TRAIL, TRACK, TRACK_NAME, setTrack, groupOf } from './scent.js';
 import { dog, input, inBasement, dogForward, act, lookAtPoint } from './player.js';
 import { inspectables, puzzle, DOCS, PHOTOS } from './lore.js';
@@ -39,9 +39,34 @@ const WORDS = {
   home: ['dark', 'scared', 'stay', 'here', 'right', 'let', 'go', 'take', 'down', 'boxes', 'things', 'warm', 'sleep', 'together', 'where', 'why', 'see', 'not', 'will', 'anywhere'],
   pond: ['pond', 'ice', 'coat', 'jacket', 'storm', 'looking', 'ran', 'went', 'without', 'deer', 'after', 'christmas', 'wait', 'could', 'thought', 'drawer', 'god', 'head', 'headache', 'tired', 'sleep', 'feel', 'think', 'air', 'wrong', 'everybody', 'worst', 'pressure', 'did', 'why', 'hard', 'killing', 'gone', 'found', 'never', 'blamed', 'sweetheart', 'warning', 'us'],
 };
+// You do not learn a whole language at once. Each puzzle teaches a handful of words and
+// leaves the rest for later; every photograph, letter and drawing you look at teaches a few more.
+const pending = [];
 function learn(group, why) {
-  const fresh = learnWords(WORDS[group]);
+  const list = WORDS[group].filter((w) => !knows(w));
+  const now = list.slice(0, 9), rest = list.slice(9);
+  for (const w of rest) if (!pending.includes(w)) pending.push(w);
+  const extra = pending.filter((w) => !now.includes(w) && !knows(w)).slice(0, 3);
+  const fresh = learnWords([...now, ...extra]);
+  for (const w of fresh) { const i = pending.indexOf(w); if (i >= 0) pending.splice(i, 1); }
   if (fresh.length) { ui.vocab(why, fresh); AU.chime(); }
+}
+const DOC_WORDS = {
+  notebook: ['furnace', 'battery', 'alarm', 'check', 'new', 'broken', 'heat'], essay: ['dog', 'door', 'bus', 'wait', 'snow', 'back', 'always'],
+  letter: ['sorry', 'never', 'blamed', 'sweetheart', 'gone', 'why'], clipping: ['pond', 'ice', 'storm', 'coat', 'jacket', 'looking', 'ran'],
+  tag: ['furnace', 'drawer', 'after', 'christmas', 'warning'], drawing: ['family', 'house', 'under', 'heaven', 'lives'],
+  photo_lake: ['dad', 'lake', 'fish', 'water'], photo_school: ['school', 'bus', 'danny'], photo_puppy: ['jacket', 'little', 'christmas', 'box'],
+  photo_christmas: ['christmas', 'family', 'tree'], photo_furnace: ['furnace', 'flashlight', 'check', 'october'],
+  photo_birthday: ['birthday', 'cake', 'thirteen', 'dark'], photo_porch: ['summer', 'house', 'paint', 'steps'],
+  collar: ['little', 'first'], tin: ['treasure', 'buried', 'dig', 'promise'], doghouse: ['built', 'bed'], snowman: ['scarf', 'cold'], mitten: ['found', 'looked', 'days'],
+};
+function learnSight(id) {
+  if (!once('sight_' + id)) return;
+  const own = (DOC_WORDS[id] || []).filter((w) => !knows(w));
+  const extra = pending.filter((w) => !own.includes(w) && !knows(w)).slice(0, own.length ? 2 : 4);
+  const fresh = learnWords([...own, ...extra]);
+  for (const w of fresh) { const i = pending.indexOf(w); if (i >= 0) pending.splice(i, 1); }
+  if (fresh.length) { ui.vocab('You looked at it for a long time. A few of their words make sense now.', fresh, true); AU.chime(); }
 }
 function setObj(text) { S.obj = text; ui.objective(text); }
 
@@ -348,12 +373,13 @@ function lilyUnhooks() {
 }
 function motherToBed() {
   const { mother, father } = F;
-  say(mother, 'I am going to lie down. My head is killing me.', 'sleepy', { clue: 'Headache, confusion and sleepiness: the first signs of carbon monoxide poisoning.', hl: 'My head is killing me' });
+  say(mother, 'I am going to lie down. My head is killing me. And I am putting Danny\'s key back in the cookie jar, up high, where it stays.', 'sleepy', { clue: 'Headache, confusion and sleepiness: the first signs of carbon monoxide poisoning.', hl: 'My head is killing me' });
   later(2.5, () => {
     lights[0].on = false;
+    later(6, () => AU.flush(0.5, 1.0, 2.8));
     mother.setActivity({ spot: spots.parentBedM.clone(), pose: 'sleep', face: 0 });
     puzzle.letterOut = true; refs.letter.visible = true;
-    puzzle.key.gone = false; puzzle.key.mesh.visible = true;
+    puzzle.keyInJar = true; // up on the counter, where nobody can reach it
   });
   later(25, () => {
     if (S.cut) return;
@@ -364,7 +390,7 @@ function motherToBed() {
       later(14, () => { lights[3].on = false; S.deep = true; });
     });
   });
-  later(8, () => setObj('Danny\'s door has been shut for a year. The woman keeps its key. (The basement is open too.)'));
+  later(8, () => setObj('Danny\'s door has been shut for a year. The woman keeps its key in the cookie jar, high on the kitchen counter.'));
 }
 function lilyUnlocks() {
   const l = F.lily;
@@ -550,6 +576,13 @@ function digDone(sp) {
     const it = yard.tinItem;
     it.gone = false; it.mesh.visible = true; it.mesh.position.set(sp.pos.x, 0.05, sp.pos.z);
     learn('yard', 'You remember digging this hole with him in the summer. You remember every word he said out here.');
+  } else if (sp === yard.gateDig) {
+    refs.gateCol.disabled = true;
+    digHole(27.75, 4.0, 0.45, true); digHole(28.3, 4.0, 0.45, true);
+    showSubtitle('note', '<span class="note">(A hole under the gate, just big enough. His trail goes on, out across the field.)</span>', 3.5);
+  } else if (sp === yard.mitten) {
+    const it = yard.mittenItem;
+    it.gone = false; it.mesh.visible = true;
   } else if (sp === yard.bone) {
     const it = yard.boneItem;
     it.gone = false; it.mesh.visible = true; it.mesh.position.set(sp.pos.x, 0.04, sp.pos.z);
@@ -617,10 +650,20 @@ function updateYard(dt) {
   if (!S.wasOutside && S.outside && once('firstOutside')) ui.card('Outside', 'The air out here is cold and clean, and your head clears. It is the house. Something in the house is making all of you sick.');
   S.wasOutside = S.outside;
   // cold
-  S.cold = Math.max(0, S.cold + (S.outside ? dt : -dt * 2));
+  S.cold = Math.max(0, S.cold + (S.outside ? dt * (dog.pos.x > 28.2 ? 1.6 : 1) : -dt * 2.5));
+  P.uCold.value += (Math.min(1, Math.max(0, (S.cold - 25) / 120)) - P.uCold.value) * Math.min(1, dt * 2);
+  if (S.cold > 160 && !S.coldDown && S.outside) {
+    S.coldDown = true; dog.frozen = true; S.blackout = 3;
+    later(1.2, () => {
+      if (dog.carrying) dropItem(dog.carrying, true);
+      dog.pos.copy(spots.flapIn); dog.y = 0; dog.yaw = Math.PI / 2; S.cold = 60; S.coAcc += 25 / CO_DUR;
+      showSubtitle('note', '<span class="note">(The cold put you down in the snow. You came to inside your flap, shaking, and you lost time.)</span>', 4);
+    });
+    later(3, () => { dog.frozen = false; S.coldDown = false; });
+  }
   dog.shiver = Math.max(0, Math.min(1, (S.cold - 70) / 60));
   dog.panting = S.outside && dog.speed > 3;
-  if (S.cold > 110 && once('coldNote')) showSubtitle('note', '<span class="note">(Your paws are numb and your ears ache. Not too long out here.)</span>', 3);
+  if (S.cold > 90 && once('coldNote')) showSubtitle('note', '<span class="note">(The cold is getting into you; everything is going blue. Go back inside to warm up before it puts you down.)</span>', 4);
   // your breath smokes in the cold
   if (S.outside) {
     S.nextBreath = (S.nextBreath || 0) - dt;
@@ -639,6 +682,17 @@ function updateYard(dt) {
     if (TRACK.group === 3 || S.trackedDannyOut || S.gateWait > 4) { S.fired.add('gate'); gateScene(); }
     else if (S.t - (S.gateNote || -99) > 9) { S.gateNote = S.t; showSubtitle('note', '<span class="note">(His trail ends here, at the gate. So many smells cross here. Stay a moment.)</span>', 3.5); }
   } else S.gateWait = 0;
+  if (S.outside && S.fired.has('gate') && !yard.gateDig.done && dist2d(dog.pos, spots.gate) < 1.6 && once('gateDigNote'))
+    later(12, () => showSubtitle('note', '<span class="note">(His trail goes on under the gate. Snow is piled against the bottom of it. You could dig under. Hold R.)</span>', 4.5));
+  // the pond, where it ends
+  if (S.outside && dog.pos.x > 33 && once('pond')) {
+    const d = F.danny;
+    d.visible = true; d.setPos(39.3, 3.0); d.pose = 'stand'; d.yaw = Math.atan2(dog.pos.x - 39.3, dog.pos.z - 3.0);
+    d.look(dogHead(), 6, S.t); S.ghostState = { kind: 'pond', t: 0 };
+    AU.ventVoice(39.3, 1.2, 3.0);
+    later(2, () => ui.card('The pond', 'The ice is thin here, by the dead tree. It always was. His smell goes out onto it, and stops. You did not come this far, that night. You were across the field, chasing the deer, and you did not hear the ice.'));
+  }
+  if (S.ghostState && S.ghostState.kind === 'pond' && (S.ghostState.t > 6 || dist2d(dog.pos, F.danny.pos) < 3)) { F.danny.visible = false; S.ghostState = null; }
   // the deer, out in the field, only when the lightning shows it
   if (refs.deer) refs.deer.visible = S.outside && S.flash > 0.3 && S.deerShow;
 }
@@ -1193,6 +1247,20 @@ function nearestDoor() {
 }
 const nearStool = () => !inBasement() && dist2d(dog.pos, puzzle.stool.mesh.position) < 0.75;
 const nearRope = () => inBasement() && !puzzle.drawerOpen && dist2d(dog.pos, spots.drawerPull) < 0.75;
+const nearJar = () => !puzzle.jarFallen && dog.surface && dog.surface.name === 'the counter' && dist2d(dog.pos, spots.jar) < 0.75;
+function knockJar() {
+  puzzle.jarFallen = true;
+  act('nudge');
+  S.jarFall = { t: 0, x0: refs.jar.position.x, z0: refs.jar.position.z };
+  later(0.55, () => {
+    AU.crash(13.2, 0.1, 7.55);
+    refs.jar.visible = false;
+    for (let i = 0; i < 7; i++) { const sh = refs.jar.clone(); sh.visible = true; sh.scale.set(0.35 + Math.random() * 0.3, 0.12, 0.35 + Math.random() * 0.3); sh.position.set(13.05 + (Math.random() - 0.5) * 0.6, 0.01, 7.55 + (Math.random() - 0.5) * 0.6); sh.rotation.y = Math.random() * 3; scene.add(sh); }
+    if (puzzle.keyInJar) { puzzle.keyInJar = false; const k = puzzle.key; k.gone = false; k.mesh.visible = true; k.mesh.position.set(12.95, 0.02, 7.7); }
+    const f = F.father;
+    if (awake(f) && !S.deep && sameFloor(f)) { say(f, 'BISCUIT! What did you break? Get DOWN off the counter!', 'sharp'); S.strikes++; }
+  });
+}
 const nearCover = () => !yard.flapOpen && dist2d(dog.pos, v3(13.62, 0, 4.25)) < 0.55;
 const nearFullBowl = () => puzzle.bowl.full && !puzzle.bowl.carried && dist2d(dog.pos, puzzle.bowl.mesh.position) < 0.7;
 
@@ -1210,6 +1278,7 @@ export function onInteract() {
   if (ins && !ins.item) { openInspect(ins); return; }
   if (nearRope()) { act('pull'); pullDrawer(); return; }
   if (nearCover()) { pullCover(); return; }
+  if (nearJar()) { knockJar(); return; }
   if (nearStool()) { grabStool(); return; }
   const h = nearestHuman(1.3);
   if (h) { tug(h); return; }
@@ -1229,6 +1298,7 @@ export function closeInspect() {
   S.inspectOpen = null; dog.frozen = false;
   ui.closeInspect();
   if (def.id === 'notebook') readNotebook();
+  later(0.6, () => learnSight(def.id));
   if (def.id === 'clipping') readClipping();
   if (def.id === 'letter' && once('letterLearn')) learn('room', 'Her letter. Biscuit cannot read it, but he knows her voice when she reads to herself.');
 }
@@ -1347,6 +1417,11 @@ function reactToItem(h, it) {
     if (h === lily) return say(h, 'Danny\'s treasure! He said I could open it when I am big. Did you dig it up? You are not allowed!', 'calm');
     if (h === father) return say(h, 'Your treasure. He made me promise never to dig it up. Not until twenty-ten.', 'sad', { clue: 'Tom had kept that promise. He had never been out to the tree since.', hl: 'He made me promise' });
     return say(h, 'Oh, Biscuit. You two and your holes. He was so proud of that hole.', 'sad');
+  }
+  if (n === 'mitten') {
+    if (h === mother) return say(h, 'Oh. Oh, God. His mitten. I knitted these. We only ever found the one.', 'sad', { clue: 'They searched the pond for days. Biscuit found what they could not.', hl: 'We only ever found the one' });
+    if (h === father) return say(h, 'Where did you... we looked for this. We looked for days.', 'sad');
+    return say(h, 'That is Danny\'s. It is all wet and frozen.', 'whisper');
   }
   if (n === 'bone') {
     if (h === lily) return say(h, 'Ew! Biscuit! That is from outside!', 'calm');
@@ -1599,7 +1674,12 @@ function nextStep() {
       if (pz.dannyOpen) return pz.dannyNotebookRead ? ['Look around Danny\'s room.', null] : ['Read Danny\'s notebook on his desk: walk up to the desk and press E.', v3(10.15, 0, 0.9)];
       if (S.lilyToDanny) return ['Follow Lily to Danny\'s door.', l.pos];
       if (carry === pz.key) return ['Bring the key to Lily in her room. Press E to drop it by her.', l.pos];
-      if (!pz.key.gone && pz.key.mesh.visible) return ['Claire dropped Danny\'s key. Pick it up from the floor by her bed (E).', posOf(pz.key)];
+      if (!pz.key.gone && pz.key.mesh.visible) return ['Danny\'s key fell out of the broken jar. Pick it up off the kitchen floor (E).', posOf(pz.key)];
+      if (pz.keyInJar) {
+        if (dog.surface && dog.surface.name === 'the counter') return ['Walk along the counter to the cookie jar and press E to push it off.', spots.jar];
+        if (dog.surface && dog.surface.name === 'a kitchen chair') return ['Now jump (Space) from the chair up onto the counter. Run at it (Shift) if you fall short.', v3(13.7, 0.94, 7.1)];
+        return ['The key is in the cookie jar, high on the kitchen counter. Jump (Space) onto the kitchen chair nearest the counter first.', v3(12.3, 0.47, 7.1)];
+      }
       return ['Wait. The woman is going to bed.', null];
     case 5:
       if (!yard.flapOpen) return ['Go to your dog flap at the far end of the hall and press E to pull its storm cover off.', v3(13.62, 0, 4.25)];
@@ -1640,6 +1720,58 @@ function nextStep() {
     }
   }
   return ['', null];
+}
+// things you can pick up catch the light now and then, so you can find them on the floor
+function updateGlints(dt) {
+  S.glintT = (S.glintT || 0) - dt;
+  if (S.glintT > 0) return;
+  S.glintT = 0.35;
+  for (const it of items) {
+    if (it.carried || it.gone || !it.mesh.visible || Math.random() > 0.35) continue;
+    const p = posOf(it);
+    if (Math.abs(p.y - dog.y) > 1.6 || dist2d(p, dog.pos) > 8) continue;
+    puff(p.x + (Math.random() - 0.5) * 0.08, p.y + 0.05, p.z + (Math.random() - 0.5) * 0.08, { col: [1, 0.95, 0.75], vy: 0.25, life: 0.55, size: 0.03, spread: 0.02 });
+    puff(p.x, p.y + 0.06, p.z, { col: [1, 0.92, 0.6], vy: 0.1, life: 0.35, size: 0.05, spread: 0.01 });
+  }
+}
+// The world going on: animals out in the dark, doors, water in the pipes, the family talking
+const CHATTER = [
+  [['mother', 'Did you lock the truck?'], ['father', 'Yeah. I think so.']],
+  [['father', 'Roads are going to be bad tomorrow.'], ['mother', 'Then do not go.']],
+  [['mother', 'Lily asked about him again today.'], ['father', 'What did you tell her?'], ['mother', 'The truth. Sort of.']],
+  [['father', 'We should put the tree up this weekend.'], ['mother', 'I can not, Tom. Not this year either.']],
+  [['father', 'Claire, where is the big flashlight?'], ['mother', 'In Danny\'s room. Where it always was.']],
+  [['mother', 'Is it cold in here, or is it me?'], ['father', 'It is you. It is always you.']],
+  [['mother', 'Do you smell something?'], ['father', 'It is just the furnace. It always smells when it first kicks on.']],
+  [['father', 'Lily, teeth. Now, please.'], ['lily', 'I did them already!'], ['father', 'Did you, though.']],
+];
+function updateLife(dt) {
+  if (S.cut || S.ended) return;
+  S.nextLife = (S.nextLife ?? 14) - dt;
+  if (S.nextLife > 0) return;
+  S.nextLife = 14 + Math.random() * 18;
+  const { father: f, mother: m, lily: l } = F;
+  const evening = !S.deep && awake(f) && awake(m) && !f.asleep && !m.asleep && S.ch <= 4;
+  const r = Math.random();
+  if (evening && r < 0.35 && (S.chatI || 0) < CHATTER.length) {
+    // they talk in the next room. You only catch the words if you are close.
+    const pair = CHATTER[S.chatI++];
+    pair.forEach(([who, text], i) => later(i * 3.4, () => {
+      const h = F[who]; if (!awake(h) || h.asleep) return;
+      const far = dist2d(h.pos, dog.pos) > 7 || !sameFloor(h);
+      say(h, text, 'calm', { force: false, cooldown: 1, silentSub: far });
+    }));
+    return;
+  }
+  const pick = Math.random();
+  if (pick < 0.22) AU.owl(26 + Math.random() * 12, 5, -8 + Math.random() * 20);
+  else if (pick < 0.32) AU.coyote(55, 2, -20 + Math.random() * 40);
+  else if (pick < 0.42) AU.farDog(-40, 1, 40);
+  else if (pick < 0.52) AU.chimes(14.3, 2.1, 5.2);
+  else if (pick < 0.68) { const D = [[1.95, 3.5], [5.95, 3.5], [11.45, 3.5], [11.5, 5.0]]; const [x, z] = D[Math.floor(Math.random() * D.length)]; if (Math.hypot(x - dog.pos.x, z - dog.pos.z) > 3) AU.doorSomewhere(x, 1.2, z); }
+  else if (pick < 0.78 && !S.deep) AU.flush(0.5, 1.0, 2.8);
+  else if (pick < 0.88 && m.pose === 'sink') AU.dishes(11.75, 1.0, 9.6);
+  else AU.groan(10, -0.5, 1, 0.3);
 }
 function updateGuide(dt) {
   S.guideT = (S.guideT || 0) - dt;
@@ -1687,6 +1819,7 @@ function computePrompt() {
   if (ins && !ins.item) return '<b>E</b> look again';
   if (nearRope()) return '<b>E</b> pull the rope';
   if (nearCover()) return '<b>E</b> pull the storm cover off your flap';
+  if (nearJar()) return '<b>E</b> push the cookie jar off the counter';
   if (nearStool()) return '<b>E</b> push the stool with your nose';
   const h = nearestHuman(1.3);
   if (h) {
@@ -1908,6 +2041,20 @@ export function updateStory(dt) {
   updateFlashlight(dt);
   updateDread(dt);
   updateGuide(dt);
+  // the time limit: how long the air in the house will let them live
+  if (S.coOn && !S.ended) {
+    const rate = S.yardDone.vent ? 0.55 : 1;
+    ui.timer(Math.max(0, (1 - S.coAcc) * CO_DUR / rate));
+  } else ui.timer(null);
+  updateGlints(dt);
+  updateLife(dt);
+  if (S.jarFall) {
+    // over the edge, tumbling, onto the floor
+    const J = S.jarFall; J.t += dt; const k = Math.min(1, J.t / 0.55);
+    refs.jar.position.set(J.x0 - k * 0.6, 0.94 + 0.08 * Math.sin(k * Math.PI) - 0.94 * k * k, J.z0);
+    refs.jar.rotation.z = k * 1.8;
+    if (k >= 1) S.jarFall = null;
+  }
   // fear: your heart races, you slow down, you shake
   S.fearT = Math.max(0, (S.fearT || 0) - dt);
   dog.fear = Math.min(1, S.fearT / 4 + (S.stalkNear || 0) * 0.5);

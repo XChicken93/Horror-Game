@@ -68,9 +68,9 @@ const ui = {
     el.innerHTML = text.replace(/\s{2}(\[[x ]\])/g, '<br>$1').replace(/\[x\]/g, '<span class="chk done">&#10003;</span>').replace(/\[ \]/g, '<span class="chk"></span>');
     el.classList.add('show');
   },
-  vocab(why, words) {
+  vocab(why, words, small) {
     const el = $('card');
-    el.innerHTML = `<div class="ct">BISCUIT UNDERSTANDS MORE</div><div class="cw">${why}</div><div class="cl">${words.slice(0, 40).map((w) => `<span>${w}</span>`).join('')}${words.length > 40 ? `<span>+${words.length - 40} more</span>` : ''}</div>`;
+    el.innerHTML = `<div class="ct">${small ? 'A FEW NEW WORDS' : 'BISCUIT UNDERSTANDS MORE'}</div><div class="cw">${why}</div><div class="cl">${words.slice(0, 40).map((w) => `<span>${w}</span>`).join('')}${words.length > 40 ? `<span>+${words.length - 40} more</span>` : ''}</div>`;
     el.classList.add('show');
     clearTimeout(cardTimer); cardTimer = setTimeout(() => el.classList.remove('show'), 7000);
   },
@@ -99,6 +99,14 @@ const ui = {
     $('subs').style.opacity = 0;
   },
   closeInspect() { $('inspect').style.display = 'none'; },
+  timer(secs) {
+    const el = $('timer');
+    if (secs === null) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    const m = Math.floor(secs / 60), sec = Math.floor(secs % 60);
+    const txt = `${m}:${String(sec).padStart(2, '0')}`;
+    if (txt !== this._tTxt) { this._tTxt = txt; $('tVal').textContent = txt; el.classList.toggle('low', secs < 300); }
+  },
   guide(text, at, where, d) {
     if (text !== this._gText) { this._gText = text; $('next').innerHTML = text ? `<span>NEXT</span> ${text}` : ''; $('next').style.opacity = text ? 1 : 0; }
     this._gAt = at; this._gWhere = where; this._gD = d;
@@ -172,6 +180,8 @@ const INTRO = [
   'A storm is coming in off the hills.',
   'It has been one year since Danny went away.',
   'Biscuit still waits by the door.',
+  'You are Biscuit: a golden retriever mix, eight years old, with one ear that never stood up.',
+  'Something is wrong with the air tonight.',
 ];
 function startGame() {
   if (started) return;
@@ -196,6 +206,7 @@ function startGame() {
 function endIntro() {
   if (introDone) return;
   introDone = true;
+  S.presence.root.visible = false; S.presence.visible = false; P.uPulse.value = 0;
   $('intro').style.display = 'none';
   $('hud').style.display = 'block';
   input.enabled = true;
@@ -218,12 +229,21 @@ function frame() {
     updateStory(dt * (S.timeScale || 1));
   } else {
     // slow drift through the dark living room behind the title
+    // behind the title: the dark hall from dog height, and at the far end, something
+    // standing. Every time the screen flickers, it is a little closer.
     titleT += dt;
-    camera.position.set(4.5 + Math.sin(titleT * 0.05) * 0.6, 0.45, 8.2);
-    camera.rotation.set(0.05, -0.9 + Math.sin(titleT * 0.07) * 0.25, 0, 'YXZ');
+    camera.position.set(1.3, 0.4 + Math.sin(titleT * 1.6) * 0.004, 4.25);
+    camera.rotation.set(0.04 + Math.sin(titleT * 0.11) * 0.02, -Math.PI / 2 + Math.sin(titleT * 0.07) * 0.06, 0, 'YXZ');
     for (const h of Object.values(family)) h.update(dt, titleT, 0, dog.pos);
     family.danny.root.visible = false;
-    P.uFade.value = 0.35;
+    const pr = S.presence, step = Math.floor(titleT / 6.5);
+    const flick = (titleT % 6.5) < 0.18;
+    pr.setPos(8.6 - Math.min(4.6, step * 0.9), 4.25, 0); pr.yaw = -Math.PI / 2; pr.visible = true;
+    pr.update(dt, titleT, 0, camera.position);
+    pr.root.visible = !flick;
+    $('title').classList.toggle('flick', flick);
+    P.uFade.value = flick ? 0.75 : 0.3;
+    P.uPulse.value = 0.5 + 0.5 * Math.sin(titleT * 5.2);
   }
   updateDoors(dt);
   updateLights(S.t || titleT);
