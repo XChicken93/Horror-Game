@@ -1755,6 +1755,7 @@ function updateLife(dt) {
   const r = Math.random();
   if (evening && r < 0.35 && (S.chatI || 0) < CHATTER.length) {
     // they talk in the next room. You only catch the words if you are close.
+    S.chatI = S.chatI || 0;
     const pair = CHATTER[S.chatI++];
     pair.forEach(([who, text], i) => later(i * 3.4, () => {
       const h = F[who]; if (!awake(h) || h.asleep) return;

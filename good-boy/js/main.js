@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { G, P, makePost } from './ps1.js';
 import { buildTextures, updateWindow } from './textures.js';
-import { buildHouse, updateDoors, updateLights, spots, isOutside } from './house.js';
+import { buildHouse, updateDoors, updateLights, spots, isOutside, items } from './house.js';
 import { buildYard, yard } from './yard.js';
 import { initFx, updateFx } from './fx.js';
 import { makeFamily, setSubtitleEl } from './humans.js';
@@ -275,4 +275,4 @@ function frame() {
 frame();
 
 // debug hooks for testing
-window.__gb = { S, dog, family, input, startGame, endIntro, camera, puzzle, DBG, yard, TRACK };
+window.__gb = { S, dog, family, input, startGame, endIntro, camera, puzzle, DBG, yard, TRACK, items };
