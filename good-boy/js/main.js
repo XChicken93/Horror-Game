@@ -6,7 +6,10 @@ import { makeFamily, setSubtitleEl } from './humans.js';
 import { initScent, updateScent } from './scent.js';
 import { dog, input, initInput, makeSnout, updateDog } from './player.js';
 import * as AU from './audio.js';
-import { S, initStory, updateStory, onBark, onWhine, onInteract } from './story.js';
+import { S, initStory, updateStory, onBark, onWhine, onInteract, closeInspect, skipMontage, DBG } from './story.js';
+import { buildLore, PHOTOS, puzzle } from './lore.js';
+import { T } from './textures.js';
+import { refs } from './house.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game');
@@ -40,14 +43,62 @@ resize();
 buildTextures();
 updateWindow(0, false);
 buildHouse(scene);
+buildLore(scene, refs.M);
 initScent(scene);
 const family = makeFamily(scene);
 makeSnout(camera);
 setSubtitleEl($('subs'));
 
+let cardTimer = null;
 const ui = {
   camera,
-  showEnding(meta, paras, log, id) {
+  objective(text) {
+    const el = $('objective');
+    el.classList.remove('show'); void el.offsetWidth;
+    el.innerHTML = text.replace(/\[x\]/g, '<span class="chk done">&#10003;</span>').replace(/\[ \]/g, '<span class="chk"></span>');
+    el.classList.add('show');
+  },
+  vocab(why, words) {
+    const el = $('card');
+    el.innerHTML = `<div class="ct">BISCUIT UNDERSTANDS MORE</div><div class="cw">${why}</div><div class="cl">${words.slice(0, 40).map((w) => `<span>${w}</span>`).join('')}${words.length > 40 ? `<span>+${words.length - 40} more</span>` : ''}</div>`;
+    el.classList.add('show');
+    clearTimeout(cardTimer); cardTimer = setTimeout(() => el.classList.remove('show'), 7000);
+  },
+  card(title, text) {
+    const el = $('card');
+    el.innerHTML = `<div class="ct">${title}</div><div class="cw">${text}</div>`;
+    el.classList.add('show');
+    clearTimeout(cardTimer); cardTimer = setTimeout(() => el.classList.remove('show'), 9000);
+  },
+  inspect(def) {
+    const d = def.doc || {};
+    const el = $('inspect');
+    const pic = $('inspPic'), doc = $('inspDoc');
+    pic.innerHTML = ''; doc.innerHTML = ''; doc.className = 'doc ' + (d.style || '');
+    $('inspTitle').textContent = d.title || '';
+    if (d.style === 'photo') {
+      const img = new Image(); img.src = PHOTOS[d.photo].toDataURL(); pic.appendChild(img);
+    } else if (d.style === 'drawing') {
+      const img = new Image(); img.src = T.drawing.userData.canvas.toDataURL(); pic.appendChild(img);
+      doc.innerHTML = d.body || '';
+    } else if (d.body) doc.innerHTML = d.body;
+    pic.style.display = pic.childNodes.length ? 'block' : 'none';
+    doc.style.display = d.body ? 'block' : 'none';
+    $('inspMem').innerHTML = d.memory ? `<span>Biscuit remembers</span> ${d.memory}` : '';
+    el.style.display = 'flex';
+    $('subs').style.opacity = 0;
+  },
+  closeInspect() { $('inspect').style.display = 'none'; },
+  montageShow(on) { $('montage').style.display = on ? 'block' : 'none'; $('hud').style.display = on ? 'none' : 'block'; if (on) $('ending').style.display = 'none'; },
+  montageLine(l) {
+    $('mTime').textContent = `◀◀ ${l.time}`;
+    $('mWho').textContent = l.who;
+    $('mText').innerHTML = l.text;
+    $('mNote').innerHTML = l.note ? l.note : '';
+    $('montage').classList.toggle('clue', l.clue);
+  },
+  showEnding(meta, paras, id) {
+    $('hud').style.display = 'none';
     const el = $('ending');
     el.style.display = 'flex';
     $('endNum').textContent = `ENDING ${meta.n} OF 5`;
@@ -56,23 +107,11 @@ const ui = {
     paras.forEach((p, i) => {
       const d = document.createElement('p'); d.textContent = p; d.style.animationDelay = `${1.2 + i * 3.2}s`; body.appendChild(d);
     });
-    const names = { father: 'TOM (DAD)', mother: 'CLAIRE (MOM)', lily: 'LILY, 8', danny: 'DANNY?' };
-    const logEl = $('endLog'); logEl.innerHTML = '';
-    const seen = new Set();
-    for (const l of log) {
-      const key = l.who + l.text; if (seen.has(key)) continue; seen.add(key);
-      const d = document.createElement('div');
-      const clue = /battery|seventy-eight|furnace|headache|feel so good|air|my head|basement|down there|calling/i.test(l.text);
-      d.className = 'line' + (clue ? ' clue' : '');
-      d.innerHTML = `<span class="lw">${names[l.who] || l.who}</span> ${l.text}`;
-      logEl.appendChild(d);
-    }
-    $('endLogWrap').style.animationDelay = `${2 + paras.length * 3.2}s`;
     let found = [];
     try { found = JSON.parse(localStorage.getItem('goodboy_endings') || '[]'); } catch (e) { /* none */ }
     $('endFound').textContent = `endings found: ${found.length} / 5`;
-    $('endFound').style.animationDelay = `${3 + paras.length * 3.2}s`;
-    setTimeout(() => { ui.canRestart = true; }, 4000 + paras.length * 3200);
+    $('endFound').style.animationDelay = `${2 + paras.length * 3.2}s`;
+    setTimeout(() => { ui.canRestart = true; }, 2500 + paras.length * 3200);
   },
 };
 initStory(family, scene, ui);
@@ -81,9 +120,15 @@ initStory(family, scene, ui);
 let started = false, introDone = false;
 initInput(canvas, {
   bark: onBark, whine: onWhine, interact: onInteract,
-  anyKey: (e) => { if (ui.canRestart && (e.key === 'r' || e.key === 'R')) location.reload(); },
+  anyKey: (e) => {
+    if (S.montage) { if (e.key === 'Enter' || e.key === 'Escape') skipMontage(true); else if (e.key === ' ') skipMontage(false); return; }
+    if (ui.canRestart && (e.key === 'r' || e.key === 'R')) location.reload();
+  },
 });
 $('ending').addEventListener('click', () => { if (ui.canRestart) location.reload(); });
+$('montage').addEventListener('click', () => skipMontage(false));
+$('inspect').addEventListener('click', () => closeInspect());
+addEventListener('keydown', (e) => { if (S.inspectOpen && (e.key === 'Escape' || e.key === ' ')) { e.preventDefault(); closeInspect(); } });
 
 try {
   const found = JSON.parse(localStorage.getItem('goodboy_endings') || '[]');
@@ -166,4 +211,4 @@ function frame() {
 frame();
 
 // debug hooks for testing
-window.__gb = { S, dog, family, input, startGame, endIntro, camera };
+window.__gb = { S, dog, family, input, startGame, endIntro, camera, puzzle, DBG };

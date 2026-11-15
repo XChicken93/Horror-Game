@@ -171,7 +171,7 @@ export function updateAmbience(co, t, wind) {
     L.furnace.lp.frequency.setTargetAtTime(120 + co * 180 + breath * 60, k, 0.2);
   }
   if (L.tinnitus) {
-    L.tinnitus.g.gain.setTargetAtTime(Math.max(0, co - 0.55) * 0.02, k, 1.0);
+    L.tinnitus.g.gain.setTargetAtTime(0, k, 1.0);
   }
   // the world gets muffled as the dog loses consciousness
   A.muffle.frequency.setTargetAtTime(18000 - Math.pow(Math.max(0, co - 0.5) * 2, 1.5) * 16500, k, 0.5);
@@ -181,178 +181,359 @@ export function setTV(on) { if (A.loops.tv) A.loops.tv.g.gain.setTargetAtTime(on
 export function setFridge(on) { if (A.loops.fridge) A.loops.fridge.g.gain.setTargetAtTime(on ? 0.05 : 0, now(), 0.1); }
 
 // ---------------------------------------------------------------------------
-// One-shots
+// One-shots. Everything is synthesised, but built the way the real sound works:
+// barks are formant-filtered bursts with a chest thump, creaks are stick-slip
+// impulse trains through wood resonances, knocks excite a resonant body.
 function env(g, t0, a, peak, d) {
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(peak, t0 + a);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
+}
+function bp(f, q) { const n = A.ctx.createBiquadFilter(); n.type = 'bandpass'; n.frequency.value = f; n.Q.value = q; return n; }
+function filt(type, f, q = 0.7) { const n = A.ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = q; return n; }
+let shaperCurve = null;
+function shaper(amount = 3) {
+  const s = A.ctx.createWaveShaper();
+  if (!shaperCurve) { shaperCurve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; shaperCurve[i] = Math.tanh(x * amount); } }
+  s.curve = shaperCurve; return s;
+}
+function at(node, x, y, z, ref = 1, roll = 1.4, wet = 0.35) {
+  if (x === undefined) { out(node, wet); return; }
+  const p = panner(x, y, z, ref, roll); node.connect(p); out(p, wet);
+}
+// a buffer of clicks whose rate wanders: the raw material of wood creaks and scratches
+function impulseTrain(secs, rate0, rate1, jitter = 0.4) {
+  const sr = A.ctx.sampleRate, len = Math.floor(sr * secs);
+  const b = A.ctx.createBuffer(1, len, sr), d = b.getChannelData(0);
+  let t = 0;
+  while (t < len) {
+    const f = t / len, rate = rate0 + (rate1 - rate0) * f + Math.sin(f * 17) * rate0 * 0.3;
+    const amp = (0.4 + Math.random() * 0.6) * Math.sin(Math.PI * Math.min(1, f * 1.2));
+    d[t] = amp; if (t + 1 < len) d[t + 1] = -amp * 0.5;
+    t += Math.max(2, Math.floor((sr / Math.max(5, rate)) * (1 + (Math.random() - 0.5) * jitter)));
+  }
+  const s = A.ctx.createBufferSource(); s.buffer = b; return s;
 }
 
 export function thunder(dist = 1) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now() + 0.3 * dist;
   const s = noiseSrc(true, false);
-  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 300;
+  const f = filt('lowpass', 300);
   const g = ctx.createGain();
   env(g, t0, 0.05, 1.3 / dist, 4.5);
-  f.frequency.setValueAtTime(900, t0); f.frequency.exponentialRampToValueAtTime(120, t0 + 3);
+  f.frequency.setValueAtTime(900, t0); f.frequency.exponentialRampToValueAtTime(110, t0 + 3);
   s.connect(f); f.connect(g); out(g, 0.6);
-  // crackle
-  const c = noiseSrc(false, false); const cf = ctx.createBiquadFilter(); cf.type = 'bandpass'; cf.frequency.value = 1800;
-  const cg = ctx.createGain(); env(cg, t0, 0.01, 0.25 / dist, 0.5);
+  const c = noiseSrc(false, false); const cf = bp(1800, 0.7);
+  const cg = ctx.createGain(); env(cg, t0, 0.01, 0.22 / dist, 0.5);
   c.connect(cf); cf.connect(cg); out(cg, 0.5);
+  // rolling aftershocks
+  for (let i = 1; i < 4; i++) {
+    const r = noiseSrc(true, false); const rf = filt('lowpass', 160); const rg = ctx.createGain();
+    env(rg, t0 + i * (0.5 + Math.random() * 0.6), 0.1, 0.5 / dist / i, 1.5);
+    r.connect(rf); rf.connect(rg); out(rg, 0.6);
+  }
 }
 
 export function bark(loud = 1) {
   if (!A.ready) return;
   const ctx = A.ctx;
-  for (let i = 0; i < (loud > 0.8 ? 2 : 1); i++) {
-    const t0 = now() + i * 0.16;
-    const o = ctx.createOscillator(); o.type = 'sawtooth';
-    o.frequency.setValueAtTime(520 + Math.random() * 60, t0);
-    o.frequency.exponentialRampToValueAtTime(260, t0 + 0.14);
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 1.5;
-    const f2 = ctx.createBiquadFilter(); f2.type = 'peaking'; f2.frequency.value = 2200; f2.gain.value = 8;
-    const n = noiseSrc(false, false); const ng = ctx.createGain(); env(ng, t0, 0.005, 0.25 * loud, 0.08);
-    const g = ctx.createGain(); env(g, t0, 0.01, 0.7 * loud, 0.15);
-    o.connect(f); f.connect(f2); f2.connect(g); n.connect(ng); ng.connect(f);
-    out(g, 0.7);
-    o.start(t0); o.stop(t0 + 0.3); n.stop(t0 + 0.3);
+  const n = loud > 0.8 ? 2 : 1;
+  for (let i = 0; i < n; i++) {
+    const t0 = now() + i * (0.19 + Math.random() * 0.05);
+    const f0 = 230 + Math.random() * 40;
+    // voiced source: two detuned saws, slightly overdriven
+    const o1 = ctx.createOscillator(); o1.type = 'sawtooth';
+    const o2 = ctx.createOscillator(); o2.type = 'square';
+    for (const o of [o1, o2]) {
+      o.frequency.setValueAtTime(f0 * 1.1, t0);
+      o.frequency.linearRampToValueAtTime(f0 * 2.1, t0 + 0.035);
+      o.frequency.exponentialRampToValueAtTime(f0 * 1.15, t0 + 0.16);
+    }
+    o2.detune.value = 9;
+    const mix = ctx.createGain(); mix.gain.value = 0.5;
+    o1.connect(mix); o2.connect(mix);
+    const sh = shaper(2.5); mix.connect(sh);
+    const breath = noiseSrc(false, false); const bg = ctx.createGain(); env(bg, t0, 0.004, 0.5, 0.12); breath.connect(bg);
+    // vocal tract: "wouf" formants
+    const sum = ctx.createGain(); sum.gain.value = 1;
+    for (const [fr, q, gn] of [[650, 5, 1], [1250, 6, 0.7], [2700, 8, 0.35]]) {
+      const f = bp(fr, q); const fg = ctx.createGain(); fg.gain.value = gn;
+      sh.connect(f); bg.connect(f); f.connect(fg); fg.connect(sum);
+      f.frequency.setValueAtTime(fr * 0.75, t0); f.frequency.linearRampToValueAtTime(fr, t0 + 0.04); f.frequency.linearRampToValueAtTime(fr * 0.85, t0 + 0.17);
+    }
+    const g = ctx.createGain(); env(g, t0, 0.006, 0.9 * loud, 0.2);
+    sum.connect(g);
+    // chest thump
+    const th = ctx.createOscillator(); th.frequency.setValueAtTime(150, t0); th.frequency.exponentialRampToValueAtTime(70, t0 + 0.08);
+    const tg = ctx.createGain(); env(tg, t0, 0.004, 0.5 * loud, 0.09); th.connect(tg); tg.connect(g);
+    out(g, 0.45);
+    for (const o of [o1, o2, th]) { o.start(t0); o.stop(t0 + 0.3); }
+    breath.stop(t0 + 0.3);
   }
 }
 
 export function whine() {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  const o = ctx.createOscillator(); o.type = 'triangle';
-  o.frequency.setValueAtTime(850, t0); o.frequency.linearRampToValueAtTime(1350, t0 + 0.35); o.frequency.linearRampToValueAtTime(780, t0 + 0.9);
-  const v = ctx.createOscillator(); v.frequency.value = 7; const vg = ctx.createGain(); vg.gain.value = 25; v.connect(vg); vg.connect(o.frequency);
-  const g = ctx.createGain(); env(g, t0, 0.08, 0.16, 0.85);
-  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 2200;
-  o.connect(f); f.connect(g); out(g, 0.5);
-  o.start(t0); v.start(t0); o.stop(t0 + 1.1); v.stop(t0 + 1.1);
+  const o = ctx.createOscillator(); o.type = 'sawtooth';
+  const pts = [[0, 700], [0.15, 1150], [0.35, 1300], [0.55, 1050], [0.8, 1250], [1.05, 820]];
+  o.frequency.setValueAtTime(pts[0][1], t0);
+  for (const [t, f] of pts) o.frequency.linearRampToValueAtTime(f * (0.95 + Math.random() * 0.1), t0 + t);
+  const v = ctx.createOscillator(); v.frequency.value = 6.5; const vg = ctx.createGain(); vg.gain.value = 30; v.connect(vg); vg.connect(o.frequency);
+  const nose = bp(1300, 2.5), nose2 = bp(2600, 4);
+  const air = noiseSrc(false, false); const ag = ctx.createGain(); ag.gain.value = 0.25; air.connect(ag); ag.connect(nose2);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.14, t0 + 0.1); g.gain.setValueAtTime(0.14, t0 + 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.15);
+  o.connect(nose); o.connect(nose2); nose.connect(g); nose2.connect(g); out(g, 0.4);
+  o.start(t0); v.start(t0); o.stop(t0 + 1.2); v.stop(t0 + 1.2); air.stop(t0 + 1.2);
 }
 
 export function step(kind, x, y, z, vol = 1) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  const s = noiseSrc(false, false);
-  const f = ctx.createBiquadFilter();
-  const g = ctx.createGain();
-  if (kind === 'claw') { f.type = 'highpass'; f.frequency.value = 3500; env(g, t0, 0.002, 0.05 * vol, 0.03); }
-  else if (kind === 'soft') { f.type = 'lowpass'; f.frequency.value = 500; env(g, t0, 0.005, 0.04 * vol, 0.06); }
-  else if (kind === 'stair') { f.type = 'bandpass'; f.frequency.value = 300; f.Q.value = 2; env(g, t0, 0.003, 0.25 * vol, 0.12); }
-  else { f.type = 'lowpass'; f.frequency.value = 220; env(g, t0, 0.005, 0.5 * vol, 0.12); }
-  s.connect(f); f.connect(g);
-  if (x !== undefined) { const p = panner(x, y, z, 1, 1.6); g.connect(p); out(p, 0.25); } else out(g, 0.15);
-  s.stop(t0 + 0.3);
+  if (kind === 'claw' || kind === 'soft' || kind === 'stair') {
+    // paw pad thump + nail clicks (no clicks on carpet)
+    const pad = noiseSrc(true, false); const pf = filt('lowpass', kind === 'stair' ? 500 : 280); const pg = ctx.createGain();
+    env(pg, t0, 0.004, (kind === 'stair' ? 0.35 : 0.12) * vol, 0.07); pad.connect(pf); pf.connect(pg); at(pg, x, y, z, 1, 1.6, 0.15); pad.stop(t0 + 0.2);
+    if (kind !== 'soft') for (let i = 0; i < 2; i++) {
+      const c = noiseSrc(false, false); const cf = bp(4200 + Math.random() * 1800, 3); const cg = ctx.createGain();
+      env(cg, t0 + 0.01 + i * (0.012 + Math.random() * 0.01), 0.001, 0.07 * vol, 0.012); c.connect(cf); cf.connect(cg); at(cg, x, y, z, 1, 1.6, 0.15); c.stop(t0 + 0.1);
+    }
+    return;
+  }
+  // a person: heel, then toe, and sometimes the old floor complains
+  const heel = ctx.createOscillator(); heel.frequency.setValueAtTime(95, t0); heel.frequency.exponentialRampToValueAtTime(45, t0 + 0.09);
+  const hg = ctx.createGain(); env(hg, t0, 0.003, 0.55 * vol, 0.1); heel.connect(hg);
+  const n = noiseSrc(true, false); const nf = filt('lowpass', 420); const ng = ctx.createGain(); env(ng, t0, 0.003, 0.5 * vol, 0.08); n.connect(nf); nf.connect(ng);
+  const toe = noiseSrc(false, false); const tf = bp(900, 1.2); const tg = ctx.createGain(); env(tg, t0 + 0.07, 0.003, 0.08 * vol, 0.05); toe.connect(tf); tf.connect(tg);
+  const sum = ctx.createGain(); hg.connect(sum); ng.connect(sum); tg.connect(sum);
+  at(sum, x, y, z, 1, 1.5, 0.25);
+  heel.start(t0); heel.stop(t0 + 0.2); n.stop(t0 + 0.2); toe.stop(t0 + 0.2);
+  if (Math.random() < 0.12 && x !== undefined) creak(x, y, z, 0.25 + Math.random() * 0.3, 0.45);
 }
 
 export function creak(x, y, z, len = 1.5, vol = 1) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  const o = ctx.createOscillator(); o.type = 'sawtooth';
-  o.frequency.setValueAtTime(70, t0);
-  for (let i = 1; i < 8; i++) o.frequency.linearRampToValueAtTime(60 + Math.random() * 90, t0 + (i / 8) * len);
-  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 12;
-  const am = ctx.createOscillator(); am.frequency.value = 23; const amg = ctx.createGain(); amg.gain.value = 0.5;
-  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.25 * vol, t0 + 0.1); g.gain.linearRampToValueAtTime(0.0001, t0 + len);
-  am.connect(amg); amg.connect(g.gain);
-  o.connect(f); f.connect(g);
-  const p = panner(x, y, z, 1, 1.2); g.connect(p); out(p, 0.5);
-  o.start(t0); am.start(t0); o.stop(t0 + len + 0.1); am.stop(t0 + len + 0.1);
+  const src = impulseTrain(len, 35 + Math.random() * 25, 70 + Math.random() * 60, 0.35);
+  const sum = ctx.createGain(); sum.gain.value = 1;
+  for (const [f, q, gn] of [[340, 14, 1], [780, 16, 0.8], [1650, 18, 0.5], [2900, 12, 0.25]]) {
+    const b = bp(f * (0.9 + Math.random() * 0.2), q); const g = ctx.createGain(); g.gain.value = gn; src.connect(b); b.connect(g); g.connect(sum);
+  }
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(2.2 * vol, t0 + 0.05); g.gain.setValueAtTime(2.2 * vol, t0 + len * 0.8); g.gain.linearRampToValueAtTime(0.0001, t0 + len);
+  sum.connect(g); at(g, x, y, z, 1, 1.2, 0.45);
+  src.start(t0);
 }
 
 export function knock(x, y, z, n = 3, vol = 1) {
   if (!A.ready) return;
   const ctx = A.ctx;
   for (let i = 0; i < n; i++) {
-    const t0 = now() + i * 0.42;
-    const s = noiseSrc(false, false);
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 260; f.Q.value = 3;
-    const o = ctx.createOscillator(); o.frequency.value = 110; const og = ctx.createGain(); env(og, t0, 0.002, 0.6 * vol, 0.12);
-    const g = ctx.createGain(); env(g, t0, 0.002, 1.2 * vol, 0.08);
-    s.connect(f); f.connect(g); o.connect(og);
-    const p = panner(x, y, z, 1, 1); g.connect(p); og.connect(p); out(p, 0.6);
-    o.start(t0); o.stop(t0 + 0.3); s.stop(t0 + 0.3);
+    const t0 = now() + i * (0.38 + Math.random() * 0.06);
+    const s = noiseSrc(false, false); const sg = ctx.createGain(); env(sg, t0, 0.0008, 1, 0.012); s.connect(sg);
+    const sum = ctx.createGain();
+    for (const [f, q, gn] of [[115, 9, 1.2], [260, 10, 0.9], [540, 7, 0.4], [2400, 2, 0.15]]) { const b = bp(f, q); const g = ctx.createGain(); g.gain.value = gn; sg.connect(b); b.connect(g); g.connect(sum); }
+    const out1 = ctx.createGain(); env(out1, t0, 0.001, 2.5 * vol, 0.25); sum.connect(out1);
+    at(out1, x, y, z, 1, 1, 0.55); s.stop(t0 + 0.2);
+  }
+}
+
+export function rattle(x, y, z, vol = 1) {
+  // the basement door shaking against its hook
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  const n = 5 + Math.floor(Math.random() * 6);
+  for (let i = 0; i < n; i++) {
+    const t0 = now() + i * (0.045 + Math.random() * 0.04);
+    const s = noiseSrc(false, false); const sg = ctx.createGain(); env(sg, t0, 0.0008, 1, 0.01); s.connect(sg);
+    const b = bp(320 + Math.random() * 80, 8), b2 = bp(2300 + Math.random() * 500, 25);
+    const g = ctx.createGain(); env(g, t0, 0.001, (0.8 + Math.random() * 0.6) * vol, 0.12);
+    sg.connect(b); sg.connect(b2); b.connect(g); b2.connect(g); at(g, x, y, z, 1, 1.2, 0.4); s.stop(t0 + 0.2);
   }
 }
 
 export function whoomp(x, y, z) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(90, t0); o.frequency.exponentialRampToValueAtTime(30, t0 + 1.2);
-  const g = ctx.createGain(); env(g, t0, 0.02, 1.0, 1.4);
-  const s = noiseSrc(true, false); const sg = ctx.createGain(); env(sg, t0, 0.05, 0.8, 1.6);
+  const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(70, t0); o.frequency.exponentialRampToValueAtTime(28, t0 + 1.4);
+  const g = ctx.createGain(); env(g, t0, 0.04, 1.0, 1.6);
+  const s = noiseSrc(true, false); const sf = filt('lowpass', 500); const sg = ctx.createGain(); env(sg, t0, 0.08, 0.9, 2.2);
+  sf.frequency.setValueAtTime(900, t0); sf.frequency.exponentialRampToValueAtTime(140, t0 + 2);
   const p = panner(x, y, z, 3, 0.6);
-  o.connect(g); s.connect(sg); g.connect(p); sg.connect(p); out(p, 0.6);
-  o.start(t0); o.stop(t0 + 2);
+  o.connect(g); s.connect(sf); sf.connect(sg); g.connect(p); sg.connect(p); out(p, 0.6);
+  o.start(t0); o.stop(t0 + 2.2); s.stop(t0 + 2.5);
+  // the metal ducts tick as they heat
+  for (let i = 0; i < 6; i++) setTimeout(() => knock(x + (Math.random() - 0.5) * 4, y + 1.5, z + (Math.random() - 0.5) * 4, 1, 0.25), 1500 + i * (300 + Math.random() * 700));
 }
 
 export function stinger(intensity = 1) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
   const freqs = [110, 116.5, 155.6, 233, 246.9, 349.2];
-  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(300, t0); f.frequency.exponentialRampToValueAtTime(3500 * intensity, t0 + 0.4); f.frequency.exponentialRampToValueAtTime(200, t0 + 4);
-  const g = ctx.createGain(); env(g, t0, 0.03, 0.22 * intensity, 4.0);
+  const f = filt('lowpass', 300); f.frequency.setValueAtTime(300, t0); f.frequency.exponentialRampToValueAtTime(3200 * intensity, t0 + 0.4); f.frequency.exponentialRampToValueAtTime(200, t0 + 4);
+  const g = ctx.createGain(); env(g, t0, 0.03, 0.2 * intensity, 4.0);
   f.connect(g); out(g, 0.8);
   for (const fr of freqs) {
     const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = fr * (1 + (Math.random() - 0.5) * 0.02);
     o.frequency.linearRampToValueAtTime(fr * 0.94, t0 + 4);
     o.connect(f); o.start(t0); o.stop(t0 + 4.2);
   }
+  // a bowed-metal scrape on top
+  const sc = impulseTrain(2.5, 180, 90, 0.2); const sb = bp(1900, 20); const sg = ctx.createGain(); sg.gain.setValueAtTime(0.0001, t0); sg.gain.linearRampToValueAtTime(0.9 * intensity, t0 + 0.2); sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.5);
+  sc.connect(sb); sb.connect(sg); out(sg, 0.9); sc.start(t0);
 }
 
 export function scream() {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
   const g = ctx.createGain(); env(g, t0, 0.01, 0.9, 1.4);
-  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1600; f.Q.value = 0.8;
-  f.connect(g); out(g, 0.7);
-  for (let i = 0; i < 5; i++) {
+  const sh = shaper(4); sh.connect(g); out(g, 0.7);
+  const sum = ctx.createGain();
+  for (const [fr, q] of [[900, 4], [1700, 5], [3100, 6]]) { const b = bp(fr, q); sum.connect(b); b.connect(sh); }
+  for (let i = 0; i < 4; i++) {
     const o = ctx.createOscillator(); o.type = 'sawtooth';
-    o.frequency.setValueAtTime(700 + i * 137, t0); o.frequency.exponentialRampToValueAtTime(180 + i * 40, t0 + 1.4);
-    o.connect(f); o.start(t0); o.stop(t0 + 1.5);
+    o.frequency.setValueAtTime(380 + i * 23, t0); o.frequency.linearRampToValueAtTime(520 + i * 31, t0 + 0.25); o.frequency.exponentialRampToValueAtTime(140 + i * 17, t0 + 1.4);
+    const v = ctx.createOscillator(); v.frequency.value = 11 + i; const vg = ctx.createGain(); vg.gain.value = 25; v.connect(vg); vg.connect(o.frequency);
+    o.connect(sum); o.start(t0); v.start(t0); o.stop(t0 + 1.5); v.stop(t0 + 1.5);
   }
-  const s = noiseSrc(false, false); const sg = ctx.createGain(); env(sg, t0, 0.005, 0.6, 1.0); s.connect(sg); sg.connect(f); s.stop(t0 + 1.5);
+  const s = noiseSrc(false, false); const sg = ctx.createGain(); env(sg, t0, 0.005, 0.5, 1.0); s.connect(sg); sg.connect(sum); s.stop(t0 + 1.5);
+  // the furnace roar under it
+  const r = noiseSrc(true, false); const rf = filt('lowpass', 220); const rg = ctx.createGain(); env(rg, t0, 0.02, 1.4, 1.8); r.connect(rf); rf.connect(rg); out(rg, 0.4); r.stop(t0 + 2);
 }
 
 export function heartbeat(vol) {
   if (!A.ready || vol <= 0.01) return;
   const ctx = A.ctx;
   for (let i = 0; i < 2; i++) {
-    const t0 = now() + i * 0.22;
-    const o = ctx.createOscillator(); o.frequency.setValueAtTime(65, t0); o.frequency.exponentialRampToValueAtTime(38, t0 + 0.15);
-    const g = ctx.createGain(); env(g, t0, 0.01, (i ? 0.5 : 0.8) * vol, 0.2);
-    o.connect(g); out(g, 0); o.start(t0); o.stop(t0 + 0.3);
+    const t0 = now() + i * 0.24;
+    const o = ctx.createOscillator(); o.frequency.setValueAtTime(58, t0); o.frequency.exponentialRampToValueAtTime(34, t0 + 0.16);
+    const g = ctx.createGain(); env(g, t0, 0.012, (i ? 0.45 : 0.75) * vol, 0.22);
+    const n = noiseSrc(true, false); const nf = filt('lowpass', 120); const ng = ctx.createGain(); env(ng, t0, 0.01, 0.3 * vol, 0.12); n.connect(nf); nf.connect(ng); ng.connect(g);
+    o.connect(g); out(g, 0); o.start(t0); o.stop(t0 + 0.35); n.stop(t0 + 0.35);
   }
 }
 
 export function clockTick(x, y, z, vol) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  const s = noiseSrc(false, false);
-  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3000; f.Q.value = 8;
-  const g = ctx.createGain(); env(g, t0, 0.001, 0.25 * vol, 0.03);
-  s.connect(f); f.connect(g); const p = panner(x, y, z, 0.6, 2); g.connect(p); out(p, 0.2);
-  s.stop(t0 + 0.1);
+  const s = noiseSrc(false, false); const sg = ctx.createGain(); env(sg, t0, 0.0005, 1, 0.004); s.connect(sg);
+  const b = bp(3200, 18), b2 = bp(1450, 12); const g = ctx.createGain(); env(g, t0, 0.001, 0.9 * vol, 0.05);
+  sg.connect(b); sg.connect(b2); b.connect(g); b2.connect(g); at(g, x, y, z, 0.6, 2, 0.2); s.stop(t0 + 0.1);
 }
 
 export function pickup() {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  const s = noiseSrc(false, false); const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 2;
-  const g = ctx.createGain(); env(g, t0, 0.01, 0.12, 0.15); s.connect(f); f.connect(g); out(g, 0.1); s.stop(t0 + 0.3);
+  // a soft mouth-grab: breath and a little jaw click
+  const s = noiseSrc(false, false); const f = bp(1100, 1.5); const g = ctx.createGain(); env(g, t0, 0.01, 0.14, 0.12); s.connect(f); f.connect(g); out(g, 0.1); s.stop(t0 + 0.3);
+  knockSmall(t0 + 0.05, 0.12);
+}
+function knockSmall(t0, vol) {
+  const ctx = A.ctx;
+  const s = noiseSrc(false, false); const sg = ctx.createGain(); env(sg, t0, 0.0006, 1, 0.006); s.connect(sg);
+  const b = bp(1800, 6); const g = ctx.createGain(); env(g, t0, 0.001, vol, 0.04); sg.connect(b); b.connect(g); out(g, 0.1); s.stop(t0 + 0.1);
 }
 
 export function scratch() {
   if (!A.ready) return;
   const ctx = A.ctx;
-  for (let i = 0; i < 4; i++) {
-    const t0 = now() + i * 0.09;
-    const s = noiseSrc(false, false); const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2500 + Math.random() * 1500; f.Q.value = 4;
-    const g = ctx.createGain(); env(g, t0, 0.005, 0.2, 0.07); s.connect(f); f.connect(g); out(g, 0.3); s.stop(t0 + 0.2);
+  for (let i = 0; i < 3; i++) {
+    const t0 = now() + i * 0.14;
+    const src = impulseTrain(0.11, 600, 300, 0.8);
+    const b = bp(2600 + Math.random() * 1500, 2.5); const g = ctx.createGain(); env(g, t0, 0.005, 0.9, 0.1);
+    src.connect(b); b.connect(g); out(g, 0.3); src.start(t0);
   }
+}
+
+export function eat() {
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  for (let i = 0; i < 9; i++) {
+    const t0 = now() + i * (0.13 + Math.random() * 0.08);
+    const s = noiseSrc(false, false); const f = bp(2200 + Math.random() * 1500, 1.4); const g = ctx.createGain(); env(g, t0, 0.002, 0.25, 0.05 + Math.random() * 0.04);
+    s.connect(f); f.connect(g); out(g, 0.1); s.stop(t0 + 0.2);
+    if (i % 3 === 0) knockSmall(t0 + 0.02, 0.15); // tags hitting the steel bowl
+  }
+}
+
+export function drawer(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  const src = impulseTrain(0.6, 120, 60, 0.6);
+  const b = bp(700, 3); const g = ctx.createGain(); env(g, t0, 0.02, 1.5, 0.6);
+  src.connect(b); b.connect(g); at(g, x, y, z, 1, 1.2, 0.4); src.start(t0);
+  setTimeout(() => { knock(x, y - 0.5, z, 1, 0.9); paper(x, y - 0.8, z); }, 650);
+}
+
+export function paper(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  for (let i = 0; i < 5; i++) {
+    const t0 = now() + i * (0.04 + Math.random() * 0.06);
+    const s = noiseSrc(false, false); const f = filt('highpass', 2500 + Math.random() * 2000); const g = ctx.createGain(); env(g, t0, 0.004, 0.12, 0.05 + Math.random() * 0.08);
+    s.connect(f); f.connect(g); at(g, x, y, z, 1, 1.5, 0.15); s.stop(t0 + 0.2);
+  }
+}
+
+// the carbon monoxide alarm: piercing T4 pattern
+let alarmTimer = null;
+export function alarm(on, x, y, z) {
+  if (!A.ready) return;
+  clearInterval(alarmTimer); alarmTimer = null;
+  if (!on) return;
+  const beepSet = () => {
+    for (let i = 0; i < 4; i++) {
+      const t0 = now() + i * 0.2;
+      const o = A.ctx.createOscillator(); o.type = 'square'; o.frequency.value = 3150;
+      const g = A.ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.16, t0 + 0.005); g.gain.setValueAtTime(0.16, t0 + 0.1); g.gain.linearRampToValueAtTime(0.0001, t0 + 0.11);
+      const f = bp(3150, 2); o.connect(f); f.connect(g); at(g, x, y, z, 2.5, 0.6, 0.4);
+      o.start(t0); o.stop(t0 + 0.12);
+    }
+  };
+  beepSet(); alarmTimer = setInterval(beepSet, 5000 / 2);
+}
+
+// the furnace breathing through the heating vent, which sounds almost like a voice
+export function ventVoice(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  const syl = 4;
+  const sum = ctx.createGain(); sum.gain.value = 0;
+  for (let i = 0; i < syl; i++) {
+    const ts = t0 + i * 0.42;
+    const s = noiseSrc(true, false);
+    const f1 = bp([500, 800, 600, 900][i], 7), f2 = bp([1100, 1300, 900, 1500][i], 9);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, ts); g.gain.linearRampToValueAtTime(1.6, ts + 0.12); g.gain.linearRampToValueAtTime(0.0001, ts + 0.4);
+    s.connect(f1); s.connect(f2); f1.connect(g); f2.connect(g); g.connect(sum); s.stop(ts + 0.5);
+  }
+  const rumble = noiseSrc(true, false); const rf = filt('lowpass', 120); const rg = ctx.createGain(); env(rg, t0, 0.3, 0.6, 2.2); rumble.connect(rf); rf.connect(rg); rg.connect(sum); rumble.stop(t0 + 3);
+  sum.gain.setValueAtTime(0.5, t0);
+  const metal = filt('peaking', 1800, 8); metal.gain.value = 9; sum.connect(metal);
+  at(metal, x, y, z, 1, 1.6, 0.7);
+}
+
+export function rewindWhir(dur = 0.5) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  const o = ctx.createOscillator(); o.type = 'triangle';
+  o.frequency.setValueAtTime(900, t0); o.frequency.exponentialRampToValueAtTime(140, t0 + dur);
+  const g = ctx.createGain(); env(g, t0, 0.02, 0.05, dur);
+  const n = noiseSrc(false, false); const nf = bp(2400, 1); const ng = ctx.createGain(); env(ng, t0, 0.02, 0.05, dur);
+  o.connect(g); n.connect(nf); nf.connect(ng); out(g, 0.3); out(ng, 0.3);
+  o.start(t0); o.stop(t0 + dur + 0.1); n.stop(t0 + dur + 0.1);
+}
+
+export function chime() {
+  // understanding: a soft two-note bell when Biscuit learns words
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  [[659.3, 0], [987.8, 0.18]].forEach(([f, d]) => {
+    const t0 = now() + d;
+    for (const [m, gn] of [[1, 0.12], [2.76, 0.03], [5.4, 0.015]]) {
+      const o = ctx.createOscillator(); o.frequency.value = f * m; const g = ctx.createGain(); env(g, t0, 0.005, gn, 2.2);
+      o.connect(g); out(g, 0.6); o.start(t0); o.stop(t0 + 2.4);
+    }
+  });
 }
 
 // lullaby: an original little melody, hummed. Detunes as the night goes on.
@@ -387,39 +568,53 @@ export function lullaby(getPos, co, dur = 0.55, startDelay = 0) {
 }
 
 // ---------------------------------------------------------------------------
-// Muffled human speech. Each syllable is a formant-filtered buzz through a lowpass.
+// Human speech heard by a dog: a glottal buzz shaped by three vowel formants, with
+// consonant bursts between syllables. `clarity` (0..1) rises as Biscuit understands more.
 const VOICES = {
-  father: { f0: 98, formants: [600, 1100], lp: 900 },
-  mother: { f0: 195, formants: [750, 1300], lp: 1100 },
-  lily: { f0: 290, formants: [900, 1700], lp: 1400 },
-  danny: { f0: 150, formants: [500, 900], lp: 600 },
+  father: { f0: 104, scale: 1.0 },
+  mother: { f0: 196, scale: 1.12 },
+  lily: { f0: 285, scale: 1.25 },
+  danny: { f0: 150, scale: 1.08 },
 };
-export function speak(who, nSyl, tone, getPos) {
+const VOWELS = [[730, 1090, 2440], [530, 1840, 2480], [270, 2290, 3010], [570, 840, 2410], [300, 870, 2240], [660, 1720, 2410], [490, 1350, 1690]];
+export function speak(who, nSyl, tone, getPos, clarity = 0.3) {
   if (!A.ready) return 0;
   const ctx = A.ctx, v = VOICES[who] || VOICES.father;
   const p = panner(...getPos(), 1.2, 1.1);
-  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = v.lp;
-  const master = ctx.createGain(); master.gain.value = tone === 'sharp' ? 0.5 : tone === 'whisper' ? 0.18 : 0.32;
-  lp.connect(master); master.connect(p); out(p, tone === 'whisper' ? 0.6 : 0.3);
+  const muffle = filt('lowpass', 1100 + clarity * 2600, 0.5);
+  const master = ctx.createGain();
+  master.gain.value = tone === 'sharp' ? 0.55 : tone === 'whisper' ? 0.3 : 0.38;
+  muffle.connect(master); master.connect(p); out(p, tone === 'whisper' ? 0.6 : 0.3);
   let t = now() + 0.05;
-  const rate = tone === 'sharp' ? 0.12 : tone === 'sad' ? 0.22 : tone === 'sleepy' ? 0.26 : tone === 'whisper' ? 0.17 : 0.16;
+  const rate = tone === 'sharp' ? 0.13 : tone === 'sad' ? 0.21 : tone === 'sleepy' ? 0.24 : tone === 'whisper' ? 0.17 : 0.16;
+  const base = v.f0 * (tone === 'sharp' ? 1.3 : tone === 'sad' ? 0.93 : tone === 'sleepy' ? 0.86 : 1);
   for (let i = 0; i < nSyl; i++) {
-    const d = rate * (0.6 + Math.random() * 0.8);
-    let f0 = v.f0 * (tone === 'sharp' ? 1.25 : tone === 'sad' ? 0.92 : tone === 'sleepy' ? 0.85 : 1);
-    const contour = tone === 'sad' || tone === 'sleepy' ? 1 - (i / nSyl) * 0.15 : 1 + Math.sin(i * 1.3) * 0.08;
-    f0 *= contour * (0.95 + Math.random() * 0.1);
+    const d = rate * (0.65 + Math.random() * 0.7);
+    // declination + a rise at questions/phrase ends
+    const contour = 1 - (i / Math.max(1, nSyl)) * (tone === 'sharp' ? 0.05 : 0.18) + (i === nSyl - 1 && tone !== 'sad' ? 0.06 : 0);
+    const f0 = base * contour * (0.96 + Math.random() * 0.08);
+    // consonant onset
+    if (Math.random() < 0.65) {
+      const c = noiseSrc(false, false); const cf = bp(2500 + Math.random() * 3500, 1.5); const cg = ctx.createGain();
+      env(cg, t, 0.003, tone === 'whisper' ? 0.5 : 0.25, 0.03 + Math.random() * 0.03); c.connect(cf); cf.connect(cg); cg.connect(muffle); c.stop(t + 0.1);
+      t += 0.025;
+    }
+    const vw = VOWELS[Math.floor(Math.random() * VOWELS.length)];
     let src;
     if (tone === 'whisper') { src = noiseSrc(false, false); src.stop(t + d + 0.05); }
-    else { src = ctx.createOscillator(); src.type = 'sawtooth'; src.frequency.setValueAtTime(f0, t); src.frequency.linearRampToValueAtTime(f0 * (0.9 + Math.random() * 0.2), t + d); src.start(t); src.stop(t + d + 0.05); }
-    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(1, t + 0.03); g.gain.linearRampToValueAtTime(0.0001, t + d);
-    const vowel = Math.random();
-    for (const [j, fm] of v.formants.entries()) {
-      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fm * (0.75 + vowel * 0.5) * (j ? 1 + vowel * 0.3 : 1); bp.Q.value = 5;
-      src.connect(bp); bp.connect(g);
+    else {
+      src = ctx.createOscillator(); src.type = 'sawtooth';
+      src.frequency.setValueAtTime(f0, t); src.frequency.linearRampToValueAtTime(f0 * (0.94 + Math.random() * 0.1), t + d);
+      const jit = ctx.createOscillator(); jit.frequency.value = 5 + Math.random() * 2; const jg = ctx.createGain(); jg.gain.value = f0 * 0.012; jit.connect(jg); jg.connect(src.frequency); jit.start(t); jit.stop(t + d + 0.05);
+      src.start(t); src.stop(t + d + 0.05);
     }
-    g.connect(lp);
-    t += d + (Math.random() < 0.18 ? 0.12 : 0.02);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(1, t + 0.025); g.gain.setValueAtTime(1, t + d * 0.7); g.gain.linearRampToValueAtTime(0.0001, t + d);
+    vw.forEach((fm, j) => {
+      const b = bp(fm * v.scale, [6, 9, 12][j]); const bg = ctx.createGain(); bg.gain.value = [1, 0.55, 0.25][j];
+      src.connect(b); b.connect(bg); bg.connect(g);
+    });
+    g.connect(muffle);
+    t += d + (Math.random() < 0.2 ? 0.14 : 0.015);
   }
-  const total = t - now();
-  return { total, p };
+  return { total: t - now(), p };
 }

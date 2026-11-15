@@ -440,7 +440,6 @@ export function buildHouse(sc) {
   // fridge
   prop(9.55, 0.9, 9.62, 0.75, 1.8, 0.7, ps1Mat({ map: T.fridge }), { solid: true });
   // dog bowls by the fridge
-  prop(10.3, 0.04, 9.6, 0.24, 0.07, 0.24, M.metal);
   prop(10.6, 0.04, 9.6, 0.24, 0.07, 0.24, M.metal);
   prop(10.6, 0.075, 9.6, 0.18, 0.01, 0.18, ps1Mat({ color: 0x3a4a6a }));
   spots.bowl = new THREE.Vector3(10.45, 0, 9.2);
@@ -667,3 +666,4 @@ export function roomAt(x, z, y = 0) {
   if (x < 12.5) return 'laundry';
   return 'stairs';
 }
+export { light, addItem };

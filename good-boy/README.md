@@ -14,7 +14,7 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
-Use headphones and play in the dark. A full night lasts about 16 minutes if nothing ends it early.
+Use headphones and play in the dark. A full playthrough to the true ending takes roughly 25–40 minutes.
 
 ## Controls
 
@@ -24,10 +24,23 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 | **Shift** | run |
 | **Space** | bark (wakes sleepers, annoys the family, makes the furnace answer) |
 | **Q** | whine (calms them down, earns forgiveness) |
-| **E** | take or drop something in your mouth · tug a sleeve (they follow you) · nudge a sleeper · scratch a door |
+| **E** | look closer at photos and letters · take or drop something in your mouth · push the stool · pull a rope · eat · tug a sleeve · nudge a sleeper · scratch a door |
 | hold **E** | bite |
 | hold **F** / right mouse | **sniff**: the world goes grey and you see scent trails. Each person has a colour, Danny's old trail is gold, and the *wrong* smell is grey. |
 | hold **C** | lie down (hold it in your bed to sleep) |
+
+## The story, in six chapters
+
+Biscuit starts out understanding about twenty-five words. **Each puzzle you solve teaches him more**, so the family's garbled speech fills in as the night goes on, until by the end you understand every word.
+
+1. **Dinner.** Your bowl is empty. Carry it to the woman so she remembers to feed you, then eat.
+2. **Lily's crayons.** Lily lost four crayons around the house. Find them (sniff for her green scent) and bring them back. She draws the family and tells you she can hear Danny *under the house*.
+3. **The voice under the house.** At bedtime the furnace lights. The basement door rattles on its hook every time the furnace cycles, and Tom explains why: it pulls air, and only the old latch holds the door shut. Find what Lily hears through the vent in her room. She goes to the basement door but can't reach the hook, so push the kitchen step stool over for her.
+4. **Danny's room.** Claire goes to bed and drops the key she keeps in her pocket. Bring it to Lily so she unlocks Danny's room, shut for a year. Read his furnace checklist, his essay *My Dog Biscuit*, his photographs.
+5. **Under the house.** Danny's gold ghost guides you to his boxes. Read the newspaper clipping about how he died. Pull the workbench drawer's rope for the red tag. Taking either one wakes the thing from the furnace, so carry each up the stairs before it catches you.
+6. **Wake them.** Tom and Claire won't wake to barking any more. Bring the CO alarm's battery to Lily so she puts it back. When the alarm screams, Tom stumbles in and pulls it out again. Show him the red tag, then Danny's jacket, and lead him out the front door.
+
+**Why Danny died, and why the furnace was never checked.** It all comes out through hall photographs, Claire's letter, Danny's room, the clipping and the tag. **Danny is not the monster.** He is a warm, gold figure who guides you. The thing that chases you is the furnace's poison, given a shape by a poisoned dog's mind, and the game tells you so the first time you see it.
 
 ## What's in the prototype
 
@@ -47,8 +60,8 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 - **PS1 NPC movement.** Limbs update in stiff steps at about 8 frames a second while the body slides smoothly underneath, so the feet don't match the speed. Heads snap to look at you with no easing, turns happen in jumps, and everyone has random twitches: head jerks, shoulder spasms, flinches and tilts, more often as the poison builds.
 - Faces blink, close in sleep, and have a "wrong" version: pale skin, fully black eyes, a hanging mouth and veins.
 - Tom, Claire and Lily walk the house on a schedule that runs through the evening, bedtime, the slow poisoning, and sleep that turns into something worse.
-- **Muffled speech.** Lines are voiced by formant synthesis and run through a garbler, so the subtitles show only the words a dog knows (*Biscuit, no, bed, Danny, good boy…*). Everything else comes out as noise. They tell you exactly what's wrong in the first minute, and you can't understand it.
-- They react to you. Barking adds strikes. Whining earns forgiveness. Tugging a sleeve makes them follow you. Leading them to the basement door makes them close it, because they can't face going down there. Three strikes and you get locked in the laundry room. Bringing them objects (Danny's ball, the leash, the battery, Lily's drawing) gets a reaction to each.
+- **Speech you slowly learn.** Lines are voiced by formant synthesis and run through a garbler that shows only the words Biscuit knows. The vocabulary grows with each solved puzzle, and the voices get less muffled as he understands more.
+- They react to you. Barking adds strikes and three strikes get you locked in the laundry room. Whining earns forgiveness. Tugging a sleeve makes them follow you. Every object has a reaction from each person.
 
 **Horror**
 - A furnace that breathes, its grille growing teeth as the night goes on.
@@ -56,11 +69,10 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 - Light and footsteps under Danny's locked door, and a whisper from inside.
 - Danny's shape at the end of the hall, walking down into the basement.
 - A lullaby coming up from the basement while the mother is asleep upstairs.
-- Lily standing in her dark doorway: *"Danny is calling me. From down there."*
-- When you take the jacket, **the thing in the basement** wakes up and chases you up the stairs. If it catches you, you get a jumpscare and wake up back where you started.
+- When you take the jacket or the red tag, **the thing from the furnace** wakes up and chases you up the stairs. If it catches you, you get a jumpscare, wake up in the basement, and lose time.
 
 **Sound**
-- Every sound is synthesised in WebAudio and placed in 3D: the storm, sleet, thunder, the furnace drone, the fridge hum, the kitchen clock, TV static, footsteps on wood, carpet and stairs, creaking doors, knocking, barks and whines, the heartbeat, tinnitus, stingers and the lullaby.
+- Every sound is synthesised in WebAudio and placed in 3D, modelled on how the real sound is made. Barks are formant-filtered bursts with a chest thump. Creaks and scratches are stick-slip impulse trains through wood resonances. Knocks excite a resonant body. Footsteps are paw pads with nail clicks, or a heel and toe with the odd floorboard creak. Voices have three vowel formants and consonants. There's also the CO alarm's real temporal pattern, the latch rattle, eating, the drawer, paper, and the furnace breathing through a vent like a voice.
 - As the poison takes hold, the whole mix gets muffled.
 
 ## Endings (5)
@@ -71,15 +83,15 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 | 2 | **THE LONG WAIT** | Be by the front door when the night ends |
 | 3 | **THE LAUNDRY ROOM** | Be locked in the laundry room (under its cracked window) when the night ends |
 | 4 | **BAD DOG** | Bite one of them once the poison is strong |
-| 5 | **HOME** *(true ending)* | Find Danny's jacket in the basement, escape what's down there, and bring it to someone who is awake |
+| 5 | **HOME** *(true ending)* | Finish all six chapters and lead Tom out of the front door |
 
-Every ending finishes with **"What they said tonight"**: a full, unscrambled transcript of every line the family spoke, with the clues highlighted. That's when you find out you were told everything in the first minute.
+Every ending starts with a **rewind**. The camera runs back through every moment of dialogue, in reverse, at the spot it happened, now in plain English. It stops on the lines that mattered and highlights them with a note on what they really meant.
 
 ## Code map
 
 | File | Purpose |
 | --- | --- |
-| `js/ps1.js` | PS1 material (vertex lighting, snapping, affine UVs, fog) and post-processing (dither, hallucination) |
+| `js/ps1.js` | PS1 material (vertex lighting, skinning, fog) and post-processing (dither, hallucination) |
 | `js/textures.js` | procedural canvas textures |
 | `js/house.js` | geometry, colliders, doors, lights, props, items |
 | `js/humans.js` | skinned family bodies (skeleton + continuous skin), sculpted heads, animation, pathfinding, speech garbler |
@@ -87,7 +99,8 @@ Every ending finishes with **"What they said tonight"**: a full, unscrambled tra
 | `js/player.js` | dog controller and input |
 | `js/scent.js` | scent-vision particles |
 | `js/audio.js` | procedural audio |
-| `js/story.js` | timeline, reactions, scares, the presence, endings |
+| `js/story.js` | chapters, puzzles, vocabulary, reactions, scares, the presence, endings, the rewind |
+| `js/lore.js` | Danny's room, photographs, letters, the clipping and tag, puzzle props |
 | `js/main.js` | bootstrap and render loop |
 
 `vendor/three.module.js` is three.js r160 (MIT, see `vendor/THREE_LICENSE`).

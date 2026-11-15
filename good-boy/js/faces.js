@@ -265,7 +265,9 @@ export function buildFaces(T) {
     T['head' + n + 'W'] = paintHead({ ...o, state: 'wrong' });
     T['hair' + n] = hairTex(o.hair);
   }
-  T.headDanny = paintHead({ skin: [130, 136, 144], hair: [70, 72, 80], style: 'short', state: 'blank', seed: 51 });
-  T.hairDanny = hairTex([70, 72, 80]);
+  const dannyFace = { skin: [214, 176, 150], hair: [90, 52, 24], iris: [70, 110, 150], style: 'short', freckles: true, seed: 51 };
+  T.headDanny = paintHead({ ...dannyFace, state: 'open' });
+  T.headDannyClosed = paintHead({ ...dannyFace, state: 'closed' });
+  T.hairDanny = hairTex([90, 52, 24]);
   T.headPresence = paintHead({ skin: [6, 5, 5], style: 'none', state: 'presence', seed: 66 });
 }

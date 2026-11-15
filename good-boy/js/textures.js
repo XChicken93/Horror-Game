@@ -414,6 +414,7 @@ export function buildTextures() {
     for (let y = 0; y < 64; y += 6) for (let x = (y % 12) / 2; x < 64; x += 6) { g.fillStyle = '#e0d8b0'; g.fillRect(x, y, 2, 2); g.fillStyle = 'rgba(90,60,30,0.6)'; g.fillRect(x + 1, y + 1, 1, 1); }
     weave(g, 64, 64, 7); folds(g, 64, 64, 0.35); stain(g, 40, 20, 5, '#4a5a70', 0.3);
   });
+  T.hoodie = make(64, 64, (g) => { g.fillStyle = '#4a4c52'; g.fillRect(0, 0, 64, 64); weave(g, 64, 64, 6); folds(g, 64, 64, 0.4); g.fillStyle = 'rgba(200,200,210,0.35)'; g.fillRect(28, 20, 8, 3); });
   T.skin = make(64, 64, (g) => {
     g.fillStyle = '#c8987a'; g.fillRect(0, 0, 64, 64);
     for (let i = 0; i < 300; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(150,80,60,0.12)' : 'rgba(255,230,210,0.12)'; g.fillRect(rnd() * 64, rnd() * 64, 2 + rnd() * 3, 2 + rnd() * 3); }

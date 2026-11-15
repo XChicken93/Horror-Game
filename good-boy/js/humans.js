@@ -6,21 +6,31 @@ import { speak, step, setPos } from './audio.js';
 import { roomAt } from './house.js';
 
 // ---------------------------------------------------------------------------
-// Words a dog actually knows. Everything else is noise.
-const KNOWN = new Set(['biscuit', 'good', 'boy', 'no', 'bed', 'quiet', 'outside', 'walk', 'danny', 'come', 'here',
+// Words a dog actually knows. Everything else is noise. Biscuit learns more words as
+// the night goes on, so the family slowly becomes understandable.
+export const VOCAB = new Set(['biscuit', 'good', 'boy', 'no', 'bed', 'quiet', 'outside', 'walk', 'danny', 'come', 'here',
   'food', 'bad', 'dog', 'sit', 'stay', 'okay', 'love', 'you', 'night', 'home', 'ball', 'down', 'hey', 'buddy']);
+export const VOCAB_STATE = { all: false, total: 0 };
+const norm = (w) => w.toLowerCase().replace(/[^a-z0-9-]/g, '');
+export function learnWords(list) {
+  const fresh = [];
+  for (const w of list) { const k = norm(w); if (!VOCAB.has(k)) { VOCAB.add(k); fresh.push(w); } }
+  return fresh;
+}
+export function knows(word) { return VOCAB_STATE.all || VOCAB.has(norm(word)); }
+export function clarity() { return VOCAB_STATE.all ? 1 : Math.min(1, (VOCAB.size - 25) / 220); }
 const SYL = ['mm', 'hrm', 'wuh', 'bah', 'mwa', 'nnh', 'rrh', 'hm', 'ah', 'muh', 'wha', 'gm', 'uhn', 'rah', 'meh', 'oh'];
 
 export function garble(text, co = 0) {
   const words = text.split(/\s+/);
   let html = '', n = 0;
   for (const w of words) {
-    const core = w.replace(/[^a-zA-Z']/g, '');
-    const punct = w.replace(/[a-zA-Z']/g, '');
+    const core = w.replace(/[^a-zA-Z'0-9-]/g, '');
+    const punct = w.replace(/[a-zA-Z'0-9-]/g, '');
     const lc = core.toLowerCase();
     let syls = Math.max(1, Math.round(core.length / 3));
     n += syls;
-    if (KNOWN.has(lc) && !(co > 0.85 && Math.random() < 0.5)) {
+    if (knows(core) && !(co > 0.88 && Math.random() < 0.35)) {
       html += `<b>${core}</b>${punct} `;
     } else {
       const parts = [];
@@ -31,10 +41,12 @@ export function garble(text, co = 0) {
   return { html: html.trim(), syllables: Math.max(1, n) };
 }
 
+// every line is recorded with a snapshot of the scene, for the rewind at the end
+export const speechHook = { fn: null };
 export const speechLog = [];
 let subtitleEl = null;
 export function setSubtitleEl(el) { subtitleEl = el; }
-const LABEL = { father: 'THE MAN', mother: 'THE WOMAN', lily: 'THE GIRL', danny: '???' };
+export const LABEL = { father: 'THE MAN', mother: 'THE WOMAN', lily: 'THE GIRL', danny: 'DANNY' };
 let subTimer = null;
 export function showSubtitle(who, html, secs) {
   if (!subtitleEl) return;
@@ -409,7 +421,11 @@ export class Human {
     this.wrongFace = wrong;
   }
   goTo(target, onArrive) {
-    this.path = findPath(this.pos, target);
+    const path = findPath(this.pos, target);
+    // never walk back to a waypoint that is behind us
+    const d2 = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+    while (path.length > 1 && d2(this.pos, path[1]) <= d2(path[0], path[1]) + 0.05) path.shift();
+    this.path = path;
     this.arrived = onArrive || null;
     this.pose = 'stand';
   }
@@ -437,12 +453,14 @@ export class Human {
     if (!opts.force && now - this.lastSpoke < (opts.cooldown ?? 3)) return false;
     const g = garble(text, co);
     const head = () => { const p = this.headWorld(); return [p.x, p.y, p.z]; };
-    const r = speak(this.spec.voice || this.name, g.syllables, tone, head);
+    const r = speak(this.spec.voice || this.name, g.syllables, tone, head, clarity());
     const dur = r ? r.total : g.syllables * 0.18;
     this.speechUntil = now + dur; this.lastSpoke = now;
     this._spk = r ? r.p : null;
     if (!opts.silentSub) showSubtitle(this.name, g.html, dur);
-    speechLog.push({ who: this.name, text, t: now });
+    const rec = { who: this.name, text, t: now, clue: opts.clue || null, hl: opts.hl || null };
+    speechLog.push(rec);
+    if (speechHook.fn) speechHook.fn(rec, this);
     return true;
   }
   headWorld() { const v = new THREE.Vector3(); this.head.getWorldPosition(v); return v; }
@@ -515,7 +533,7 @@ export class Human {
     if (now > this.twitchAt && this.pose !== 'sleep') {
       const kinds = ['head', 'head', 'shoulder', 'flinch', 'tilt'];
       this.twitch = { kind: kinds[Math.floor(Math.random() * kinds.length)], until: now + 0.12 + Math.random() * 0.25, v: (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.45) };
-      this.twitchAt = now + (2.5 + Math.random() * 7) / (1 + co * 2.5 + (this.spec.ghost ? 2 : 0));
+      this.twitchAt = now + (2.5 + Math.random() * 7) / (1 + co * 2.5 + (this.spec.presence ? 3 : 0));
     }
     let nz = 0;
     if (this.twitch && now < this.twitch.until) {
@@ -580,7 +598,7 @@ export function makeFamily(scene) {
   const father = new Human('father', { height: 1.86, build: 'man', shirt: T.flannel, pants: T.jeans, face: T.headFather, faceClosed: T.headFatherClosed, faceWrong: T.headFatherW, hair: T.hairFather, hairStyle: 'short', shoeCol: 0x2a1a10, rolled: true }, scene);
   const mother = new Human('mother', { height: 1.68, build: 'woman', shirt: T.cardigan, pants: T.slacks, face: T.headMother, faceClosed: T.headMotherClosed, faceWrong: T.headMotherW, hair: T.hairMother, hairStyle: 'long', skinCol: 0xe0c8c0, shoeCol: 0x3a2a2a }, scene);
   const lily = new Human('lily', { height: 1.22, build: 'child', shirt: T.pajama, pants: T.pajama, face: T.headLily, faceClosed: T.headLilyClosed, faceWrong: T.headLilyW, hair: T.hairLily, hairStyle: 'child', shoeCol: 0xd8a0b0 }, scene);
-  const danny = new Human('danny', { height: 1.55, build: 'child', shirtCol: 0x3a3c40, pantsCol: 0x2a2c30, skinCol: 0x9098a0, face: T.headDanny, faceClosed: T.headDanny, faceWrong: T.headDanny, hair: T.hairDanny, hairStyle: 'short', ghost: true, voice: 'danny' }, scene);
+  const danny = new Human('danny', { height: 1.68, build: 'man', shirt: T.hoodie, pants: T.jeans, face: T.headDanny, faceClosed: T.headDannyClosed, faceWrong: T.headDanny, hair: T.hairDanny, hairStyle: 'short', ghost: true, voice: 'danny' }, scene);
   danny.visible = false;
   return { father, mother, lily, danny };
 }
