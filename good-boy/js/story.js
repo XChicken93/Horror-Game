@@ -632,10 +632,13 @@ function updateYard(dt) {
   if (refs.sheet) refs.sheet.rotation.x = Math.sin(S.t * 1.3) * 0.12 + Math.sin(S.t * 3.1) * 0.04;
   if (refs.tire) refs.tire.rotation.z = Math.sin(S.t * 0.7) * 0.05;
   // the gate: where his last trail goes
-  if (S.outside && dist2d(dog.pos, spots.gate) < 1.4 && !S.yardDone.gate && !S.fired.has('gate')) {
-    if (TRACK.group === 3) { S.fired.add('gate'); gateScene(); }
-    else if (S.t - (S.gateNote || -99) > 9) { S.gateNote = S.t; showSubtitle('note', '<span class="note">(So many smells cross here: deer, snow, the man, you. Sniff, and press T on his smell to follow only Danny.)</span>', 4); }
-  }
+  if (S.outside && TRACK.group === 3) S.trackedDannyOut = true;
+  if (S.outside && dist2d(dog.pos, spots.gate) < 1.9 && !S.yardDone.gate && !S.fired.has('gate')) {
+    // you made it to the gate: if you followed his smell out here at all, or you wait and sniff the air, it is enough
+    S.gateWait = (S.gateWait || 0) + dt;
+    if (TRACK.group === 3 || S.trackedDannyOut || S.gateWait > 4) { S.fired.add('gate'); gateScene(); }
+    else if (S.t - (S.gateNote || -99) > 9) { S.gateNote = S.t; showSubtitle('note', '<span class="note">(His trail ends here, at the gate. So many smells cross here. Stay a moment.)</span>', 3.5); }
+  } else S.gateWait = 0;
   // the deer, out in the field, only when the lightning shows it
   if (refs.deer) refs.deer.visible = S.outside && S.flash > 0.3 && S.deerShow;
 }
@@ -1602,7 +1605,7 @@ function nextStep() {
       if (!yard.flapOpen) return ['Go to your dog flap at the far end of the hall and press E to pull its storm cover off.', v3(13.62, 0, 4.25)];
       if (!Y.vent) return ['Go outside through the flap. Dig out the furnace pipe in the snow drift against the house: stand at the drift and hold R.', yard.vent.pos];
       if (!Y.tin) return ['Find what you and Danny buried under the big oak tree. Sniff (F) for a gold smell coming up through the snow, stand on it and hold R to dig.', v3(22.3, 0, 7.6)];
-      if (!Y.gate) return ['Follow Danny\'s last trail. Hold F to sniff, press T on his gold smell, and follow it to the field gate.', spots.gate];
+      if (!Y.gate) return ['Follow Danny\'s last trail to the gate in the far fence (sniff with F, press T on his gold smell). Stand at the gate; you do not have to get through it.', spots.gate];
       return ['Go back inside.', spots.flapIn];
     case 6:
       if (S.pendingCut) return ['Go back inside, through your flap.', spots.flapIn];
