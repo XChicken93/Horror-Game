@@ -291,6 +291,14 @@ export function whine() {
 export function step(kind, x, y, z, vol = 1) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
+  if (kind === 'snow') {
+    // a paw pressing into deep snow: a soft compression squeak and a crunch
+    const n = noiseSrc(false, false); const f = bp(1400 + Math.random() * 900, 1.1); const g = ctx.createGain();
+    env(g, t0, 0.012, 0.22 * vol, 0.11); n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.6, 0.05); n.stop(t0 + 0.25);
+    const tr = impulseTrain(0.09, 900, 300, 0.9); const tf = bp(3200, 1.5); const tg = ctx.createGain();
+    env(tg, t0 + 0.02, 0.004, 0.18 * vol, 0.08); tr.connect(tf); tf.connect(tg); at(tg, x, y, z, 1, 1.6, 0.05); tr.start(t0 + 0.02);
+    return;
+  }
   if (kind === 'claw' || kind === 'soft' || kind === 'stair') {
     // paw pad thump + nail clicks (no clicks on carpet)
     const pad = noiseSrc(true, false); const pf = filt('lowpass', kind === 'stair' ? 500 : 280); const pg = ctx.createGain();
@@ -617,4 +625,78 @@ export function speak(who, nSyl, tone, getPos, clarity = 0.3) {
     t += d + (Math.random() < 0.2 ? 0.14 : 0.015);
   }
   return { total: t - now(), p };
+}
+
+// ---------------------------------------------------------------------------
+// Biscuit's body
+export function flop() {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  const n = noiseSrc(true, false); const f = filt('lowpass', 220); const g = ctx.createGain(); env(g, t0, 0.01, 0.5, 0.18);
+  n.connect(f); f.connect(g); out(g, 0.15); n.stop(t0 + 0.4);
+  // and the long sigh through the nose
+  const b = noiseSrc(false, false); const bf = bp(700, 0.8); const bg = ctx.createGain();
+  bg.gain.setValueAtTime(0.0001, t0 + 0.25); bg.gain.linearRampToValueAtTime(0.05, t0 + 0.45); bg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.3);
+  bf.frequency.setValueAtTime(900, t0 + 0.25); bf.frequency.linearRampToValueAtTime(450, t0 + 1.3);
+  b.connect(bf); bf.connect(bg); out(bg, 0.2); b.stop(t0 + 1.4);
+}
+export function sniffSnd(outside = false) {
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  for (let i = 0; i < 3; i++) {
+    const t0 = now() + i * 0.085;
+    const n = noiseSrc(false, false); const f = bp(outside ? 2600 : 2200, 1.6); const g = ctx.createGain();
+    env(g, t0, 0.012, 0.07, 0.05); f.frequency.setValueAtTime(1800, t0); f.frequency.linearRampToValueAtTime(3000, t0 + 0.06);
+    n.connect(f); f.connect(g); out(g, 0.05); n.stop(t0 + 0.12);
+  }
+}
+export function dig(snow = true) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // claws raking through packed snow, then the spray landing behind you
+  const tr = impulseTrain(0.16, 1400, 500, 0.9); const f = bp(snow ? 2400 : 1200, 1.2); const g = ctx.createGain();
+  env(g, t0, 0.01, 0.35, 0.13); tr.connect(f); f.connect(g); out(g, 0.1); tr.start(t0);
+  const n = noiseSrc(false, false); const nf = bp(snow ? 1800 : 700, 0.9); const ng = ctx.createGain();
+  env(ng, t0 + 0.1, 0.02, 0.12, 0.18); n.connect(nf); nf.connect(ng); out(ng, 0.15); n.stop(t0 + 0.5);
+}
+export function thunk(x, y, z, vol = 1) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  const o = ctx.createOscillator(); o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(60, t0 + 0.12);
+  const g = ctx.createGain(); env(g, t0, 0.002, 0.5 * vol, 0.14); o.connect(g);
+  const n = noiseSrc(false, false); const nf = bp(500, 1.0); const ng = ctx.createGain(); env(ng, t0, 0.002, 0.3 * vol, 0.06); n.connect(nf); nf.connect(ng);
+  const sum = ctx.createGain(); g.connect(sum); ng.connect(sum); at(sum, x, y, z, 1, 1.4, 0.3);
+  o.start(t0); o.stop(t0 + 0.3); n.stop(t0 + 0.2);
+}
+export function flap(x, y, z, vol = 1) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // a stiff plastic flap slapping shut against its frame, twice
+  for (let i = 0; i < 2; i++) {
+    const tt = t0 + i * 0.16;
+    const n = noiseSrc(false, false); const f = bp(1100 - i * 300, 2.5); const g = ctx.createGain();
+    env(g, tt, 0.001, (0.45 - i * 0.25) * vol, 0.05); n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.5, 0.25); n.stop(tt + 0.1);
+  }
+}
+export function snap() {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // teeth meeting
+  const n = noiseSrc(false, false); const f = bp(3400, 3); const g = ctx.createGain(); env(g, t0, 0.001, 0.6, 0.03);
+  n.connect(f); f.connect(g); out(g, 0.1); n.stop(t0 + 0.08);
+  knockSmall(t0, 0.2);
+}
+export function growl(dur = 0.9, vol = 1) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  const src = impulseTrain(dur, 70, 55, 0.5);
+  const f1 = bp(450, 4), f2 = bp(1100, 5);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.5 * vol, t0 + 0.08); g.gain.setValueAtTime(0.5 * vol, t0 + dur - 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(f1); src.connect(f2); f1.connect(g); f2.connect(g); out(g, 0.2); src.start(t0);
+}
+export function shakeSnd() {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // ears and collar tags flapping as you shake the snow off
+  for (let i = 0; i < 7; i++) { const tt = t0 + i * 0.075; const n = noiseSrc(false, false); const f = bp(900 + (i % 2) * 500, 1.3); const g = ctx.createGain(); env(g, tt, 0.004, 0.12, 0.05); n.connect(f); f.connect(g); out(g, 0.15); n.stop(tt + 0.1); if (i % 2) knockSmall(tt, 0.08); }
 }

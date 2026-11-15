@@ -266,7 +266,7 @@ export function buildHouse(sc) {
   wallX(0, 5, 10, 0, H, M.ext, M.green);
   // east exterior x=14
   wallX(14, 0, 3.5, BASE_Y, H, M.panel, M.ext);
-  wallX(14, 3.5, 5, 0, H, M.green, M.ext);
+  wallX(14, 3.5, 5, 0, H, M.green, M.ext, [door(3.75, 4.75)]); // the back door, with Biscuit's flap
   wallX(14, 5, 10, 0, H, M.kitchen, M.ext, [win(6.5, 7.8, 1.0, 2.0)]);
   // interior x walls
   wallX(4.5, 0, 3.5, 0, H, M.blue, M.stars);
@@ -338,7 +338,7 @@ export function buildHouse(sc) {
   light(4, 'basement', [10.0, -0.75, -1.2], 0xffe0a8, 6.5, [6, -3, -4, 14, -0.1, 3.5], { bulb: true, swing: 0.08 });
   light(5, 'furnace', [7.7, -2.25, -0.95], 0xff6a18, 3.6, [6, -3, -4, 14, -0.1, 3.5], { flicker: 0.4 });
   light(6, 'night', [4.85, 0.35, 1.6], 0xff90b0, 2.8, [4.5, -0.1, 0, 8, 3, 3.5]);
-  light(7, 'lightning', [6, 3, 14], 0xb8c8ff, 14, [-1, -3, -5, 15, 4, 11]);
+  light(7, 'lightning', [6, 3, 14], 0xb8c8ff, 14, [-1, -3, -10, 36, 8, 16]);
   lights[7].intensity = 0; lights[4].on = false;
 
   // ======================================================================
@@ -656,7 +656,12 @@ export function collide(pos, radius, y, height) {
   }
 }
 
+/** under open sky (the back yard, the front step) rather than inside the house */
+export function isOutside(x, z, y = 0) {
+  return y > -0.5 && (x > 14.06 || z > 10.06 || z < -0.06);
+}
 export function roomAt(x, z, y = 0) {
+  if (isOutside(x, z, y)) return 'yard';
   if (y < -0.3) return (x > 12.5 && z > 0.4) ? 'stairs' : 'basement';
   if (z >= 5) return x < 3 ? 'entry' : x < 9 ? 'living' : 'kitchen';
   if (z >= 3.5) return 'hall';

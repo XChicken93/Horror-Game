@@ -339,7 +339,7 @@ export function buildTextures() {
   T.detector = make(16, 16, (g) => { g.fillStyle = '#e0dcd0'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#222'; g.fillRect(3, 3, 10, 1); g.fillRect(3, 6, 10, 1); g.fillRect(3, 9, 10, 1); g.fillStyle = '#1a0000'; g.fillRect(7, 12, 2, 2); }, { repeat: false });
   T.cards = make(16, 16, (g) => { g.fillStyle = '#e0dcd0'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#6a6a8a'; g.fillRect(3, 4, 10, 1); g.fillRect(3, 7, 7, 1); g.fillStyle = '#5a7a5a'; g.fillRect(6, 10, 4, 4); }, { repeat: false });
   T.dogBed = make(16, 16, (g) => { g.fillStyle = '#5a6a3a'; g.fillRect(0, 0, 16, 16); for (let i = 0; i < 16; i += 4) { g.fillStyle = '#3a4a2a'; g.fillRect(i, 0, 1, 16); g.fillRect(0, i, 16, 1); } noise(g, 16, 16, 14); });
-  T.snowGround = make(32, 32, (g) => { g.fillStyle = '#9aa4b8'; g.fillRect(0, 0, 32, 32); noise(g, 32, 32, 20); });
+  T.snowGround = make(32, 32, (g) => { g.fillStyle = '#9aa4b8'; g.fillRect(0, 0, 32, 32); for (let i = 0; i < 26; i++) { g.fillStyle = rnd() < 0.5 ? '#8a94a8' : '#aab4c6'; g.fillRect(ri(0, 31), ri(0, 31), ri(2, 7), 1); } noise(g, 32, 32, 20); });
 
   // ---- faces ---------------------------------------------------------------
   const face = (skin, hair, opts = {}) => make(16, 16, (g) => {
@@ -415,6 +415,36 @@ export function buildTextures() {
     weave(g, 64, 64, 7); folds(g, 64, 64, 0.35); stain(g, 40, 20, 5, '#4a5a70', 0.3);
   });
   T.hoodie = make(64, 64, (g) => { g.fillStyle = '#4a4c52'; g.fillRect(0, 0, 64, 64); weave(g, 64, 64, 6); folds(g, 64, 64, 0.4); g.fillStyle = 'rgba(200,200,210,0.35)'; g.fillRect(28, 20, 8, 3); });
+  // Biscuit's coat: golden, with darker guard hairs running one way
+  T.fur = make(32, 32, (g) => {
+    // short golden coat: soft mottling, little tufts in every direction, a few dark guard hairs
+    g.fillStyle = '#d4a258'; g.fillRect(0, 0, 32, 32);
+    for (let i = 0; i < 60; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(236,190,120,0.55)' : 'rgba(176,122,58,0.5)'; g.fillRect(ri(0, 31), ri(0, 31), ri(2, 4), ri(2, 4)); }
+    for (let i = 0; i < 90; i++) {
+      const x = ri(0, 31), y = ri(0, 31);
+      g.fillStyle = rnd() < 0.6 ? '#f0c888' : '#a8783c';
+      if (rnd() < 0.5) g.fillRect(x, y, 1, 2); else g.fillRect(x, y, 2, 1);
+    }
+    for (let i = 0; i < 14; i++) { g.fillStyle = '#7a5226'; g.fillRect(ri(0, 31), ri(0, 31), 1, 1); }
+    noise(g, 32, 32, 10);
+  });
+  T.bark = make(32, 64, (g) => {
+    g.fillStyle = '#2a2420'; g.fillRect(0, 0, 32, 64);
+    for (let x = 0; x < 32; x += ri(2, 4)) { g.fillStyle = rnd() < 0.5 ? '#1a1612' : '#3a322a'; g.fillRect(x, 0, ri(1, 2), 64); }
+    for (let i = 0; i < 30; i++) { g.fillStyle = '#14100c'; g.fillRect(ri(0, 31), ri(0, 63), ri(2, 5), 1); }
+    noise(g, 32, 64, 18);
+  });
+  T.fence = make(16, 32, (g) => {
+    g.fillStyle = '#4a4036'; g.fillRect(0, 0, 16, 32);
+    for (let i = 0; i < 20; i++) { g.fillStyle = rnd() < 0.5 ? '#3a3028' : '#5a5044'; g.fillRect(ri(0, 15), ri(0, 31), 1, ri(3, 9)); }
+    noise(g, 16, 32, 16);
+  });
+  T.drift = make(32, 32, (g) => {
+    g.fillStyle = '#b4bccc'; g.fillRect(0, 0, 32, 32);
+    for (let i = 0; i < 40; i++) { g.fillStyle = rnd() < 0.5 ? '#a0a8ba' : '#c8d0dc'; g.fillRect(ri(0, 31), ri(0, 31), ri(2, 6), 1); }
+    noise(g, 32, 32, 12);
+  });
+  T.dirt = make(16, 16, (g) => { g.fillStyle = '#2e241c'; g.fillRect(0, 0, 16, 16); for (let i = 0; i < 30; i++) { g.fillStyle = rnd() < 0.5 ? '#1e1812' : '#4a3a2a'; g.fillRect(ri(0, 15), ri(0, 15), 1, 1); } noise(g, 16, 16, 14); });
   T.skin = make(64, 64, (g) => {
     g.fillStyle = '#c8987a'; g.fillRect(0, 0, 64, 64);
     for (let i = 0; i < 300; i++) { g.fillStyle = rnd() < 0.5 ? 'rgba(150,80,60,0.12)' : 'rgba(255,230,210,0.12)'; g.fillRect(rnd() * 64, rnd() * 64, 2 + rnd() * 3, 2 + rnd() * 3); }

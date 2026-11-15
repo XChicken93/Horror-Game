@@ -1,13 +1,16 @@
 import * as THREE from '../vendor/three.module.js';
 import { G, P, makePost } from './ps1.js';
 import { buildTextures, updateWindow } from './textures.js';
-import { buildHouse, updateDoors, updateLights, spots } from './house.js';
+import { buildHouse, updateDoors, updateLights, spots, isOutside } from './house.js';
+import { buildYard, yard } from './yard.js';
+import { initFx, updateFx } from './fx.js';
 import { makeFamily, setSubtitleEl } from './humans.js';
 import { initScent, updateScent } from './scent.js';
-import { dog, input, initInput, makeSnout, updateDog } from './player.js';
+import { dog, input, initInput, makeSnout, makeBody, updateDog } from './player.js';
 import * as AU from './audio.js';
-import { S, initStory, updateStory, onBark, onWhine, onInteract, closeInspect, skipMontage, DBG } from './story.js';
-import { buildLore, PHOTOS, puzzle } from './lore.js';
+import { S, initStory, updateStory, onBark, onWhine, onInteract, onTrack, closeInspect, skipMontage, DBG } from './story.js';
+import { buildLore, PHOTOS, puzzle, inspect } from './lore.js';
+import { TRACK } from './scent.js';
 import { T } from './textures.js';
 import { refs } from './house.js';
 
@@ -44,9 +47,16 @@ buildTextures();
 updateWindow(0, false);
 buildHouse(scene);
 buildLore(scene, refs.M);
+buildYard(scene, refs.M);
+inspect('tin', 0, 0, 0, 0.8, { item: yard.tinItem });
+inspect('doghouse', 17.75, 0.7, -2.0, 1.2, { dogPos: spots.doghouse });
+inspect('snowman', 16.4, 0.8, 7.2, 1.1, { dogPos: spots.snowman });
 initScent(scene);
+// snow falls everywhere except under the roof and in the basement
+initFx(scene, (x, y, z) => (x > -0.1 && x < 14.1 && z > -0.1 && z < 10.1 && y < 4.9) || y < 0);
 const family = makeFamily(scene);
 makeSnout(camera);
+makeBody(scene);
 setSubtitleEl($('subs'));
 
 let cardTimer = null;
@@ -55,7 +65,7 @@ const ui = {
   objective(text) {
     const el = $('objective');
     el.classList.remove('show'); void el.offsetWidth;
-    el.innerHTML = text.replace(/\[x\]/g, '<span class="chk done">&#10003;</span>').replace(/\[ \]/g, '<span class="chk"></span>');
+    el.innerHTML = text.replace(/\s{2}(\[[x ]\])/g, '<br>$1').replace(/\[x\]/g, '<span class="chk done">&#10003;</span>').replace(/\[ \]/g, '<span class="chk"></span>');
     el.classList.add('show');
   },
   vocab(why, words) {
@@ -89,6 +99,12 @@ const ui = {
     $('subs').style.opacity = 0;
   },
   closeInspect() { $('inspect').style.display = 'none'; },
+  track(name, col) {
+    const el = $('track');
+    if (!name) { el.style.opacity = 0; return; }
+    el.innerHTML = `FOLLOWING <span style="color:rgb(${col})">● ${name}</span><small>T to let go</small>`;
+    el.style.opacity = 1;
+  },
   montageShow(on) { $('montage').style.display = on ? 'block' : 'none'; $('hud').style.display = on ? 'none' : 'block'; if (on) $('ending').style.display = 'none'; },
   montageLine(l) {
     $('mTime').textContent = `◀◀ ${l.time}`;
@@ -119,7 +135,7 @@ initStory(family, scene, ui);
 // ---------------------------------------------------------------------------
 let started = false, introDone = false;
 initInput(canvas, {
-  bark: onBark, whine: onWhine, interact: onInteract,
+  bark: onBark, whine: onWhine, interact: onInteract, track: onTrack,
   anyKey: (e) => {
     if (S.montage) { if (e.key === 'Enter' || e.key === 'Escape') skipMontage(true); else if (e.key === ' ') skipMontage(false); return; }
     if (ui.canRestart && (e.key === 'r' || e.key === 'R')) location.reload();
@@ -196,6 +212,8 @@ function frame() {
   updateDoors(dt);
   updateLights(S.t || titleT);
   updateScent(dt, S.t);
+  updateFx(dt, camera.position, S.outside ? 0.5 : 0.2, true);
+  if (dog.body) dog.body.visible = introDone && !S.montage;
   G.uTime.value += dt; P.uTime.value += dt;
   G.uCamPos.value.copy(camera.position);
   if (AU.A.ready) { camera.getWorldDirection(fwdV); AU.setListener(camera.position, fwdV); }
@@ -211,4 +229,4 @@ function frame() {
 frame();
 
 // debug hooks for testing
-window.__gb = { S, dog, family, input, startGame, endIntro, camera, puzzle, DBG };
+window.__gb = { S, dog, family, input, startGame, endIntro, camera, puzzle, DBG, yard, TRACK };

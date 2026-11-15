@@ -2,7 +2,7 @@
 // per-vertex fog, low internal resolution, 15-bit colour with ordered dithering.
 import * as THREE from '../vendor/three.module.js';
 
-export const MAX_LIGHTS = 10;
+export const MAX_LIGHTS = 12;
 
 // Global uniforms shared by every PS1 material.
 export const G = {

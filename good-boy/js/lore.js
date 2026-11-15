@@ -139,6 +139,7 @@ export const DOCS = {
     style: 'notebook', title: 'A spiral notebook on Danny\'s desk',
     body: `<p class="hand">FURNACE — Grandpa's list<br>do every October!! (Dad never remembers)</p>
 <p class="hand">1. new filter (16x25)<br>2. check the flue pipe for rust + CRACKS<br>3. pilot flame should be BLUE. yellow = bad<br>4. test the CO alarm + put a NEW BATTERY in it</p>
+<p class="hand">ALL WINTER: after a big snow, DIG OUT the furnace pipe outside by the back door!!! if snow covers it the bad air comes back INSIDE. (Biscuit helps. he is the best digger in Cutter County)</p>
 <p class="hand">CO = carbon monoxide. no smell. makes you sleepy + headachy.<br>if the alarm chirps DON'T just take the battery out!!</p>
 <p class="hand">if I'm not here somebody has to do this.<br>— D.H.</p>`,
     memory: 'He wrote this at the kitchen table with his tongue sticking out. Every October he went down to the hot box with the man and a flashlight, and came back up smelling of dust and smoke.',
@@ -189,6 +190,15 @@ export const DOCS = {
     memory: 'Crayons and milk and her fingers. She drew you with your floppy ear. She drew Danny under the ground, with yellow eyes, smiling.',
   },
 };
+DOCS.tin = {
+  style: 'lined', title: 'Inside the tin: a chewed ball, a hockey puck, and a letter',
+  body: `<p class="hand"><b>TREASURE OF DANNY + BISCUIT</b> — buried 8/9/97. DO NOT DIG UP UNTIL 2010!! (Biscuit that means you)</p>
+<p class="hand">Dear Danny in 2010, are you a vet yet? Is Biscuit still alive? If he isn't I hope you were good to him and didn't get too busy to throw the ball.</p>
+<p class="hand">Is Dad still sad about Grandpa? He thinks it was his fault. Tell him it wasn't. Somebody should tell him. — Danny, 13</p>`,
+  memory: 'You remember the summer dirt, warm on your paws, and his laugh. He let you do most of the digging. He said you were the best digger in Cutter County, and you believed him.',
+};
+DOCS.doghouse = { style: 'memory', title: 'The doghouse with your name on it', memory: 'He built this for you the summer he was twelve, with the man\'s hammer and too many nails. You never slept in it once. You slept on the end of his bed. He knew. He built it anyway.' };
+DOCS.snowman = { style: 'memory', title: 'A small snowman by the back door', memory: 'The girl built him this afternoon, all by herself, while the woman watched from the window. She gave him Danny\'s blue hockey scarf so he would not be cold.' };
 for (const k of ['lake', 'school', 'puppy', 'christmas', 'furnace']) DOCS['photo_' + k] = { style: 'photo', photo: k };
 DOCS.photo_lake.title = 'A photograph in the hall'; DOCS.photo_lake.memory = 'The lake. Danny threw sticks into the water all afternoon and you brought every one of them back. The man caught one fish and was so proud of it.';
 DOCS.photo_school.title = 'A school portrait in the hall'; DOCS.photo_school.memory = 'His school picture. He hated that shirt. He smelled of pencils and the bus and cold air, and his bus came at 3:40 every day.';
@@ -198,7 +208,7 @@ DOCS.photo_furnace.title = 'A photograph above Danny\'s desk'; DOCS.photo_furnac
 DOCS.collar = { style: 'memory', title: 'A tiny red collar on Danny\'s shelf', memory: 'Your first collar. It would not fit around your leg now. He kept it on his shelf next to his hockey trophies, like it was one of them.' };
 
 // ---------------------------------------------------------------------------
-function inspect(id, x, y, z, reach, o = {}) {
+export function inspect(id, x, y, z, reach, o = {}) {
   const def = { id, pos: new THREE.Vector3(x, y, z), reach, read: false, ...o, doc: DOCS[id] };
   inspectables.push(def);
   return def;

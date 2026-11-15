@@ -14,7 +14,7 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
-Use headphones and play in the dark. A full playthrough to the true ending takes roughly 25–40 minutes.
+Use headphones and play in the dark. A full playthrough to the true ending takes roughly 35–50 minutes.
 
 ## Controls
 
@@ -24,12 +24,16 @@ Use headphones and play in the dark. A full playthrough to the true ending takes
 | **Shift** | run |
 | **Space** | bark (wakes sleepers, annoys the family, makes the furnace answer) |
 | **Q** | whine (calms them down, earns forgiveness) |
-| **E** | look closer at photos and letters · take or drop something in your mouth · push the stool · pull a rope · eat · tug a sleeve · nudge a sleeper · scratch a door |
+| **E** | look closer at photos and letters · take or drop something in your mouth · push the stool · pull a rope or the flap's storm cover · eat · tug a sleeve · nudge a sleeper · scratch a door |
 | hold **E** | bite |
-| hold **F** / right mouse | **sniff**: the world goes grey and you see scent trails. Each person has a colour, Danny's old trail is gold, and the *wrong* smell is grey. |
+| hold **F** / right mouse | **sniff**: the world goes grey and you see scent trails. Each person has a colour, Danny's old trail is gold, the deer are rust-red, and the *wrong* smell is grey. |
+| **T** (while sniffing) | **follow one smell.** The scent you're on glows brighter, bigger and more saturated, every other scent fades to dim grey, and the one you follow stays faintly visible even when you stop sniffing. Old trails under the snow only show up when you follow them. **T** again lets go. |
+| hold **R** | **dig** (outside, in the snow) |
 | hold **C** | lie down (hold it in your bed to sleep) |
 
-## The story, in six chapters
+**You can see yourself.** Biscuit has a body: look down to see your chest, front legs and paws. Everything you do shows. Your paws come up and scratch at a door, leaving claw marks; your legs stretch out in front of you when you lie down; your paws dig and throw snow; your jaw opens with teeth showing when you bark or bite; you lunge and shake your head when you bite, brace and pull when you tug or pull a rope, put your head down to eat, carry or drop something, and shake the snow off when you come back inside. Out in the cold your breath smokes, and you leave paw prints in the snow.
+
+## The story, in seven chapters
 
 Biscuit starts out understanding about twenty-five words. **Each puzzle you solve teaches him more**, so the family's garbled speech fills in as the night goes on, until by the end you understand every word.
 
@@ -37,8 +41,14 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 2. **Lily's crayons.** Lily lost four crayons around the house. Find them (sniff for her green scent) and bring them back. She draws the family and tells you she can hear Danny *under the house*.
 3. **The voice under the house.** At bedtime the furnace lights. The basement door rattles on its hook every time the furnace cycles, and Tom explains why: it pulls air, and only the old latch holds the door shut. Find what Lily hears through the vent in her room. She goes to the basement door but can't reach the hook, so push the kitchen step stool over for her.
 4. **Danny's room.** Claire goes to bed and drops the key she keeps in her pocket. Bring it to Lily so she unlocks Danny's room, shut for a year. Read his furnace checklist, his essay *My Dog Biscuit*, his photographs.
-5. **Under the house.** Danny's gold ghost guides you to his boxes. Read the newspaper clipping about how he died. Pull the workbench drawer's rope for the red tag. Taking either one wakes the thing from the furnace, so carry each up the stairs before it catches you.
-6. **Wake them.** Tom and Claire won't wake to barking any more. Bring the CO alarm's battery to Lily so she puts it back. When the alarm screams, Tom stumbles in and pulls it out again. Show him the red tag, then Danny's jacket, and lead him out the front door.
+5. **Out back.** Danny's list has one more job: *after a big snow, dig out the furnace pipe by the back door, or the bad air comes back inside.* Pull the storm cover off your dog flap at the end of the hall (the family stops you while they're awake) and go out into the snow. The yard has the old oak with Danny's tire swing, the doghouse he built you, Lily's snowman wearing his scarf, the woodpile, a sheet frozen on the clothesline, and deer tracks along the fence. There are three things to do:
+   - **Dig out the furnace pipe** buried in the drift against the house. Afterwards the bad air builds more slowly for the rest of the night.
+   - **Find what you and Danny buried.** Nothing on the snow shows where it is; you have to smell it. Dig up the treasure tin under the oak, with Danny's letter to himself in 2010.
+   - **Follow his last trail to the field gate.** So many smells cross there that you have to follow only Danny's (sniff, then **T**). It is where he went, the night you ran after the deer.
+
+   The air outside is clean: your head clears out there and the poison's effects fade, then come back when you go in.
+6. **Under the house.** Danny's gold ghost guides you to his boxes. Read the newspaper clipping about how he died. Pull the workbench drawer's rope for the red tag. Taking either one wakes the thing from the furnace, so carry each up the stairs before it catches you.
+7. **Wake them.** Tom and Claire won't wake to barking any more. Bring the CO alarm's battery to Lily so she puts it back. When the alarm screams, Tom stumbles in and pulls it out again. Show him the red tag, then Danny's jacket, and lead him out the front door.
 
 **Why Danny died, and why the furnace was never checked.** It all comes out through hall photographs, Claire's letter, Danny's room, the clipping and the tag. **Danny is not the monster.** He is a warm, gold figure who guides you. The thing that chases you is the furnace's poison, given a shape by a poisoned dog's mind, and the game tells you so the first time you see it.
 
@@ -73,6 +83,7 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 
 **Sound**
 - Every sound is synthesised in WebAudio and placed in 3D, modelled on how the real sound is made. Barks are formant-filtered bursts with a chest thump. Creaks and scratches are stick-slip impulse trains through wood resonances. Knocks excite a resonant body. Footsteps are paw pads with nail clicks, or a heel and toe with the odd floorboard creak. Voices have three vowel formants and consonants. There's also the CO alarm's real temporal pattern, the latch rattle, eating, the drawer, paper, and the furnace breathing through a vent like a voice.
+- Biscuit's own body has sounds too: sniffing in short bursts, a growl and teeth snapping on a bite, a thump and a long sigh when you lie down, claws raking snow when you dig, snow squeaking underfoot, the dog flap slapping shut behind you, and collar tags jingling when you shake off the snow. The wind is louder outside.
 - As the poison takes hold, the whole mix gets muffled.
 
 ## Endings (5)
@@ -83,7 +94,7 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 | 2 | **THE LONG WAIT** | Be by the front door when the night ends |
 | 3 | **THE LAUNDRY ROOM** | Be locked in the laundry room (under its cracked window) when the night ends |
 | 4 | **BAD DOG** | Bite one of them once the poison is strong |
-| 5 | **HOME** *(true ending)* | Finish all six chapters and lead Tom out of the front door |
+| 5 | **HOME** *(true ending)* | Finish all seven chapters and lead Tom out of the front door |
 
 Every ending starts with a **rewind**. The camera runs back through every moment of dialogue, in reverse, at the spot it happened, now in plain English. It stops on the lines that mattered and highlights them with a note on what they really meant.
 
@@ -96,8 +107,10 @@ Every ending starts with a **rewind**. The camera runs back through every moment
 | `js/house.js` | geometry, colliders, doors, lights, props, items |
 | `js/humans.js` | skinned family bodies (skeleton + continuous skin), sculpted heads, animation, pathfinding, speech garbler |
 | `js/faces.js` | painted head textures: open, closed and "wrong" faces for each family member |
-| `js/player.js` | dog controller and input |
-| `js/scent.js` | scent-vision particles |
+| `js/player.js` | dog controller, input, and Biscuit's visible body (legs, paws, jaw, teeth) and its action animations |
+| `js/scent.js` | scent-vision particles and following a single scent |
+| `js/yard.js` | the back yard: dog flap, fence and gate, oak, doghouse, snowman, the buried pipe and the dig spots |
+| `js/fx.js` | visible particles: falling snow, snow thrown by digging, breath, the pipe's steam |
 | `js/audio.js` | procedural audio |
 | `js/story.js` | chapters, puzzles, vocabulary, reactions, scares, the presence, endings, the rewind |
 | `js/lore.js` | Danny's room, photographs, letters, the clipping and tag, puzzle props |
