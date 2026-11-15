@@ -38,9 +38,7 @@
     text-shadow: 2px 2px 0 #000; opacity: 0; transition: opacity 0.3s; color: #cfc7b7; z-index: 5; }
   #controls { position: fixed; left: 16px; top: 14px; font-size: 18px; line-height: 1.25; color: #9a9284; text-shadow: 2px 2px 0 #000; transition: opacity 3s; z-index: 5; }
   #controls.fade { opacity: 0; }
-  #osd { position: fixed; right: 18px; top: 14px; font-size: 26px; color: #e8e8e0; text-shadow: 2px 2px 0 #000, 0 0 6px rgba(255,255,255,0.35); letter-spacing: 0.08em; z-index: 5; }
-  #osdTime { position: fixed; right: 18px; bottom: 14px; font-size: 22px; line-height: 1; text-align: right; color: #e8e8e0; text-shadow: 2px 2px 0 #000, 0 0 6px rgba(255,255,255,0.3); letter-spacing: 0.08em; z-index: 5; }
-  #lockHint { display: none; position: fixed; right: 16px; top: 46px; font-size: 18px; color: #6a645a; text-shadow: 2px 2px 0 #000; z-index: 5; }
+  #lockHint { display: none; position: fixed; right: 16px; top: 14px; font-size: 18px; color: #6a645a; text-shadow: 2px 2px 0 #000; z-index: 5; }
   #ending { display: none; background: #000; z-index: 20; overflow-y: auto; justify-content: flex-start; padding-top: 8vh; cursor: default; }
   #endNum { color: #6a645a; letter-spacing: 0.3em; font-size: 20px; opacity: 0; animation: fadeIn 2s 0.3s forwards; }
   #endTitle { font-size: clamp(48px, 9vw, 96px); margin: 4px 0 18px; color: #e8e0cc; text-shadow: 3px 3px 0 #3a0a06; opacity: 0; animation: fadeIn 2s 0.6s forwards; }
@@ -57,7 +55,7 @@
   @keyframes fadeIn { to { opacity: 1; } }
   @keyframes blink { 50% { opacity: 0.15; } }
   @keyframes jit { 0% { transform: translate(0,0); } 92% { transform: translate(0,0); } 93% { transform: translate(3px,-2px) skewX(4deg); } 95% { transform: translate(-2px,1px); } 97% { transform: translate(0,0); } }
-  @media (max-width: 640px) { #controls { font-size: 15px; } #osd, #osdTime { font-size: 17px; } #prompt { font-size: 16px; white-space: normal; width: 92vw; text-align: center; } }
+  @media (max-width: 640px) { #controls { font-size: 15px; } #prompt { font-size: 16px; white-space: normal; width: 92vw; text-align: center; } }
 </style>
 </head>
 <body>
@@ -86,8 +84,6 @@
     hold <b>F</b> / <b>RMB</b> sniff<br>
     hold <b>C</b> lie down
   </div>
-  <div id="osd">PLAY &#9654;</div>
-  <div id="osdTime">PM 9:40<br>DEC.13 1998</div>
   <div id="lockHint">click to look around</div>
   <div id="label"></div>
   <div id="subs"></div>

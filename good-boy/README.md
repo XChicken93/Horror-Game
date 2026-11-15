@@ -33,7 +33,7 @@ Use headphones and play in the dark. A full night lasts about 16 minutes if noth
 
 **Look and feel**
 - A custom PS1-style renderer. Lighting and fog are per-vertex (Gouraud) and textures are low-resolution with crunchy nearest-neighbour filtering. The scene renders at 240p and is upscaled, with 15-bit colour and 4×4 ordered dithering. Geometry and textures are rock-steady, with no jitter or warping.
-- **VHS tape and fog.** Chroma bleed, scanlines, white dropout streaks, a slow tracking band of snow, washed-out colour, thick fog, and a camcorder overlay (`PLAY ▶` and a running timestamp from 9:40 PM, December 13th 1998).
+- Thick, dark fog swallows the far end of every room.
 - Carbon-monoxide effects build up over the night: double vision, chromatic split, tunnel vision, a vignette that pulses with your heartbeat, faces that go wrong, and brief blackouts.
 - All 60+ textures are painted procedurally on canvas: wallpapers, the farmhouse floors, faces, the daughter's drawings, the calendar with tomorrow circled, the thermostat cranked to 78.
 

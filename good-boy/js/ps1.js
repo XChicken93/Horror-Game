@@ -192,27 +192,6 @@ void main(){
   float ch = h * 0.006 + uRed * 0.01;
   c.r = mix(c.r, texture2D(tDiffuse, suv + vec2(ch, 0.0)).r, 0.7);
   c.b = mix(c.b, texture2D(tDiffuse, suv - vec2(ch, 0.0)).b, 0.7);
-  // ---- VHS: chroma smears sideways, luma stays sharp
-  vec3 cl = texture2D(tDiffuse, suv - vec2(2.0 / uRes.x, 0.0)).rgb;
-  vec3 cl2 = texture2D(tDiffuse, suv - vec2(4.0 / uRes.x, 0.0)).rgb;
-  vec3 cr = texture2D(tDiffuse, suv + vec2(1.0 / uRes.x, 0.0)).rgb;
-  float Y = dot(c, vec3(0.299, 0.587, 0.114));
-  vec3 smear = (c + cl + cl2 + cr) * 0.25;
-  float Ys = dot(smear, vec3(0.299, 0.587, 0.114));
-  c = Y + (smear - Ys);
-  // washed-out tape colour: a little desaturated, warm, blacks lifted
-  c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.82) * vec3(1.03, 1.0, 0.94) + 0.012;
-  // tape noise: sparse white dropout streaks, and a slow tracking band of snow
-  float row = floor(vUv.y * uRes.y);
-  float fr = floor(uTime * 24.0);
-  float drop = step(0.9965, hash(vec2(row, fr)));
-  float seg = step(hash(vec2(row + 7.0, fr)), fract(vUv.x * 1.7 + hash(vec2(row, fr + 3.0))));
-  c += drop * seg * 0.45 * hash(vec2(px.x, fr));
-  float band = fract(uTime * 0.045);
-  float inBand = smoothstep(0.035, 0.0, abs(vUv.y - (1.0 - band)));
-  c += inBand * (hash(px + fr) - 0.35) * 0.22;
-  // scanlines
-  c *= 1.0 - 0.13 * mod(row, 2.0);
   // sniff vision tint + grain
   float grain = hash(px + fract(uTime) * 91.0) - 0.5;
   c += grain * (0.025 + uSniff * 0.04 + h * 0.03);
