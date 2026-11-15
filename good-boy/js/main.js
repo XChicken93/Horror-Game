@@ -8,7 +8,7 @@ import { makeFamily, setSubtitleEl } from './humans.js';
 import { initScent, updateScent } from './scent.js';
 import { dog, input, initInput, makeSnout, makeBody, updateDog } from './player.js';
 import * as AU from './audio.js';
-import { S, initStory, updateStory, onBark, onWhine, onInteract, onTrack, closeInspect, skipMontage, DBG } from './story.js';
+import { S, initStory, updateStory, onBark, onWhine, onInteract, onTrack, onSit, onWag, closeInspect, skipMontage, DBG } from './story.js';
 import { buildLore, PHOTOS, puzzle, inspect } from './lore.js';
 import { TRACK } from './scent.js';
 import { T } from './textures.js';
@@ -99,6 +99,10 @@ const ui = {
     $('subs').style.opacity = 0;
   },
   closeInspect() { $('inspect').style.display = 'none'; },
+  guide(text, at, where, d) {
+    if (text !== this._gText) { this._gText = text; $('next').innerHTML = text ? `<span>NEXT</span> ${text}` : ''; $('next').style.opacity = text ? 1 : 0; }
+    this._gAt = at; this._gWhere = where; this._gD = d;
+  },
   track(name, col) {
     const el = $('track');
     if (!name) { el.style.opacity = 0; return; }
@@ -135,7 +139,7 @@ initStory(family, scene, ui);
 // ---------------------------------------------------------------------------
 let started = false, introDone = false;
 initInput(canvas, {
-  bark: onBark, whine: onWhine, interact: onInteract, track: onTrack,
+  bark: onBark, whine: onWhine, interact: onInteract, track: onTrack, sit: onSit, wag: onWag,
   anyKey: (e) => {
     if (S.montage) { if (e.key === 'Enter' || e.key === 'Escape') skipMontage(true); else if (e.key === ' ') skipMontage(false); return; }
     if (ui.canRestart && (e.key === 'r' || e.key === 'R')) location.reload();
@@ -231,6 +235,16 @@ function frame() {
   if (AU.A.ready) { camera.getWorldDirection(fwdV); AU.setListener(camera.position, fwdV); }
   if (S.prompt !== lastPrompt) { lastPrompt = S.prompt; $('prompt').innerHTML = S.prompt; }
   if (S.label !== lastLabel) { lastLabel = S.label; $('label').innerHTML = S.label; $('label').style.opacity = S.label ? 1 : 0; }
+  // the marker: which way to go, how far, and which room
+  if (introDone && ui._gAt && !S.ended && !S.inspectOpen) {
+    const at = ui._gAt;
+    const dx = at.x - dog.pos.x, dz = at.z - dog.pos.z;
+    const ang = Math.atan2(-dx, -dz) - dog.yaw; // 0 = straight ahead
+    const near = Math.hypot(dx, dz) < 1.1 && Math.abs(at.y - dog.y) < 1.2;
+    $('compass').style.opacity = near ? 0 : 1;
+    $('cArrow').style.transform = `rotate(${-ang}rad)`;
+    $('cText').textContent = `${Math.max(1, Math.round(ui._gD))} m · ${ui._gWhere}`;
+  } else $('compass').style.opacity = 0;
   $('lockHint').style.display = introDone && !input.locked && !S.ended ? 'block' : 'none';
 
   renderer.setRenderTarget(rt);

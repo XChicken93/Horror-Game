@@ -14,8 +14,8 @@ export const G = {
   uAmbient: { value: new THREE.Vector3(0.05, 0.05, 0.07) },
   uCamPos: { value: new THREE.Vector3() },
   uCamLight: { value: new THREE.Vector3(0.26, 0.24, 0.24) },
-  uFogColor: { value: new THREE.Vector3(0.03, 0.029, 0.033) },
-  uFogNear: { value: 0.8 },
+  uFogColor: { value: new THREE.Vector3(0.05, 0.048, 0.055) },
+  uFogNear: { value: 2.2 },
   uFogFar: { value: 9.0 },
   uSnap: { value: new THREE.Vector2(160, 120) },
   uTime: { value: 0 },
@@ -197,7 +197,7 @@ void main(){
   c += grain * (0.025 + uSniff * 0.04 + h * 0.03);
   // vignette, pulses with the heartbeat
   float v = length(vUv - 0.5);
-  c *= 1.0 - smoothstep(0.28, 0.78, v) * (0.55 + h * 0.6 + uPulse * h * 0.35);
+  c *= 1.0 - smoothstep(0.32, 0.8, v) * (0.38 + h * 0.6 + uPulse * h * 0.35);
   c *= 1.0 - uPulse * 0.22 * h;
   // flashes, red, blackout
   c += vec3(uFlash * 0.9, uFlash * 0.92, uFlash);

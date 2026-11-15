@@ -192,15 +192,25 @@ function updateLightning(dt) {
 
 // ===========================================================================
 // CHAPTERS
+function askSit(m) {
+  // Chapter 1: she wants you to sit for it, the way Danny taught you
+  const b = puzzle.bowl;
+  b.gone = true; b.mesh.visible = false;
+  m.look(dogHead(), 6, S.t);
+  say(m, 'Oh, Biscuit. Your bowl. I forgot again, didn\'t I. Okay. Sit. Sit for me, like Danny taught you.', 'sad');
+  S.wantSit = m;
+  setObj('She is waiting. Sit for her.');
+}
 function feedBiscuit(m) {
   // Chapter 1: she fills your bowl
+  S.wantSit = null; S.feeding = true;
   const b = puzzle.bowl;
   b.gone = true; b.mesh.visible = false;
   m.look(dogHead(), 4, S.t);
-  say(m, "Oh, Biscuit. I'm sorry. I forgot your dinner again. I forget everything lately.", 'sad');
+  say(m, "Good boy. I'm sorry, Biscuit. I forgot your dinner again. I forget everything lately.", 'sad');
   later(2.5, () => {
     b.mesh.position.copy(b.home); b.mesh.rotation.set(0, 0, 0); b.mesh.visible = true; b.gone = false;
-    b.kibble.visible = true; b.full = true; b.label = 'your full bowl';
+    b.kibble.visible = true; b.full = true; b.label = 'your full bowl'; S.feeding = false;
     AU.pickup();
     setObj('Eat your dinner.');
   });
@@ -374,6 +384,7 @@ function openDannyRoom() {
   setObj('Danny\'s room. Everything is exactly where he left it. Look around.');
 }
 function readNotebook() {
+  puzzle.dannyNotebookRead = true;
   if (!once('notebookLearn')) return;
   learn('room', 'Danny talked about the hot box and the beeping thing all the time. Now the words connect.');
   later(4, startYardChapter);
@@ -415,7 +426,7 @@ function powerCut() {
   S.pendingCut = false; S.power = false;
   lightning(); S.flashSeq = [[0, 1], [0.05, 0.2], [0.1, 1], [0.25, 0.6], [0.4, 0]];
   AU.thunder(3); later(0.2, () => AU.stinger(0.8));
-  for (const i of [0, 1, 2, 3, 4, 6, 8, 10]) if (lights[i]) lights[i].on = false;
+  for (const i of [0, 1, 2, 3, 4, 6, 8, 10, 13]) if (lights[i]) lights[i].on = false;
   S.tvOn = false; AU.setTV(false); AU.setFridge(false);
   S.clockStopped = true;
   const fl = puzzle.flashlight;
@@ -441,7 +452,7 @@ function lilyFound() {
   l.look(dogHead(), 6, S.t);
   say(l, 'Shh. Biscuit. Danny says it is warm down here. He says we can all go to sleep down here, together.', 'whisper',
     { clue: 'The poisoned air was making Lily confused and sleepy. The furnace "voice" was telling her to lie down by it.', hl: 'we can all go to sleep down here' });
-  setObj('She does not know where she is. Snap her out of it. (Bark.)');
+  setObj('She does not know where she is. Snap her out of it. (Bark: B)');
   S.lilyDazed = true;
   later(3, () => { if (!S.presenceActive) wakePresence(); });
 }
@@ -759,7 +770,7 @@ function phaseUpdate(dt) {
   if (S.pendingCut) { S.cutWait = (S.outside || inBasement()) ? 0 : (S.cutWait || 0) + dt; if (S.cutWait > 2.5) powerCut(); }
   if (S.lilyGone && !S.escort && roomAt(dog.pos.x, dog.pos.z, dog.y) === 'lily' && once('emptyBed')) ui.card('Her bed is empty', 'The blanket is still warm. Her smell goes out of the door and away down the hall.');
   if (S.lilyGone && !S.escort && !S.lilyDazed && inBasement() && dist2d(dog.pos, lily.pos) < 2.8 && once('lilyFound')) lilyFound();
-  if (S.power === false) for (const i of [0, 1, 2, 3, 4, 6, 8, 10]) if (lights[i]) lights[i].on = false;
+  if (S.power === false) for (const i of [0, 1, 2, 3, 4, 6, 8, 10, 13]) if (lights[i]) lights[i].on = false;
   // middle of the night
   if (co > 0.2 && !puzzle.dannyOpen && once('dannyLight')) { refs.dannyDoorLight.visible = true; S.dannyLightOn = true; }
   if (co > 0.3 && once('knock')) {
@@ -1082,6 +1093,26 @@ function lockUp() {
   });
   later(2.6, () => { S.fade = 0; dog.frozen = false; });
 }
+export function onSit() {
+  if (S.ended || S.cut || S.inspectOpen) return;
+  if (S.wantSit && dist2d(S.wantSit.pos, dog.pos) < 2.6) { feedBiscuit(S.wantSit); return; }
+  const h = [F.father, F.mother, F.lily].find((x) => awake(x) && !x.asleep && sameFloor(x) && dist2d(x.pos, dog.pos) < 2.6);
+  if (!h || S.t - (h.lastSit || -99) < 15) return;
+  h.lastSit = S.t; h.look(dogHead(), 4, S.t);
+  S.strikes = Math.max(0, S.strikes - 1); h.annoy = 0;
+  const lines = h === F.lily ? ['You sat! Good boy! I do not have a treat. Sorry.', 'Biscuit, you are so polite.'] : h === F.father ? ['Good boy. Good sit. He taught you that.', 'Yeah. Good boy.'] : ['Good boy. You are such a good boy.', 'You always sit for Danny\'s chair, you know that?'];
+  say(h, lines[Math.floor(Math.random() * lines.length)], 'calm', { force: false, cooldown: 4 });
+}
+export function onWag() {
+  if (S.ended || S.cut || S.inspectOpen) return;
+  AU.wagSwish();
+  const h = [F.father, F.mother, F.lily].find((x) => awake(x) && !x.asleep && sameFloor(x) && dist2d(x.pos, dog.pos) < 3);
+  if (!h || S.t - (h.lastWag || -99) < 15) return;
+  h.lastWag = S.t; h.look(dogHead(), 3, S.t);
+  S.strikes = Math.max(0, S.strikes - 1); h.annoy = 0;
+  const lines = h === F.lily ? ['Your tail! Ha! Your whole butt is wagging!', 'Are you happy? I am happy too. A little.'] : h === F.father ? ['Hey, bud. Hey. At least somebody is happy.', 'What are you so happy about?'] : ['Oh, look at that tail. Hi, sweetheart.', 'Hi. Hi, Biscuit. I know.'];
+  say(h, lines[Math.floor(Math.random() * lines.length)], 'calm', { force: false, cooldown: 4 });
+}
 export function onWhine() {
   if (S.ended || S.cut || S.inspectOpen) return;
   AU.whine(); act('whine');
@@ -1275,7 +1306,7 @@ function reactToItem(h, it) {
   const { father, mother, lily } = F;
   const n = it.name;
   if (n === 'bowl') {
-    if (h === mother && S.ch === 1 && !it.full) return feedBiscuit(h);
+    if (h === mother && S.ch === 1 && !it.full) return askSit(h);
     if (h === lily) return say(h, 'Mommy! Biscuit is hungry! Give it to Mommy, Biscuit.', 'calm');
     return say(h, 'Go ask your mother, bud.', 'calm');
   }
@@ -1527,6 +1558,102 @@ function sniffLabel() {
   return `<span style="color:rgb(${c})">${s.label}</span> — ${s.desc} <span class="tk">${tracked ? 'following · T stop' : 'T follow only this'}</span>`;
 }
 
+// ---------------------------------------------------------------------------
+// What to do next, in plain words, and where. Shown under the objective with a
+// marker pointing the way.
+const ROOMS = { entry: 'by the front door', living: 'in the living room', kitchen: 'in the kitchen', hall: 'in the hall', parents: 'in the parents\' bedroom', lily: 'in Lily\'s room', danny: 'in Danny\'s room', laundry: 'in the laundry room', stairs: 'on the basement stairs', basement: 'in the basement', yard: 'outside' };
+const posOf = (it) => { const p = new THREE.Vector3(); it.mesh.getWorldPosition(p); return p; };
+function nextStep() {
+  const { father: f, mother: m, lily: l } = F;
+  const carry = dog.carrying;
+  const pz = puzzle, Y = S.yardDone;
+  if (S.finalFollow) return ['Lead Tom to the front door. Walk slowly; he follows you.', spots.frontDoor];
+  switch (S.ch) {
+    case 1:
+      if (S.wantSit) return ['Sit in front of Claire. Press X.', m.pos];
+      if (S.feeding) return ['Good boy. Wait while she fills your bowl.', null];
+      if (pz.bowl.full) return ['Eat your dinner: walk to your bowl and press E.', posOf(pz.bowl)];
+      if (carry === pz.bowl) return ['Carry the bowl to Claire (the woman) at the kitchen sink, then press E to drop it near her.', m.pos];
+      return ['Pick up your empty bowl with E. It is on the kitchen floor by the fridge.', posOf(pz.bowl)];
+    case 2: {
+      if (S.crayons >= 6) return pz.drawing.mesh.visible && !pz.drawingDoc.read ? ['Look at Lily\'s drawing on the floor: walk up to it and press E.', posOf(pz.drawing)] : ['Wait. It is getting late.', null];
+      if (carry && carry.crayon) return ['Bring the crayon to Lily in the living room and press E to drop it by her.', l.pos];
+      let best = null, bd = 1e9;
+      for (const c of pz.crayons) { if (c.gone || c.carried || !c.mesh.visible) continue; const d = dist2d(c.mesh.position, dog.pos); if (d < bd) { bd = d; best = c; } }
+      if (!best) return ['Find Lily\'s crayons.', null];
+      if (best.under) return [`A crayon rolled under ${best.underWhat}. Stand beside it, hold C to lie flat, then press E to drag it out.`, best.mesh.position];
+      return [`Find Lily\'s crayons (${S.crayons}/6). Hold F to sniff: her green smell is on them. Press E to pick one up.`, best.mesh.position];
+    }
+    case 3:
+      if (S.lilyWaiting) {
+        if (pz.stool.dragging) return ['Push the stool under the hook on the basement door (end of the hall). Press E to let go of it there.', v3(13.4, 0, 4.0)];
+        return ['Lily needs something to stand on. Go to the step stool in the kitchen and press E to push it with your nose.', pz.stool.mesh.position];
+      }
+      if (S.lilyToLatch) return ['Follow Lily.', l.pos];
+      if (S.coOn && l.pose === 'sleep') return ['Something is breathing in Lily\'s room. Go and stand by the heating vent beside her bed.', spots.lilyVent];
+      return ['It is bedtime. Stay near the family.', l.pos];
+    case 4:
+      if (pz.dannyOpen) return pz.dannyNotebookRead ? ['Look around Danny\'s room.', null] : ['Read Danny\'s notebook on his desk: walk up to the desk and press E.', v3(10.15, 0, 0.9)];
+      if (S.lilyToDanny) return ['Follow Lily to Danny\'s door.', l.pos];
+      if (carry === pz.key) return ['Bring the key to Lily in her room. Press E to drop it by her.', l.pos];
+      if (!pz.key.gone && pz.key.mesh.visible) return ['Claire dropped Danny\'s key. Pick it up from the floor by her bed (E).', posOf(pz.key)];
+      return ['Wait. The woman is going to bed.', null];
+    case 5:
+      if (!yard.flapOpen) return ['Go to your dog flap at the far end of the hall and press E to pull its storm cover off.', v3(13.62, 0, 4.25)];
+      if (!Y.vent) return ['Go outside through the flap. Dig out the furnace pipe in the snow drift against the house: stand at the drift and hold R.', yard.vent.pos];
+      if (!Y.tin) return ['Find what you and Danny buried under the big oak tree. Sniff (F) for a gold smell coming up through the snow, stand on it and hold R to dig.', v3(22.3, 0, 7.6)];
+      if (!Y.gate) return ['Follow Danny\'s last trail. Hold F to sniff, press T on his gold smell, and follow it to the field gate.', spots.gate];
+      return ['Go back inside.', spots.flapIn];
+    case 6:
+      if (S.pendingCut) return ['Go back inside, through your flap.', spots.flapIn];
+      if (S.escort) return ['Lead Lily back up to her room. Stay close and keep moving; she follows you.', spots.lilySit];
+      if (S.lilyDazed) return ['Bark at Lily to snap her out of it. Press B.', l.pos];
+      if (S.lilyGone) {
+        if (!pz.flashlight.carried && S.flashOn && !inBasement()) return ['It is pitch black down there. Get Danny\'s flashlight from his bedroom floor (E). It lights where you look.', posOf(pz.flashlight)];
+        return ['Find Lily. Sniff (F), press T on her green smell, and follow it. It goes down to the basement.', l.pos];
+      }
+      return ['Listen.', null];
+    case 7: {
+      if (!S.got.jacketUp) {
+        if (carry === pz.jacket) return ['Carry the jacket up the stairs and out of the basement, then press E to drop it.', spots.stairTop];
+        return ['Find Danny\'s jacket in his boxes in the far corner of the basement and pick it up (E).', posOf(pz.jacket)];
+      }
+      if (!S.got.tagUp) {
+        if (carry === pz.tag) return ['Carry the red tag up the stairs and out of the basement, then press E to drop it.', spots.stairTop];
+        if (pz.tag.mesh.visible) return ['Pick up the red tag by the workbench (E).', posOf(pz.tag)];
+        return ['Pull the rope on the workbench drawer in the basement (E). Something is inside.', spots.drawerPull];
+      }
+      return ['Go back upstairs.', spots.stairTop];
+    }
+    case 8: {
+      if (S.alarmOn) return ['The alarm is screaming. Watch.', null];
+      if (!S.alarmDone) {
+        if (carry === pz.battery) return ['Bring the battery to Lily in her room and press E to drop it by her.', l.pos];
+        return ['Pick up the alarm\'s battery from the kitchen floor, under the beeping box by the hall door (E).', posOf(pz.battery)];
+      }
+      if (!S.father.tag) { if (carry === pz.tag) return ['Bring the red tag to Tom at the kitchen table and press E to drop it at his feet.', f.pos]; return ['Show Tom the red tag. Pick it up (E) where you left it.', posOf(pz.tag)]; }
+      if (!S.father.jacket) { if (carry === pz.jacket) return ['Bring Danny\'s jacket to Tom and press E to drop it at his feet.', f.pos]; return ['Show Tom Danny\'s jacket. Pick it up (E) where you left it.', posOf(pz.jacket)]; }
+      return ['Stay with him.', f.pos];
+    }
+  }
+  return ['', null];
+}
+function updateGuide(dt) {
+  S.guideT = (S.guideT || 0) - dt;
+  if (S.guideT > 0) return;
+  S.guideT = 0.25;
+  const [text, at] = nextStep();
+  let where = '';
+  if (at) {
+    const tUp = at.y > -0.5, meUp = dog.y > -0.5;
+    const tOut = isOutside(at.x, at.z, at.y), meOut = S.outside;
+    const room = roomAt(at.x, at.z, at.y);
+    const d = Math.hypot(at.x - dog.pos.x, at.z - dog.pos.z);
+    where = tUp && !meUp ? 'upstairs' : !tUp && meUp ? 'downstairs, in the basement' : tOut && !meOut ? 'outside, through your flap' : !tOut && meOut ? 'inside the house' : ROOMS[room] || '';
+    ui.guide(text, at, where, d);
+  } else ui.guide(text, null, '', 0);
+}
+
 export function onTrack() {
   if (S.ended || S.cut || S.inspectOpen) return;
   if (S.sniff > 0.5 && S.labelKind) {
@@ -1560,7 +1687,7 @@ function computePrompt() {
   if (nearStool()) return '<b>E</b> push the stool with your nose';
   const h = nearestHuman(1.3);
   if (h) {
-    if (!awake(h)) return `<b>E</b> nudge · <b>SPACE</b> bark to wake`;
+    if (!awake(h)) return `<b>E</b> nudge · <b>B</b> bark to wake`;
     return h === F.lily ? `<b>E</b> tug her sleeve` : `<b>E</b> tug sleeve · hold <b>E</b> bite`;
   }
   if (nearestDoor()) return `<b>E</b> scratch the door`;
@@ -1777,6 +1904,7 @@ export function updateStory(dt) {
   updateEscort(dt);
   updateFlashlight(dt);
   updateDread(dt);
+  updateGuide(dt);
   // fear: your heart races, you slow down, you shake
   S.fearT = Math.max(0, (S.fearT || 0) - dt);
   dog.fear = Math.min(1, S.fearT / 4 + (S.stalkNear || 0) * 0.5);
@@ -1871,10 +1999,11 @@ export function updateStory(dt) {
   S.outK = (S.outK || 0) + ((S.outside ? 1 : 0) - (S.outK || 0)) * Math.min(1, dt * 1.5);
   const ok = S.outK;
   // with the power out, the house is nearly black: what you can see, you see by lightning and the flashlight
-  const dk = S.power === false && !S.outside ? 0.5 : 1;
-  G.uAmbient.value.set((0.06 + ok * 0.05) * dk + S.flash * 0.1, (0.065 + ok * 0.055) * dk + S.flash * 0.1, (0.095 + ok * 0.07) * dk + S.flash * 0.12);
-  G.uFogFar.value = 9 + ok * 6;
-  G.uFogColor.value.set(0.03 + ok * 0.05, 0.029 + ok * 0.055, 0.033 + ok * 0.07);
+  const dk = S.power === false && !S.outside ? 0.62 : 1;
+  G.uAmbient.value.set((0.15 + ok * 0.0) * dk + S.flash * 0.1, (0.15 + ok * 0.01) * dk + S.flash * 0.1, (0.18 + ok * 0.01) * dk + S.flash * 0.12);
+  G.uCamLight.value.set(0.46, 0.43, 0.4);
+  G.uFogFar.value = 11 + ok * 4;
+  G.uFogColor.value.set(0.05 + ok * 0.03, 0.048 + ok * 0.035, 0.055 + ok * 0.05);
   if (S.debugLight) G.uAmbient.value.setScalar(S.debugLight); // testing aid only
 }
 

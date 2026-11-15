@@ -772,3 +772,15 @@ export function setDrone(level, t) {
   L.hg.gain.setTargetAtTime(level > 0.5 ? (level - 0.5) * 0.012 * (0.5 + 0.5 * Math.sin(t * 0.37)) : 0, k, 2);
   L.o3.frequency.setTargetAtTime(61.3 - level * 4, k, 3);
 }
+
+export function tailThump(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  const n = noiseSrc(true, false); const f = filt('lowpass', 260); const g = ctx.createGain(); env(g, t0, 0.003, 0.22, 0.07);
+  n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.6, 0.1); n.stop(t0 + 0.15);
+}
+export function wagSwish() {
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  for (let i = 0; i < 6; i++) { const t0 = now() + i * 0.18; const n = noiseSrc(false, false); const f = bp(1500 + (i % 2) * 400, 0.9); const g = ctx.createGain(); env(g, t0, 0.03, 0.035, 0.08); n.connect(f); f.connect(g); out(g, 0.1); n.stop(t0 + 0.15); }
+}

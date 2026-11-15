@@ -341,6 +341,8 @@ export function buildHouse(sc) {
   light(6, 'night', [4.85, 0.35, 1.6], 0xff90b0, 2.8, [4.5, -0.1, 0, 8, 3, 3.5]);
   light(7, 'lightning', [6, 3, 14], 0xb8c8ff, 14, [-1, -3, -10, 36, 8, 16]);
   lights[7].intensity = 0; lights[4].on = false;
+  // a little wall lamp in the entry, by the coats
+  light(13, 'entry', [0.25, 1.85, 6.0], 0xffc888, 4.8, [0, -0.1, 5, 3, 3, 10], { bulb: true });
 
   // ======================================================================
   // PROPS
@@ -374,6 +376,8 @@ export function buildHouse(sc) {
   prop(4.85, 0.45, 8.6, 0.18, 0.5, 0.9, M.plaid, { solid: true }); prop(7.15, 0.45, 8.6, 0.18, 0.5, 0.9, M.plaid, { solid: true });
   prop(5.5, 0.45, 8.5, 0.9, 0.12, 0.7, M.plaid); prop(6.5, 0.45, 8.5, 0.9, 0.12, 0.7, M.plaid);
   prop(6.8, 0.6, 8.8, 0.35, 0.3, 0.15, ps1Mat({ color: 0x8a5a3a }), { rz: 0.3 }); // throw pillow
+  colliders.push({ minX: 4.95, maxX: 7.05, minZ: 8.12, maxZ: 8.88, minY: 0, maxY: 0.51 });
+  colliders.push({ minX: 5.45, maxX: 6.55, minZ: 7.0, maxZ: 7.6, minY: 0.4, maxY: 0.445 });
   spots.couch = new THREE.Vector3(6, 0, 8.4);
   // coffee table with mugs and sympathy cards
   prop(6, 0.42, 7.3, 1.1, 0.05, 0.6, M.wood);
@@ -475,7 +479,7 @@ export function buildHouse(sc) {
   prop(7, 0.005, 4.25, 12, 0.01, 0.7, ps1Mat({ map: T.runner }), { planar: true, uvScale: 0.8 });
   const fam = ps1Mat({ map: T.photoFamily, unique: true });
   refs.hallPhotos = [];
-  for (const x of [3.0, 4.0, 7.2, 8.3]) refs.hallPhotos.push(prop(x, 1.55, 3.57, 0.32, 0.26, 0.02, fam));
+  for (const x of [3.0, 4.0, 7.2, 8.3]) refs.hallPhotos.push(prop(x, 1.42, 3.585, 0.42, 0.32, 0.01, fam));
   refs.hallPhotoMat = fam;
   // thermostat cranked to 78
   prop(12.6, 1.45, 3.57, 0.12, 0.12, 0.02, ps1Mat({ map: T.thermostat }));
@@ -609,6 +613,23 @@ export function buildHouse(sc) {
   addItem('drawing', "Lily's drawing", drawing, { scent: 'lily' });
 
   return M;
+}
+
+// Things a dog can jump up onto. top = the height you stand at.
+export const SURFACES = [
+  { name: 'couch', x0: 4.95, x1: 7.05, z0: 8.12, z1: 8.88, top: 0.51 },
+  { name: 'parents\' bed', x0: 0.62, x1: 2.18, z0: 0.2, z1: 2.1, top: 0.61 },
+  { name: 'Lily\'s bed', x0: 6.82, x1: 7.68, z0: 0.3, z1: 2.0, top: 0.5 },
+  { name: 'armchair', x0: 7.85, x1: 8.65, z0: 7.2, z1: 7.88, top: 0.4 },
+  { name: 'coffee table', x0: 5.45, x1: 6.55, z0: 7.0, z1: 7.6, top: 0.445 },
+  { name: 'bench', x0: 2.4, x1: 2.8, z0: 8.0, z1: 9.2, top: 0.48 },
+  { name: 'your bed', x0: 3.8, x1: 4.6, z0: 6.68, z1: 7.32, top: 0.12 },
+];
+/** the highest surface under (x, z) that you could be standing on from height y */
+export function surfaceAt(x, z, y) {
+  let best = null;
+  for (const s of SURFACES) if (x > s.x0 && x < s.x1 && z > s.z0 && z < s.z1 && y >= s.top - 0.14 && (!best || s.top > best.top)) best = s;
+  return best;
 }
 
 // ---- floor height & collision ---------------------------------------------

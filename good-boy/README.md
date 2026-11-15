@@ -22,7 +22,10 @@ Use headphones and play in the dark. A first playthrough to the true ending is m
 | --- | --- |
 | **WASD** / mouse | move / look (click to capture the mouse; arrow keys also turn) |
 | **Shift** | run |
-| **Space** | bark (wakes sleepers, annoys the family, makes the furnace answer) |
+| **Space** | jump (up onto the couch, the beds, the armchair, the coffee table, the bench) |
+| **B** / left click | bark (wakes sleepers, annoys the family, scatters the thing in the dark). Left click barks once the mouse is captured. |
+| **X** | sit (Claire won't feed you until you sit; the family likes it) |
+| **G** | wag your tail (your back end sways and thumps; the family softens) |
 | **Q** | whine (calms them down, earns forgiveness) |
 | **E** | look closer at photos and letters · take or drop something in your mouth · push the stool · pull a rope or the flap's storm cover · eat · tug a sleeve · nudge a sleeper · scratch a door |
 | hold **E** | bite |
@@ -33,11 +36,13 @@ Use headphones and play in the dark. A first playthrough to the true ending is m
 
 **You can see yourself.** Biscuit has a body: look down to see your chest, front legs and paws. Everything you do shows. Your paws come up and scratch at a door, leaving claw marks; your legs stretch out in front of you when you lie down; your paws dig and throw snow; your jaw opens with teeth showing when you bark or bite; you lunge and shake your head when you bite, brace and pull when you tug or pull a rope, put your head down to eat, carry or drop something, and shake the snow off when you come back inside. Out in the cold your breath smokes, and you leave paw prints in the snow.
 
+**You always know what to do next.** Under the objective in the top right, a **NEXT** line says exactly what to do, which key to press and where, and it updates the moment you do it. A marker at the top of the screen points toward the target, tells you how far away it is and which room it's in, and says "upstairs", "downstairs, in the basement" or "outside, through your flap" when the target is on another level.
+
 ## The story, in eight chapters
 
 Biscuit starts out understanding about twenty-five words. **Each puzzle you solve teaches him more**, so the family's garbled speech fills in as the night goes on, until by the end you understand every word.
 
-1. **Dinner.** Your bowl is empty. Carry it to the woman so she remembers to feed you, then eat.
+1. **Dinner.** Your bowl is empty. Carry it to the woman, sit for her (X) the way Danny taught you, then eat.
 2. **Lily's crayons.** Lily lost six crayons all over the house, from the laundry room to the parents' room. Sniff for her green scent on them. Two have rolled under furniture (the couch, the parents' bed): lie flat with **C** and stretch in to drag them out. She draws the family and tells you she can hear Danny *under the house*.
 3. **The voice under the house.** At bedtime the furnace lights. The basement door rattles on its hook every time the furnace cycles, and Tom explains why: it pulls air, and only the old latch holds the door shut. Find what Lily hears through the vent in her room. She goes to the basement door but can't reach the hook, so push the kitchen step stool over for her.
 4. **Danny's room.** Claire goes to bed and drops the key she keeps in her pocket. Bring it to Lily so she unlocks Danny's room, shut for a year. Read his furnace checklist, his essay *My Dog Biscuit*, his photographs.
@@ -63,6 +68,7 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 
 **The house**
 - Entry, living room, kitchen, hall, three bedrooms, the laundry room, a stairwell and a basement full of Danny's boxes.
+- Framed photographs line the hall: six painted prints (the lake, Danny's school portrait, the puppy, Christmas, his 13th birthday by candlelight, the summer the house was painted). Each has faces with eyes, brows and teeth, flash lighting and a date stamp, and sits in a wooden frame with a cream mat and a glint on the glass. Look closer at any of them for Biscuit's memory of that day.
 - Every room holds details that tell the story. There are four stockings and four place settings, one of each still for Danny. His sneakers are still on the boot tray. Sympathy cards sit on the coffee table. The CO detector's LED is dark, and its battery lies on the floor below it. A dollhouse of the farmhouse has a little figure in its basement. Lily's drawing puts Danny *under the house*.
 
 **The family**

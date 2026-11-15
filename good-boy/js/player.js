@@ -1,8 +1,8 @@
 // Biscuit: first-person dog controller.
 import * as THREE from '../vendor/three.module.js';
 import { ps1Mat } from './ps1.js';
-import { collide, floorAt, isOutside, BASE_Y } from './house.js';
-import { step, flop } from './audio.js';
+import { collide, floorAt, isOutside, surfaceAt, BASE_Y } from './house.js';
+import { step, flop, thunk, tailThump } from './audio.js';
 import { T } from './textures.js';
 
 export const keys = new Set();
@@ -15,6 +15,13 @@ export const dog = {
   act: null, actT: 0, actDur: 0, digging: false, lean: 0, pawsT: 0,
 };
 
+function jump() {
+  const d = dog;
+  if (d.frozen || d.air || d.lying > 0.3 || d.digging || d.y < -0.3) return;
+  d.sitting = false;
+  d.air = true; d.vy = 3.75; // about 0.7 m: enough for the couch and the beds
+  thunk(d.pos.x, d.y + 0.1, d.pos.z, 0.25);
+}
 /** Play a visible body action: 'scratch', 'bite', 'tug', 'eat', 'pull', 'pickup', 'drop', 'whine', 'shake', 'nudge'. */
 export function act(kind, dur) {
   const D = { scratch: 1.1, bite: 0.9, tug: 1.0, eat: 2.2, pull: 0.8, pickup: 0.45, drop: 0.4, whine: 1.3, shake: 1.5, nudge: 0.6 };
@@ -28,7 +35,10 @@ export function initInput(canvas, handlers) {
     if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
     if (e.repeat) return;
     keys.add(k);
-    if (k === ' ') handlers.bark();
+    if (k === ' ') jump();
+    if (k === 'b') handlers.bark();
+    if (k === 'x') { if (!dog.frozen) { dog.sitting = !dog.sitting; if (dog.sitting && handlers.sit) handlers.sit(); } }
+    if (k === 'g') { dog.wagT = 1.8; if (handlers.wag) handlers.wag(); }
     if (k === 'q') handlers.whine();
     if (k === 'e') { input.eDown = true; input.eStart = performance.now(); input.eUsedHold = false; }
     if (k === 'c') { input.cDown = true; input.cStart = performance.now(); }
@@ -52,6 +62,7 @@ export function initInput(canvas, handlers) {
   canvas.addEventListener('mousedown', (e) => {
     if (!input.enabled) return;
     if (e.button === 2) input.sniff = true;
+    if (e.button === 0 && input.locked) handlers.bark(); // with the mouse captured, a click barks
     if (!input.locked && canvas.requestPointerLock) canvas.requestPointerLock();
     input.drag = true;
   });
@@ -154,6 +165,8 @@ function poseLegs(dt, t, mode) {
       sh = 0.65 + 0.55 * w; el = -0.25 - 1.0 * Math.max(0, Math.sin(t * 19 + (s > 0 ? Math.PI : 0) + 1.2)); pw = -0.5 * Math.max(0, w) + 0.3;
     } else if (mode === 'brace') { sh = -0.05; el = 0.05; pw = 0.0; }
     else if (mode === 'stand') { sh = 0.6; el = -0.1; pw = -0.5; }
+    else if (mode === 'sit') { sh = 0.15; el = 0.0; pw = -0.15; }
+    else if (mode === 'jump') { sh = 1.2; el = -1.0; pw = -0.3; }
     else if (mode === 'walk') {
       const ph = d.bob * 0.5 + (s > 0 ? Math.PI : 0);
       sh = 0.6 + 0.36 * Math.sin(ph); el = -0.1 - 0.8 * Math.max(0, Math.cos(ph)); pw = -0.5 - 0.5 * Math.max(0, Math.cos(ph));
@@ -209,11 +222,13 @@ export function updateDog(dt, camera, co, t) {
     if (keys.has('w')) mz += 1; if (keys.has('s')) mz -= 1;
     if (keys.has('a')) mx -= 1; if (keys.has('d')) mx += 1;
   }
-  const lyingNow = input.cDown && !d.frozen && !d.digging;
+  const lyingNow = input.cDown && !d.frozen && !d.digging && !d.air;
   if (lyingNow && !d.wasLying) flop();
   d.wasLying = lyingNow;
   d.lying += ((lyingNow ? 1 : 0) - d.lying) * Math.min(1, dt * 4);
   if (lyingNow || d.digging) { mx = 0; mz = 0; }
+  if (mx || mz || lyingNow) d.sitting = false;
+  d.sit = (d.sit || 0) + ((d.sitting ? 1 : 0) - (d.sit || 0)) * Math.min(1, dt * 6);
   if (d.act) { d.actT += dt; if (d.actT >= d.actDur) d.act = null; }
   const A = d.act, at = d.actT, ap = d.act ? at / d.actDur : 0;
   if (A === 'bite' || A === 'tug' || A === 'eat' || A === 'shake' || A === 'scratch' || A === 'pull') { mx = 0; mz = 0; }
@@ -241,12 +256,20 @@ export function updateDog(dt, camera, co, t) {
   }
   d.speed = len > 0 ? sp : 0;
   collide(d.pos, d.radius, d.y, 0.5);
-  const fy = floorAt(d.pos.x, d.pos.z, d.y);
-  d.y += (fy - d.y) * Math.min(1, dt * 14);
+  // the ground under you: the floor, or the top of whatever you have jumped up onto
+  const surf = d.y > -0.3 ? surfaceAt(d.pos.x, d.pos.z, d.y) : null;
+  const fy = Math.max(floorAt(d.pos.x, d.pos.z, d.y), surf ? surf.top : -99);
+  d.surface = surf && Math.abs(d.y - surf.top) < 0.05 ? surf : null;
+  if (d.air) {
+    d.vy -= 9.8 * dt; d.y += d.vy * dt;
+    if (d.vy < 0 && d.y <= fy) { d.y = fy; d.air = false; d.vy = 0; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; }
+  } else if (fy < d.y - 0.12) { d.air = true; d.vy = 0; } // walked off the edge
+  else d.y += (fy - d.y) * Math.min(1, dt * 14);
   d.pos.y = d.y;
+  d.landKick = Math.max(0, (d.landKick || 0) - dt * 5);
   // paws up on beds and the couch
   let pawsUp = false;
-  if (!lyingNow && d.y > -0.1) for (const [x0, x1, z0, z1] of PAWS_UP) if (d.pos.x > x0 && d.pos.x < x1 && d.pos.z > z0 && d.pos.z < z1) pawsUp = true;
+  if (!lyingNow && !d.air && Math.abs(d.y) < 0.05) for (const [x0, x1, z0, z1] of PAWS_UP) if (d.pos.x > x0 && d.pos.x < x1 && d.pos.z > z0 && d.pos.z < z1) pawsUp = true;
   d.paws = (d.paws || 0) + ((pawsUp ? 1 : 0) - (d.paws || 0)) * Math.min(1, dt * 5);
   // ---- what the body is doing, layered on top of where you are looking ----
   const bell = (x) => Math.sin(Math.min(1, Math.max(0, x)) * Math.PI);
@@ -268,6 +291,16 @@ export function updateDog(dt, camera, co, t) {
   if (A === 'shake') { const dec = 1 - ap; rollOff += Math.sin(at * 34) * 0.32 * dec; yawOff += Math.sin(at * 34 + 0.7) * 0.06 * dec; }
   if (d.digging) { d.digLook = Math.min(1, (d.digLook || 0) + dt * 4); } else d.digLook = Math.max(0, (d.digLook || 0) - dt * 4);
   if (d.digLook > 0) { eyeOff -= 0.08 * d.digLook; rollOff += Math.sin(t * 19) * 0.025 * d.digLook; }
+  // sitting: haunches down, front up, a little lower; wagging: your whole back end sways
+  eyeOff -= d.sit * 0.07; pitchOff += d.sit * 0.06;
+  eyeOff -= (d.landKick || 0) * 0.06;
+  if (d.wagT > 0) {
+    d.wagT -= dt;
+    const w = Math.sin(t * 17) * Math.min(1, d.wagT);
+    rollOff += w * 0.025; yawOff += w * 0.015;
+    d.thumpT = (d.thumpT || 0) - dt;
+    if (d.thumpT <= 0 && (d.sit > 0.5 || d.lying > 0.5)) { d.thumpT = 0.19; tailThump(d.pos.x, d.y, d.pos.z); }
+  }
   if (input.sniff) { eyeOff -= 0.05; pitchOff -= 0.08; if (d.nose) d.nose.scale.set(1 + Math.max(0, Math.sin(t * 22)) * 0.35, 1, 1); }
   else if (d.nose) d.nose.scale.set(1, 1, 1);
   if (d.pushing) { pitchOff -= 0.25; eyeOff -= 0.06; }
@@ -291,11 +324,11 @@ export function updateDog(dt, camera, co, t) {
     d.jaw.rotation.x += (-jo * 0.9 - d.jaw.rotation.x) * Math.min(1, dt * 30);
   }
   if (d.body) {
-    const mode = d.lying > 0.5 ? 'lie' : d.digging ? 'dig' : scratching ? 'scratch' : d.paws > 0.5 ? 'paws' : (A === 'bite' || A === 'tug' || A === 'pull') ? 'brace' : d.moving ? 'walk' : 'stand';
+    const mode = d.lying > 0.5 ? 'lie' : d.digging ? 'dig' : scratching ? 'scratch' : d.paws > 0.5 ? 'paws' : d.air ? 'jump' : (A === 'bite' || A === 'tug' || A === 'pull') ? 'brace' : d.sit > 0.5 ? 'sit' : d.moving ? 'walk' : 'stand';
     poseLegs(dt, t, mode);
     const by = -d.lying * 0.2 + (scratching ? 0.1 * bell(ap * 1.2) : 0) + d.paws * 0.36 - d.digLook * 0.04;
     d.body.position.set(d.pos.x + fx * fwdOff * 0.6, d.y + by, d.pos.z + fz * fwdOff * 0.6);
-    d.body.rotation.set(scratching ? 0.35 * bell(ap * 1.2) : d.lying > 0.5 ? 0 : d.paws * 0.3, d.yaw, 0, 'YXZ');
+    d.body.rotation.set(scratching ? 0.35 * bell(ap * 1.2) : d.lying > 0.5 ? 0 : d.paws * 0.3 + d.sit * 0.45, d.yaw + (d.wagT > 0 ? Math.sin(t * 17) * 0.05 * Math.min(1, d.wagT) : 0), 0, 'YXZ');
     d.chest.position.y = 0.23 - d.lying * 0.1;
   }
   return d;

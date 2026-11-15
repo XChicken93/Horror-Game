@@ -17,23 +17,57 @@ function canvasTex(c) {
   t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.NoColorSpace;
   return t;
 }
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, ((n >> 16) & 255) * k), gg = Math.min(255, ((n >> 8) & 255) * k), b = Math.min(255, (n & 255) * k);
+  return `rgb(${r | 0},${gg | 0},${b | 0})`;
+}
 function person(g, x, y, h, o) {
-  // y = feet. A simple but readable photographed person.
+  // y = feet. A photographed person: lit from the front by the camera flash.
   const hw = h * 0.12, headR = h * 0.075;
   const hy = y - h + headR;
-  g.fillStyle = o.pants || '#2a3a5a'; g.fillRect(x - hw * 0.8, y - h * 0.45, hw * 0.75, h * 0.45); g.fillRect(x + hw * 0.05, y - h * 0.45, hw * 0.75, h * 0.45);
-  g.fillStyle = o.shirt || '#7a1a1a'; g.beginPath(); g.moveTo(x - hw, y - h * 0.82); g.lineTo(x + hw, y - h * 0.82); g.lineTo(x + hw * 0.85, y - h * 0.44); g.lineTo(x - hw * 0.85, y - h * 0.44); g.fill();
-  g.fillRect(x - hw * 1.35, y - h * 0.8, hw * 0.4, h * 0.32); g.fillRect(x + hw * 0.95, y - h * 0.8, hw * 0.4, h * 0.32);
-  g.fillStyle = o.skin || '#d0a080'; g.fillRect(x - hw * 1.3, y - h * 0.5, hw * 0.3, h * 0.08); g.fillRect(x + hw, y - h * 0.5, hw * 0.3, h * 0.08);
-  g.fillRect(x - headR * 0.35, hy + headR * 0.8, headR * 0.7, h * 0.05);
-  g.beginPath(); g.ellipse(x, hy, headR * 0.85, headR, 0, 0, 7); g.fill();
-  g.fillStyle = o.hair || '#4a2c18'; g.beginPath(); g.ellipse(x, hy - headR * 0.45, headR * 0.92, headR * 0.6, 0, Math.PI, 0); g.fill();
-  if (o.long) g.fillRect(x - headR * 0.95, hy - headR * 0.3, headR * 0.35, headR * 1.8), g.fillRect(x + headR * 0.6, hy - headR * 0.3, headR * 0.35, headR * 1.8);
+  const skin = o.skin || '#d0a080', shirt = o.shirt || '#7a1a1a', pants = o.pants || '#2a3a5a', hair = o.hair || '#4a2c18';
+  // legs and shoes
+  g.fillStyle = pants; g.fillRect(x - hw * 0.8, y - h * 0.45, hw * 0.75, h * 0.43); g.fillRect(x + hw * 0.05, y - h * 0.45, hw * 0.75, h * 0.43);
+  g.fillStyle = shade(pants, 0.7); g.fillRect(x - hw * 0.08, y - h * 0.45, hw * 0.16, h * 0.43);
+  g.fillStyle = '#1a1612'; g.fillRect(x - hw * 0.9, y - h * 0.03, hw * 0.85, h * 0.03); g.fillRect(x + hw * 0.05, y - h * 0.03, hw * 0.85, h * 0.03);
+  // torso with a little shading and fold lines
+  const tg = g.createLinearGradient(x - hw, 0, x + hw, 0); tg.addColorStop(0, shade(shirt, 0.7)); tg.addColorStop(0.45, shade(shirt, 1.12)); tg.addColorStop(1, shade(shirt, 0.65));
+  g.fillStyle = tg; g.beginPath(); g.moveTo(x - hw, y - h * 0.82); g.lineTo(x + hw, y - h * 0.82); g.lineTo(x + hw * 0.85, y - h * 0.44); g.lineTo(x - hw * 0.85, y - h * 0.44); g.fill();
+  g.strokeStyle = shade(shirt, 0.6); g.lineWidth = Math.max(0.5, h * 0.006);
+  g.beginPath(); g.moveTo(x - hw * 0.4, y - h * 0.7); g.lineTo(x - hw * 0.2, y - h * 0.5); g.moveTo(x + hw * 0.5, y - h * 0.66); g.lineTo(x + hw * 0.3, y - h * 0.48); g.stroke();
+  // arms, hands
+  g.fillStyle = shade(shirt, 0.85); g.fillRect(x - hw * 1.35, y - h * 0.8, hw * 0.4, h * 0.32); g.fillRect(x + hw * 0.95, y - h * 0.8, hw * 0.4, h * 0.32);
+  g.fillStyle = skin; g.beginPath(); g.ellipse(x - hw * 1.15, y - h * 0.46, hw * 0.2, h * 0.035, 0, 0, 7); g.ellipse(x + hw * 1.15, y - h * 0.46, hw * 0.2, h * 0.035, 0, 0, 7); g.fill();
+  // neck, ears, head with the flash on the forehead
+  g.fillStyle = shade(skin, 0.82); g.fillRect(x - headR * 0.35, hy + headR * 0.8, headR * 0.7, h * 0.05);
+  g.fillStyle = shade(skin, 0.9); g.beginPath(); g.ellipse(x - headR * 0.88, hy + headR * 0.05, headR * 0.16, headR * 0.26, 0, 0, 7); g.ellipse(x + headR * 0.88, hy + headR * 0.05, headR * 0.16, headR * 0.26, 0, 0, 7); g.fill();
+  const hg = g.createRadialGradient(x - headR * 0.15, hy - headR * 0.3, headR * 0.1, x, hy, headR * 1.1);
+  hg.addColorStop(0, shade(skin, 1.18)); hg.addColorStop(0.6, skin); hg.addColorStop(1, shade(skin, 0.72));
+  g.fillStyle = hg; g.beginPath(); g.ellipse(x, hy, headR * 0.85, headR, 0, 0, 7); g.fill();
+  // hair, with a few strands catching the light
+  g.fillStyle = hair; g.beginPath(); g.ellipse(x, hy - headR * 0.45, headR * 0.92, headR * 0.6, 0, Math.PI, 0); g.fill();
+  if (o.long) { g.fillRect(x - headR * 0.98, hy - headR * 0.3, headR * 0.35, headR * 1.9); g.fillRect(x + headR * 0.63, hy - headR * 0.3, headR * 0.35, headR * 1.9); }
+  g.strokeStyle = shade(hair, 1.5); g.lineWidth = Math.max(0.4, headR * 0.05);
+  for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(x - headR * 0.6 + i * headR * 0.35, hy - headR * 0.85); g.lineTo(x - headR * 0.45 + i * headR * 0.35, hy - headR * 0.55); g.stroke(); }
   if (o.cap) { g.fillStyle = o.cap; g.fillRect(x - headR, hy - headR * 1.05, headR * 2, headR * 0.6); g.fillRect(x - headR * 1.3, hy - headR * 0.55, headR * 1.2, headR * 0.2); }
-  g.fillStyle = '#1a1010'; g.fillRect(x - headR * 0.45, hy - headR * 0.05, Math.max(1, headR * 0.2), Math.max(1, headR * 0.18)); g.fillRect(x + headR * 0.25, hy - headR * 0.05, Math.max(1, headR * 0.2), Math.max(1, headR * 0.18));
-  g.strokeStyle = '#7a3030'; g.lineWidth = Math.max(1, headR * 0.12); g.beginPath();
-  if (o.smile !== false) g.arc(x, hy + headR * 0.25, headR * 0.35, 0.2, Math.PI - 0.2); else { g.moveTo(x - headR * 0.3, hy + headR * 0.5); g.lineTo(x + headR * 0.3, hy + headR * 0.5); }
-  g.stroke();
+  // brows, eyes (whites, iris, a dot of flash), nose shadow, cheeks, mouth
+  const ey = hy - headR * 0.02, ex = headR * 0.34, er = Math.max(0.6, headR * 0.13);
+  g.strokeStyle = shade(hair, 0.8); g.lineWidth = Math.max(0.5, headR * 0.08);
+  g.beginPath(); g.moveTo(x - ex - er * 1.2, ey - er * 1.6); g.lineTo(x - ex + er * 1.2, ey - er * 1.9); g.moveTo(x + ex - er * 1.2, ey - er * 1.9); g.lineTo(x + ex + er * 1.2, ey - er * 1.6); g.stroke();
+  for (const sx of [-1, 1]) {
+    g.fillStyle = '#f0ece0'; g.beginPath(); g.ellipse(x + sx * ex, ey, er * 1.25, er * 0.8, 0, 0, 7); g.fill();
+    g.fillStyle = o.eyes || '#4a3420'; g.beginPath(); g.arc(x + sx * ex, ey, er * 0.7, 0, 7); g.fill();
+    g.fillStyle = '#0a0806'; g.beginPath(); g.arc(x + sx * ex, ey, er * 0.35, 0, 7); g.fill();
+    g.fillStyle = '#ffffff'; g.fillRect(x + sx * ex - er * 0.3, ey - er * 0.35, Math.max(0.5, er * 0.3), Math.max(0.5, er * 0.3));
+  }
+  g.fillStyle = shade(skin, 0.75); g.beginPath(); g.moveTo(x, ey + er); g.lineTo(x - headR * 0.12, hy + headR * 0.32); g.lineTo(x + headR * 0.1, hy + headR * 0.34); g.fill();
+  g.fillStyle = 'rgba(200,90,80,0.25)'; g.beginPath(); g.arc(x - headR * 0.45, hy + headR * 0.35, headR * 0.15, 0, 7); g.arc(x + headR * 0.45, hy + headR * 0.35, headR * 0.15, 0, 7); g.fill();
+  const my = hy + headR * 0.55;
+  if (o.smile !== false) {
+    g.fillStyle = '#5a1a18'; g.beginPath(); g.ellipse(x, my, headR * 0.3, headR * 0.12, 0, 0, Math.PI); g.fill();
+    g.fillStyle = '#f0ece0'; g.fillRect(x - headR * 0.22, my, headR * 0.44, Math.max(0.5, headR * 0.05));
+  } else { g.strokeStyle = '#7a3a34'; g.lineWidth = Math.max(0.5, headR * 0.08); g.beginPath(); g.moveTo(x - headR * 0.25, my); g.lineTo(x + headR * 0.25, my); g.stroke(); }
 }
 function dog(g, x, y, s, o = {}) {
   g.fillStyle = o.col || '#c89040';
@@ -45,15 +79,18 @@ function dog(g, x, y, s, o = {}) {
   g.fillStyle = '#111'; g.fillRect(x + s * 0.86, y - s * 0.72, s * 0.06, s * 0.06); g.fillRect(x + s * 0.58, y - s * 0.86, s * 0.05, s * 0.05);
   g.strokeStyle = o.col || '#c89040'; g.lineWidth = s * 0.08; g.beginPath(); g.moveTo(x - s * 0.55, y - s * 0.5); g.lineTo(x - s * 0.85, y - s * 0.75); g.stroke();
 }
-function photo(draw, date, w = 160, h = 120) {
+function photo(draw, date, w0 = 160, h0 = 120) {
+  // painted at twice the size, so the prints hold up close
+  const K = 2, w = w0 * K, h = h0 * K;
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d');
+  const draw0 = draw; draw = (gg, iw, ih) => { gg.scale(K, K); draw0(gg, iw / K, ih / K); };
   g.fillStyle = '#e8e2d0'; g.fillRect(0, 0, w, h);
-  const ix = 5, iy = 5, iw = w - 10, ih = h - 16;
+  const ix = 5 * K, iy = 5 * K, iw = w - 10 * K, ih = h - 16 * K;
   g.save(); g.beginPath(); g.rect(ix, iy, iw, ih); g.clip(); g.translate(ix, iy);
   draw(g, iw, ih);
   g.restore();
-  if (date) { g.fillStyle = '#ff9a30'; g.font = 'bold 8px monospace'; g.fillText(date, ix + iw - 52, iy + ih - 4); }
+  if (date) { g.fillStyle = '#ff9a30'; g.font = `bold ${8 * K}px monospace`; g.fillText(date, ix + iw - 52 * K, iy + ih - 4 * K); }
   // fade, warm cast, grain, a crease
   const d = g.getImageData(0, 0, w, h);
   for (let i = 0; i < d.data.length; i += 4) {
@@ -116,6 +153,33 @@ export const PHOTOS = {
     dog(g, w * 0.45, h * 0.99, h * 0.2);
     g.fillStyle = '#c03030'; g.fillRect(w * 0.1, h * 0.9, 10, 7); g.fillStyle = '#3070c0'; g.fillRect(w * 0.6, h * 0.92, 12, 6);
   }, "'96 12 25"),
+  birthday: photo((g, w, h) => {
+    // the kitchen with the lights off, everyone lit by thirteen candles and the flash
+    g.fillStyle = '#2a1e16'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#4a3a2a'; g.fillRect(0, h * 0.18, w, h * 0.06); // a shelf
+    for (let i = 0; i < 6; i++) { g.fillStyle = ['#c8b8a0', '#8a2a2a', '#3a5a8a'][i % 3]; g.fillRect(w * 0.06 + i * w * 0.07, h * 0.08, w * 0.04, h * 0.1); }
+    g.fillStyle = '#e8c8a0'; g.fillRect(w * 0.6, h * 0.04, w * 0.3, h * 0.14); g.fillStyle = '#c02020'; g.font = 'bold 8px monospace'; g.fillText('HAPPY 13 DAN', w * 0.61, h * 0.13);
+    person(g, w * 0.2, h * 1.05, h * 0.82, CLAIRE); person(g, w * 0.82, h * 1.06, h * 0.85, TOM);
+    person(g, w * 0.66, h * 1.0, h * 0.5, LILY);
+    person(g, w * 0.45, h * 1.12, h * 0.8, { ...DANNY, shirt: '#3a5a8a' });
+    g.fillStyle = '#6a4a2a'; g.fillRect(0, h * 0.78, w, h * 0.22); // the table
+    g.fillStyle = '#f4ecdc'; g.fillRect(w * 0.36, h * 0.66, w * 0.2, h * 0.13); g.fillStyle = '#e88aa0'; g.fillRect(w * 0.36, h * 0.66, w * 0.2, h * 0.025);
+    for (let i = 0; i < 13; i++) { const cx = w * 0.37 + i * w * 0.0145; g.fillStyle = ['#5a8ad0', '#e0c040', '#d05050'][i % 3]; g.fillRect(cx, h * 0.6, 1.2, h * 0.06); g.fillStyle = '#fff2a0'; g.fillRect(cx - 0.3, h * 0.57, 1.8, 2.6); }
+    const glow = g.createRadialGradient(w * 0.46, h * 0.6, 2, w * 0.46, h * 0.6, w * 0.4); glow.addColorStop(0, 'rgba(255,200,120,0.35)'); glow.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = glow; g.fillRect(0, 0, w, h);
+    dog(g, w * 0.12, h * 0.99, h * 0.22); // begging, as always
+  }, "'97 03 02"),
+  porch: photo((g, w, h) => {
+    // summer: the farmhouse freshly painted, all of them on the porch steps
+    const sky = g.createLinearGradient(0, 0, 0, h * 0.4); sky.addColorStop(0, '#5a9ae0'); sky.addColorStop(1, '#bcd8f0'); g.fillStyle = sky; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#f0ece0'; g.fillRect(w * 0.04, h * 0.12, w * 0.92, h * 0.62);
+    g.fillStyle = '#7a2a20'; g.beginPath(); g.moveTo(0, h * 0.14); g.lineTo(w * 0.5, -h * 0.05); g.lineTo(w, h * 0.14); g.fill();
+    g.fillStyle = '#2a3a4a'; for (const wx of [0.12, 0.3, 0.64, 0.82]) { g.fillRect(w * wx, h * 0.24, w * 0.08, h * 0.16); g.fillStyle = '#e8e4d8'; g.fillRect(w * wx + w * 0.038, h * 0.24, 1.2, h * 0.16); g.fillStyle = '#2a3a4a'; }
+    g.fillStyle = '#5a7a3a'; g.fillRect(0, h * 0.74, w, h * 0.26);
+    g.fillStyle = '#c8c0b0'; for (let i = 0; i < 3; i++) g.fillRect(w * 0.25, h * 0.6 + i * h * 0.05, w * 0.5, h * 0.05);
+    person(g, w * 0.3, h * 0.78, h * 0.5, TOM); person(g, w * 0.42, h * 0.78, h * 0.46, CLAIRE);
+    person(g, w * 0.58, h * 0.86, h * 0.48, { ...DANNY, shirt: '#e8e0c8', cap: '#2a4a8a' }); person(g, w * 0.7, h * 0.87, h * 0.32, LILY);
+    dog(g, w * 0.5, h * 0.95, h * 0.18); g.fillStyle = 'rgba(240,236,224,0.8)'; g.fillRect(w * 0.48, h * 0.86, 3, 2); // a little white paint on your ear
+  }, "'97 07 19"),
   furnace: photo((g, w, h) => {
     g.fillStyle = '#1a1612'; g.fillRect(0, 0, w, h);
     const glow = g.createRadialGradient(w * 0.3, h * 0.7, 2, w * 0.3, h * 0.7, w * 0.5); glow.addColorStop(0, 'rgba(255,140,40,0.9)'); glow.addColorStop(1, 'rgba(255,140,40,0)');
@@ -199,7 +263,9 @@ DOCS.tin = {
 };
 DOCS.doghouse = { style: 'memory', title: 'The doghouse with your name on it', memory: 'He built this for you the summer he was twelve, with the man\'s hammer and too many nails. You never slept in it once. You slept on the end of his bed. He knew. He built it anyway.' };
 DOCS.snowman = { style: 'memory', title: 'A small snowman by the back door', memory: 'The girl built him this afternoon, all by herself, while the woman watched from the window. She gave him Danny\'s blue hockey scarf so he would not be cold.' };
-for (const k of ['lake', 'school', 'puppy', 'christmas', 'furnace']) DOCS['photo_' + k] = { style: 'photo', photo: k };
+for (const k of ['lake', 'school', 'puppy', 'christmas', 'furnace', 'birthday', 'porch']) DOCS['photo_' + k] = { style: 'photo', photo: k };
+DOCS.photo_birthday.title = 'A photograph in the hall'; DOCS.photo_birthday.memory = 'His thirteenth birthday. The kitchen dark and full of candlelight. He slipped you the frosting off his slice when he thought nobody was looking. Everybody was looking. Nobody said anything.';
+DOCS.photo_porch.title = 'A photograph in the hall'; DOCS.photo_porch.memory = 'The summer the man painted the house. Danny painted your doghouse to match, and then he painted you, a little, by accident, and laughed so hard he had to sit down on the steps.';
 DOCS.photo_lake.title = 'A photograph in the hall'; DOCS.photo_lake.memory = 'The lake. Danny threw sticks into the water all afternoon and you brought every one of them back. The man caught one fish and was so proud of it.';
 DOCS.photo_school.title = 'A school portrait in the hall'; DOCS.photo_school.memory = 'His school picture. He hated that shirt. He smelled of pencils and the bus and cold air, and his bus came at 3:40 every day.';
 DOCS.photo_puppy.title = 'A photograph in the hall'; DOCS.photo_puppy.memory = 'The day he picked you. You were the smallest one in the box. He carried you home inside his red jacket and you slept against his heart.';
@@ -214,14 +280,35 @@ export function inspect(id, x, y, z, reach, o = {}) {
   return def;
 }
 
+// a wooden frame with a cream mat around a photograph on a wall. dir = +1 faces +z, -1 faces -z
+function frame(x, y, z, w, h, dir, M) {
+  const wood = ps1Mat({ color: 0x5a3820, emissive: 0x0a0604 });
+  const t = 0.035, d = 0.03, zz = z - dir * 0.006;
+  prop(x, y, zz - dir * 0.004, w + 0.1, h + 0.1, 0.008, ps1Mat({ color: 0xe8e0cc, emissive: 0x141210 })); // the mat
+  prop(x, y + h / 2 + 0.05 + t / 2, zz, w + 0.1 + t * 2, t, d, wood);
+  prop(x, y - h / 2 - 0.05 - t / 2, zz, w + 0.1 + t * 2, t, d, wood);
+  prop(x - w / 2 - 0.05 - t / 2, y, zz, t, h + 0.1, d, wood);
+  prop(x + w / 2 + 0.05 + t / 2, y, zz, t, h + 0.1, d, wood);
+  // a glint on the glass
+  prop(x + w * 0.22, y + h * 0.18, z + dir * 0.008, 0.012, h * 0.7, 0.002, ps1Mat({ color: 0xc8ccd8, emissive: 0x30343c }), { rz: 0.7 });
+}
+
 export function buildLore(scene, M) {
-  // ---- hall photographs: each frame gets its own picture ----------------------
+  // ---- hall photographs: framed, each with its own picture -----------------------
   const hallKeys = ['lake', 'school', 'puppy', 'christmas'];
   refs.hallPhotos.forEach((m, i) => {
     m.material = ps1Mat({ map: PHOTO_TEX[hallKeys[i]], unique: true });
     m.userData.photo = hallKeys[i];
-    inspect('photo_' + hallKeys[i], m.position.x, 1.55, 3.6, 1.1, { dogPos: new THREE.Vector3(m.position.x, 0, 4.1) });
+    frame(m.position.x, m.position.y, 3.575, 0.42, 0.32, 1, M);
+    inspect('photo_' + hallKeys[i], m.position.x, 1.42, 3.6, 1.1, { dogPos: new THREE.Vector3(m.position.x, 0, 4.1) });
   });
+  // two more on the other side of the hall
+  for (const [x, k] of [[3.6, 'birthday'], [9.6, 'porch']]) {
+    const m = prop(x, 1.42, 4.915, 0.42, 0.32, 0.01, ps1Mat({ map: PHOTO_TEX[k], unique: true }), { ry: Math.PI });
+    m.userData.photo = k; refs.hallPhotos.push(m);
+    frame(x, 1.42, 4.925, 0.42, 0.32, -1, M);
+    inspect('photo_' + k, x, 1.42, 4.9, 1.1, { dogPos: new THREE.Vector3(x, 0, 4.4) });
+  }
   refs.photoWrong = () => refs.hallPhotos.forEach((m) => { m.material.uniforms.map.value = PHOTO_TEX_WRONG[m.userData.photo]; });
 
   // ---- Danny's room ------------------------------------------------------------
