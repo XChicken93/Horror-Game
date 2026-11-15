@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Good Boy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root { --fg: #d8d0c0; --dim: #7a746a; --gold: #f0d890; --red: #c03020; --bg: #000; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; color: var(--fg);
+    font-family: 'VT323', 'Courier New', monospace; user-select: none; }
+  #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; cursor: crosshair; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; }
+  #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0.35), rgba(0,0,0,0.92)); cursor: pointer; z-index: 10; }
+  #title h1 { font-size: clamp(64px, 14vw, 150px); margin: 0; letter-spacing: 0.08em; color: #e8e0cc;
+    text-shadow: 4px 4px 0 #3a0a06, 0 0 24px rgba(200,40,20,0.35); animation: jit 3.2s infinite steps(1); }
+  #title .sub { font-size: 22px; color: var(--dim); margin-top: -6px; letter-spacing: 0.3em; }
+  #title .start { margin-top: 48px; font-size: 30px; animation: blink 1.4s infinite steps(1); color: var(--gold); }
+  #title .warn { margin-top: 36px; font-size: 18px; color: #8a6a5a; max-width: 560px; line-height: 1.2; }
+  #title .ctl { margin-top: 22px; font-size: 19px; color: #9a9284; line-height: 1.35; }
+  #title .ctl b, #controls b, #prompt b { color: var(--gold); font-weight: normal; }
+  #titleFound { margin-top: 16px; color: #6a8a6a; font-size: 18px; }
+  #intro { display: none; background: #000; z-index: 9; cursor: pointer; }
+  #intro p { font-size: clamp(22px, 3.4vw, 34px); margin: 8px 0; opacity: 0; animation: fadeIn 1.6s forwards; }
+  #intro .skip { position: fixed; bottom: 18px; right: 22px; font-size: 16px; color: #444; }
+  #hud { display: none; pointer-events: none; }
+  #subs { position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%); width: min(92vw, 900px); text-align: center;
+    font-size: clamp(20px, 2.6vw, 30px); line-height: 1.15; text-shadow: 2px 2px 0 #000, 0 0 6px #000; opacity: 0; transition: opacity 0.4s; z-index: 5; }
+  #subs .who { font-size: 0.7em; letter-spacing: 0.2em; margin-right: 6px; }
+  .who-father { color: #7a9ae0; } .who-mother { color: #e08ad0; } .who-lily { color: #8ae09a; } .who-danny { color: #f0d060; }
+  #subs b { color: #fff6d8; font-weight: normal; text-decoration: underline; text-underline-offset: 3px; }
+  #subs i { color: #8a847a; font-style: normal; letter-spacing: 0.02em; }
+  #subs .note { color: #9a8a7a; font-size: 0.8em; }
+  #prompt { position: fixed; left: 50%; bottom: 3vh; transform: translateX(-50%); font-size: 20px; color: #b8b0a0; text-shadow: 2px 2px 0 #000; z-index: 5; white-space: nowrap; }
+  #label { position: fixed; left: 50%; top: 6vh; transform: translateX(-50%); width: min(92vw, 820px); text-align: center; font-size: clamp(18px, 2.2vw, 26px);
+    text-shadow: 2px 2px 0 #000; opacity: 0; transition: opacity 0.3s; color: #cfc7b7; z-index: 5; }
+  #controls { position: fixed; left: 16px; top: 14px; font-size: 18px; line-height: 1.25; color: #9a9284; text-shadow: 2px 2px 0 #000; transition: opacity 3s; z-index: 5; }
+  #controls.fade { opacity: 0; }
+  #lockHint { display: none; position: fixed; right: 16px; top: 14px; font-size: 18px; color: #6a645a; text-shadow: 2px 2px 0 #000; z-index: 5; }
+  #ending { display: none; background: #000; z-index: 20; overflow-y: auto; justify-content: flex-start; padding-top: 8vh; cursor: default; }
+  #endNum { color: #6a645a; letter-spacing: 0.3em; font-size: 20px; opacity: 0; animation: fadeIn 2s 0.3s forwards; }
+  #endTitle { font-size: clamp(48px, 9vw, 96px); margin: 4px 0 18px; color: #e8e0cc; text-shadow: 3px 3px 0 #3a0a06; opacity: 0; animation: fadeIn 2s 0.6s forwards; }
+  #endText { max-width: 680px; }
+  #endText p { font-size: clamp(20px, 2.5vw, 27px); line-height: 1.25; margin: 0 0 16px; opacity: 0; animation: fadeIn 2.4s forwards; }
+  #endLogWrap { max-width: 760px; width: 100%; margin-top: 28px; opacity: 0; animation: fadeIn 3s forwards; text-align: left; }
+  #endLogWrap h2 { font-weight: normal; letter-spacing: 0.25em; color: #9a9284; font-size: 20px; text-align: center; margin: 0 0 4px; }
+  #endLogWrap .why { text-align: center; color: #5a554e; font-size: 17px; margin-bottom: 14px; }
+  #endLog .line { font-size: 19px; line-height: 1.2; padding: 3px 0; color: #a8a090; border-bottom: 1px solid #141210; }
+  #endLog .line.clue { color: #e8a080; }
+  #endLog .lw { display: inline-block; min-width: 130px; color: #5a554e; font-size: 15px; letter-spacing: 0.1em; }
+  #endFound { margin: 26px 0 60px; color: #6a8a6a; font-size: 20px; opacity: 0; animation: fadeIn 2s forwards; }
+  #endFound::after { content: ' — press R or click to wake up again'; color: #6a645a; }
+  @keyframes fadeIn { to { opacity: 1; } }
+  @keyframes blink { 50% { opacity: 0.15; } }
+  @keyframes jit { 0% { transform: translate(0,0); } 92% { transform: translate(0,0); } 93% { transform: translate(3px,-2px) skewX(4deg); } 95% { transform: translate(-2px,1px); } 97% { transform: translate(0,0); } }
+  @media (max-width: 640px) { #controls { font-size: 15px; } #prompt { font-size: 16px; white-space: normal; width: 92vw; text-align: center; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="title" class="overlay">
+  <h1>GOOD BOY</h1>
+  <div class="sub">A NIGHT IN THE HALE FARMHOUSE</div>
+  <div class="start">CLICK TO BEGIN</div>
+  <div class="ctl">
+    <b>WASD</b> move &nbsp; <b>MOUSE</b> look &nbsp; <b>SHIFT</b> run<br>
+    <b>SPACE</b> bark &nbsp; <b>Q</b> whine &nbsp; <b>E</b> take / drop / tug / scratch &nbsp; hold <b>E</b> bite<br>
+    hold <b>F</b> or <b>RIGHT MOUSE</b> sniff &nbsp; hold <b>C</b> lie down
+  </div>
+  <div class="warn">Contains grief, the death of a child (off-screen), a family in danger, flashing lights and loud sounds. Headphones recommended. Play in the dark.</div>
+  <div id="titleFound"></div>
+</div>
+
+<div id="intro" class="overlay"><span class="skip">click to skip</span></div>
+
+<div id="hud">
+  <div id="controls">
+    <b>WASD</b> move · <b>SHIFT</b> run<br>
+    <b>SPACE</b> bark · <b>Q</b> whine<br>
+    <b>E</b> take/drop/tug · hold <b>E</b> bite<br>
+    hold <b>F</b> / <b>RMB</b> sniff<br>
+    hold <b>C</b> lie down
+  </div>
+  <div id="lockHint">click to look around</div>
+  <div id="label"></div>
+  <div id="subs"></div>
+  <div id="prompt"></div>
+</div>
+
+<div id="ending" class="overlay">
+  <div id="endNum"></div>
+  <div id="endTitle"></div>
+  <div id="endText"></div>
+  <div id="endLogWrap">
+    <h2>WHAT THEY SAID TONIGHT</h2>
+    <div class="why">Biscuit only knew a few words. This is everything else.</div>
+    <div id="endLog"></div>
+  </div>
+  <div id="endFound"></div>
+</div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>
