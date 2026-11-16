@@ -5,13 +5,16 @@ import { G, P, ps1Mat } from './ps1.js';
 import { T, updateTV, updateWindow } from './textures.js';
 import * as AU from './audio.js';
 import { doors, lights, items, spots, refs, windows, roomAt, floorAt, collide, isOutside, BASE_Y } from './house.js';
-import { Human, speechLog, showSubtitle, learnWords, knows, VOCAB_STATE, speechHook, LABEL } from './humans.js';
+import { Human, speechLog, showSubtitle, learnWords, knows, VOCAB, VOCAB_STATE, speechHook, LABEL } from './humans.js';
 import { emit, SCENT, DANNY_TRAIL, DANNY_TRAIL_DOWN, DANNY_TRAIL_YARD, DANNY_TRAIL_GATE, DEER_TRAIL, TRACK, TRACK_NAME, setTrack, groupOf } from './scent.js';
 import { dog, input, inBasement, dogForward, act, lookAtPoint } from './player.js';
 import { inspectables, puzzle, DOCS, PHOTOS } from './lore.js';
 import { yard, digHole, updateFlap, pawPrint } from './yard.js';
 import { puff, spray, breath } from './fx.js';
 import { initDread, updateDread, dreadOnce } from './dread.js';
+import { dressPresence, monsterChoice } from './monster.js';
+import { unlock, achSet } from './achievements.js';
+import { keys } from './player.js';
 
 export const S = {
   t: 0, co: 0, dogCO: 0, coOn: false, coT0: 0, strikes: 0, fired: new Set(), locked: false, ended: false, cut: null,
@@ -83,11 +86,13 @@ export function initStory(family, sc, uiRefs) {
   S.presence.faceMat.uniforms.uColor.value.set(1, 1, 1);
   S.presence.visible = false; S.presence.root.visible = false;
   S.presence.setPos(spots.furnace.x, spots.furnace.z, BASE_Y);
+  dressPresence(S.presence, monsterChoice());
   // Danny: warm, gold, gentle. He is not the thing that chases you.
   for (const m of F.danny.mats) m.uniforms.uEmissive.value.set(0.22, 0.17, 0.06);
   dog.onStep = (x, z, yaw, side) => pawPrint(x, z, yaw, side);
   initDread({ S, F, scene, later, scared: (k) => scared(k), say, ball: items.find((i) => i.name === 'ball') });
   speechHook.fn = (rec) => { rec.snap = snapshot(); rec.clock = clockStr(S.t); };
+  makeHandProps();
   setObj('Your bowl is empty. The woman forgot to feed you again.');
 }
 
@@ -163,28 +168,141 @@ function updateLightning(dt) {
 
 // ===========================================================================
 // CHAPTERS
-function askSit(m) {
-  // Chapter 1: she wants you to sit for it, the way Danny taught you
-  const b = puzzle.bowl;
-  b.gone = true; b.mesh.visible = false;
-  m.look(dogHead(), 6, S.t);
-  say(m, 'Oh, Biscuit. Your bowl. I forgot again, didn\'t I. Okay. Sit. Sit for me, like Danny taught you.', 'sad');
-  S.wantSit = m;
-  setObj('She is waiting. Sit for her.');
+// props the family hands things around with
+let kibbleBag = null, newspaper = null, crayonHand = null;
+function makeHandProps() {
+  // the dog food: a paper sack, folded over at the top, a dog on the label
+  kibbleBag = new THREE.Group();
+  const paperM = ps1Mat({ color: 0x9a6a3a }), labelM = ps1Mat({ color: 0xc83a2a }), whiteM = ps1Mat({ color: 0xe8e0d0 });
+  const sack = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 0.1), paperM); sack.position.y = -0.15; kibbleBag.add(sack);
+  const fold = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.06), paperM); fold.position.set(0, 0.015, 0); fold.rotation.x = 0.4; kibbleBag.add(fold);
+  const lab = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.11, 0.004), labelM); lab.position.set(0, -0.16, 0.052); kibbleBag.add(lab);
+  const dogPic = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.05, 0.004), whiteM); dogPic.position.set(0, -0.15, 0.055); kibbleBag.add(dogPic);
+  kibbleBag.visible = false; scene.add(kibbleBag);
+  // his newspaper, and her red crayon
+  newspaper = new THREE.Group();
+  const np = ps1Mat({ color: 0xd8d2c0 }), ink = ps1Mat({ color: 0x3a3a3a });
+  for (const s of [-1, 1]) { const pg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.38, 0.004), np); pg.position.set(s * 0.14, 0, 0); pg.rotation.y = -s * 0.25; newspaper.add(pg);
+    for (let i = 0; i < 6; i++) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.012, 0.002), ink); l.position.set(s * 0.14, 0.13 - i * 0.05, 0.004 * -s * 0); pg.add(l); l.position.set(0, 0.13 - i * 0.05, 0.004); } }
+  F.father.hold(newspaper, 1, { x: -0.16, y: 0.02, z: 0.08, rx: -0.3 }); newspaper.visible = false;
+  crayonHand = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.09, 6), ps1Mat({ color: 0xc02020 }));
+  F.lily.hold(crayonHand, 1, { z: 0.02, rx: 1.2 }); crayonHand.visible = false;
 }
+function petDog(h) {
+  // a hand on your head. Standing grown-ups crouch down for it.
+  if (h.path.length || (h.override && !['read', 'scribble', 'rubeyes', 'stretch', 'shiver'].includes(h.override.type)) || S.feeding) return;
+  const was = h.pose;
+  if (was === 'stand' || was === 'sink') h.pose = 'kneel';
+  h.override = { type: 'pat', until: S.t + 2.6 };
+  later(2.7, () => { if (h.pose === 'kneel' && !h.path.length) h.pose = was; });
+}
+function ach(id, arg) {
+  if (id === 'pets') { if (achSet('pets', arg) >= 3) unlock('pets'); return; }
+  unlock(id);
+}
+// the ones you earn by just doing things, checked every frame
+function updateAch(dt) {
+  if (S.ended || S.cut) return;
+  const run = (keys.has('shift') || input.stickRun) && dog.moving;
+  S.runT = run ? (S.runT || 0) + dt : 0;
+  if (S.runT > 20) ach('zoomies');
+  S.lieT = dog.lying > 0.5 && !S.outside ? (S.lieT || 0) + dt : 0;
+  if (S.lieT > 30) ach('playdead');
+  if (S.outside) ach('snow');
+  if (dog.y > 0.7 && dog.pos.x > 10.55 && dog.pos.x < 11.95 && dog.pos.z > 6.6 && dog.pos.z < 7.6 && dog.y < 1) ach('table');
+  if (VOCAB.size >= 200) ach('words');
+}
+function familyGestures(dt) {
+  const { father, mother, lily } = F;
+  // he reads the paper in his chair, and turns the pages
+  const reading = father.pose === 'sit' && !father.path.length && awake(father) && !father.asleep && S.ch < 3 && (!father.override || father.override.type === 'read');
+  if (reading && !father.override) father.override = { type: 'read' };
+  if (!reading && father.override?.type === 'read') father.override = null;
+  newspaper.visible = father.override?.type === 'read';
+  if (newspaper.visible && Math.random() < dt / 14) AU.paper(father.pos.x, 1, father.pos.z);
+  // she draws on the floor, when she has her crayons
+  const drawing = lily.pose === 'floor' && !lily.path.length && S.ch < 3 && (S.ch < 2 || S.crayons >= 6) && (!lily.override || lily.override.type === 'scribble');
+  if (drawing && !lily.override) lily.override = { type: 'scribble' };
+  if (!drawing && lily.override?.type === 'scribble') lily.override = null;
+  crayonHand.visible = lily.override?.type === 'scribble';
+  // now and then: a stretch, a shiver; once the air goes bad, rubbing at a headache
+  for (const h of [father, mother, lily]) {
+    if (h.override || h.path.length || (h.asleep && S.t >= h.awakeUntil) || h.pose !== 'stand') continue;
+    if (Math.random() < dt / 20) {
+      const k = S.co > 0.25 ? (Math.random() < 0.6 ? 'rubeyes' : 'shiver') : (Math.random() < 0.5 ? 'stretch' : 'shiver');
+      h.override = { type: k, until: S.t + 2 + Math.random() * 1.5 };
+    }
+  }
+}
+function askSit(m) {
+  // Chapter 1: she takes the bowl from you, and asks you to sit for it, the way Danny taught you
+  const b = puzzle.bowl;
+  b.gone = true;
+  m.path = []; m.pose = 'stand';
+  m.hold(b.mesh, 1, { y: -0.02, z: 0.1 });
+  m.override = { type: 'carry' };
+  m.look(dogHead(), 8, S.t);
+  say(m, "Oh, Biscuit. Your bowl. I forgot again, didn't I.", 'sad');
+  S.wantSit = m;
+  setObj('She is holding your bowl. Listen to her.');
+  later(3.6, () => {
+    if (S.wantSit !== m) return;
+    m.override = { type: 'point' }; m.look(dogHead(), 6, S.t);
+    say(m, 'Biscuit, sit.', 'calm', { force: true });
+    setObj('She said: Biscuit, sit. Sit for her. (X)');
+    const nag = () => { if (S.wantSit !== m) return; m.override = { type: 'point' }; m.look(dogHead(), 4, S.t); say(m, 'Biscuit. Sit.', 'calm', { force: true }); later(12, nag); };
+    later(12, nag);
+  });
+}
+const PANTRY = v3(12.85, 0, 5.85), BOWL_SIDE = v3(10.3, 0, 9.02), BAG_SHELF = v3(13.55, 0.94, 6.6);
 function feedBiscuit(m) {
-  // Chapter 1: she fills your bowl
+  // Chapter 1: she goes and gets the food, comes back, and fills your bowl in front of you
   S.wantSit = null; S.feeding = true;
   const b = puzzle.bowl;
-  b.gone = true; b.mesh.visible = false;
-  m.look(dogHead(), 4, S.t);
-  say(m, "Good boy. I'm sorry, Biscuit. I forgot your dinner again. I forget everything lately.", 'sad');
-  later(2.5, () => {
-    b.mesh.position.copy(b.home); b.mesh.rotation.set(0, 0, 0); b.mesh.visible = true; b.gone = false;
-    b.kibble.visible = true; b.full = true; b.label = 'your full bowl'; S.feeding = false;
-    AU.pickup();
-    setObj('Eat your dinner.');
-  });
+  m.override = { type: 'carry' };
+  m.look(dogHead(), 3, S.t);
+  say(m, 'Good boy. Good sit. Stay. I will get your food.', 'calm', { force: true });
+  setObj('Good boy. She is getting your food.');
+  ach('sit');
+  later(2.2, () => m.goTo(PANTRY.clone(), () => {
+    m.yaw = Math.PI / 2; m.pose = 'kneel'; m.override = { type: 'reach' };
+    AU.cupboard(13.38, 0.4, 5.85);
+    later(1.5, () => {
+      m.hold(kibbleBag, 0, { y: 0.05, z: 0.06 });
+      AU.paper(13.2, 0.4, 5.85);
+      m.override = { type: 'carry2' };
+      later(0.6, () => {
+        m.pose = 'stand';
+        m.goTo(BOWL_SIDE.clone(), () => {
+          m.yaw = 0; m.pose = 'kneel';
+          m.look(v3(10.3, 0.1, 9.6), 4, S.t);
+          later(0.7, () => {
+            // the bowl goes down where it lives
+            m.release(b.mesh, scene, b.home.clone());
+            AU.pickup();
+            m.override = { type: 'pour' };
+            kibbleBag.rotation.set(0, 0, -1.9); kibbleBag.position.x += 0.06;
+            AU.kibblePour(10.3, 0.3, 9.6);
+            b.kibble.visible = true; b.kibble.scale.set(0.5, 0.4, 0.5);
+            later(0.6, () => b.kibble.scale.set(0.8, 0.7, 0.8));
+            later(1.2, () => b.kibble.scale.set(1, 1, 1));
+            later(1.8, () => {
+              kibbleBag.rotation.set(0, 0, 0); kibbleBag.position.x -= 0.06;
+              b.gone = false; b.full = true; b.label = 'your full bowl'; S.feeding = false;
+              m.override = { type: 'carry' }; m.pose = 'stand';
+              m.look(dogHead(), 4, S.t);
+              say(m, "There you go. I'm sorry, Biscuit. I forgot your dinner again. I forget everything lately.", 'sad', { force: true });
+              setObj('Eat your dinner.');
+              later(3.5, () => m.goTo(v3(12.85, 0, 6.6), () => {
+                m.yaw = Math.PI / 2; m.override = { type: 'reach', until: S.t + 0.8 };
+                later(0.6, () => { m.release(kibbleBag, scene, BAG_SHELF.clone()); kibbleBag.rotation.set(0, 0.3, 0); m.override = null; m.setActivity({ spot: spots.sink.clone(), face: 0, pose: 'sink' }); });
+              }));
+            });
+          });
+        });
+      });
+    });
+  }));
 }
 function eatDinner() {
   const b = puzzle.bowl;
@@ -207,6 +325,7 @@ function startCrayons() {
   later(14, () => {
     const m = F.mother;
     m.setActivity({ spot: v3(12.6, 0, 4.05), face: Math.PI, pose: 'stand' });
+    later(5.5, () => { m.override = { type: 'reach', until: S.t + 3 }; });
     later(6, () => say(m, "It's freezing in here. I'm turning the heat up to seventy-eight.", 'calm', { clue: 'The thermostat went up to 78. The furnace would run hard all night.', hl: 'seventy-eight' }));
     later(11, () => m.setActivity({ spot: spots.sink.clone(), face: 0, pose: 'sink' }));
   });
@@ -534,6 +653,7 @@ function digDone(sp) {
     it.gone = false; it.mesh.visible = true; it.mesh.position.set(sp.pos.x, 0.04, sp.pos.z);
     showSubtitle('note', '<span class="note">(Your bone. You buried it in October, the day the man raked the leaves.)</span>', 3);
   }
+  if (yard.tin.done && yard.bone.done && yard.mitten.done) ach('digger');
   checkYard();
 }
 function gateScene() {
@@ -592,7 +712,7 @@ function updateDigging(dt) {
 function updateYard(dt) {
   updateFlap(dt, dog.pos, (v) => AU.flap(14.0, 0.3, 4.25, 0.4 + v));
   // coming in from the snow: shake it off
-  if (S.wasOutside && !S.outside && !inBasement()) later(0.5, () => { if (!S.outside && !dog.frozen) { act('shake'); AU.shakeSnd(); for (let i = 0; i < 14; i++) puff(dog.pos.x, dog.y + 0.35, dog.pos.z, { col: [0.85, 0.88, 0.95], vx: (Math.random() - 0.5) * 2.5, vy: Math.random() * 1.2, vz: (Math.random() - 0.5) * 2.5, grav: 4, life: 0.6, size: 0.02, spread: 0.3 }); } });
+  if (S.wasOutside && !S.outside && !inBasement()) later(0.5, () => { if (!S.outside && !dog.frozen) { act('shake'); AU.shakeSnd(); ach('shake'); for (let i = 0; i < 14; i++) puff(dog.pos.x, dog.y + 0.35, dog.pos.z, { col: [0.85, 0.88, 0.95], vx: (Math.random() - 0.5) * 2.5, vy: Math.random() * 1.2, vz: (Math.random() - 0.5) * 2.5, grav: 4, life: 0.6, size: 0.02, spread: 0.3 }); } });
   if (!S.wasOutside && S.outside && once('firstOutside')) ui.card('Outside', 'The air out here is cold and clean, and your head clears. It is the house. Something in the house is making all of you sick.');
   S.wasOutside = S.outside;
   // cold
@@ -632,6 +752,7 @@ function updateYard(dt) {
     later(12, () => showSubtitle('note', '<span class="note">(His trail goes on under the gate. Snow is piled against the bottom of it. You could dig under. Hold R.)</span>', 4.5));
   // the pond, where it ends
   if (S.outside && dog.pos.x > 33 && once('pond')) {
+    ach('pond');
     const d = F.danny;
     d.visible = true; d.setPos(39.3, 3.0); d.pose = 'stand'; d.yaw = Math.atan2(dog.pos.x - 39.3, dog.pos.z - 3.0);
     d.look(dogHead(), 6, S.t); S.ghostState = { kind: 'pond', t: 0 };
@@ -952,12 +1073,13 @@ function updateStalker(dt) {
     K.re -= dt;
     if (K.re <= 0) { K.re = 0.6; p.goTo(v3(dog.pos.x, 0, dog.pos.z)); }
     K.lost = sees ? 0 : K.lost + dt;
+    if (K.lost > 4 && dogIn && dogHidden(d)) ach('hide');
     if (K.lost > 4 || !dogIn) { K.state = 'roam'; K.t = 14; p.path = []; if (!dogIn) { K.state = 'away'; K.t = 1e9; } }
     if (d < 0.75 && dogIn) caughtUpstairs();
   }
   p.update(dt, S.t, 0, dog.pos);
   p.pos.y = 0; p.root.position.y = 0;
-  for (const a of p.arms) a.sh.rotation.x = K.state === 'hunt' ? -1.45 + Math.sin(S.t * 9) * 0.05 : -0.2 + Math.sin(S.t * 1.3) * 0.1;
+  p.monster.update(S.t, dt, K.state === 'hunt' ? 'hunt' : p.moving ? 'walk' : 'idle');
   for (let i = 0; i < 2; i++) emit(p.pos.x, 0.5 + Math.random() * 1.8, p.pos.z, 'wrong', { spread: 0.5, life: 2, size: 0.06 });
   S.breathT = (S.breathT || 0) - dt;
   if (S.breathT <= 0 && d < 9) { S.breathT = 2.6; AU.breathing(p.pos.x, 1.9, p.pos.z, 1 - d / 10); }
@@ -979,6 +1101,7 @@ function caughtUpstairs() {
 function caughtCount() {
   S.catches = (S.catches || 0) + 1;
   if (S.catches >= 3) { S.cut = 'dark'; later(1.5, () => finish('dark')); return; }
+  later(5, () => { if (!S.ended) ach('caught'); });
   later(3, () => ui.card(S.catches === 1 ? 'You wake up on the floor' : 'Again', S.catches === 1
     ? 'Your head is pounding. You do not know how long you were gone. The air is thicker than it was. It is still in the house.'
     : 'Longer, this time. It was harder to come back. You know, the way animals know things, that if it takes you again you will not wake up.'));
@@ -994,6 +1117,7 @@ function barkRepel() {
   S.repelCD = S.t + 25;
   AU.stinger(0.5);
   for (let i = 0; i < 40; i++) emit(p.pos.x, p.pos.y + Math.random() * 2.2, p.pos.z, 'wrong', { spread: 1.2, life: 1.5, size: 0.07, vy: 0.4 });
+  ach('smoke');
   if (S.presenceActive) S.presenceSleep = 12;
   else { S.stalk.state = 'away'; S.stalk.t = 1e9; }
   p.root.visible = false; p.visible = false;
@@ -1002,6 +1126,12 @@ function barkRepel() {
 }
 function updatePresence(dt) {
   const p = S.presence;
+  if (S.monsterPreview) { // testing / preview aid: hold it still where we put it
+    const M = S.monsterPreview;
+    p.setPos(M.x, M.z, M.y); p.yaw = M.yaw; p.visible = true; p.path = [];
+    p.update(dt, S.t, 0, dog.pos); p.root.position.y = M.y; p.root.rotation.set(0, M.yaw, 0);
+    p.monster.update(S.t, dt, M.mode); p.root.visible = true; return;
+  }
   if (!S.presenceActive) { updateStalker(dt); return; }
   if (S.presenceSleep > 0) { S.presenceSleep -= dt; p.root.visible = false; return; }
   p.visible = true;
@@ -1012,7 +1142,7 @@ function updatePresence(dt) {
   p.update(dt, S.t, 0, dog.pos);
   p.pos.y = floorAt(p.pos.x, p.pos.z, p.pos.y);
   p.root.position.y = p.pos.y;
-  for (const a of p.arms) a.sh.rotation.x = -1.45 + Math.sin(S.t * 9) * 0.05;
+  p.monster.update(S.t, dt, 'hunt');
   p.root.visible = Math.random() > 0.06;
   for (let i = 0; i < 3; i++) emit(p.pos.x, p.pos.y + 0.6 + Math.random() * 1.6, p.pos.z, 'wrong', { spread: 0.5, life: 1.5, size: 0.06 });
   if (!inBasement() || dog.y > -0.25) { S.presenceActive = false; p.root.visible = false; AU.stinger(0.4); if (S.stalk) { S.stalk.state = 'away'; S.stalk.t = 1e9; } return; }
@@ -1052,6 +1182,7 @@ function unlockLaundry() {
 export function onBark() {
   if (S.ended || S.cut || S.inspectOpen) return;
   AU.bark(1); dog.barkKick = 1;
+  S.barks = (S.barks || 0) + 1; if (S.barks >= 50) ach('speak');
   if (S.outside) { const f = dogForward(); breath(dog.pos.x, dog.y + 0.33, dog.pos.z, f.x, f.z, 2); }
   const { father, mother, lily } = F;
   if (S.lilyDazed && dist2d(lily.pos, dog.pos) < 3.8 && Math.abs(lily.pos.y - dog.y) < 1) { lilyWakesUp(); return; }
@@ -1125,17 +1256,20 @@ export function onSit() {
   S.strikes = Math.max(0, S.strikes - 1); h.annoy = 0;
   const lines = h === F.lily ? ['You sat! Good boy! I do not have a treat. Sorry.', 'Biscuit, you are so polite.'] : h === F.father ? ['Good boy. Good sit. He taught you that.', 'Yeah. Good boy.'] : ['Good boy. You are such a good boy.', 'You always sit for Danny\'s chair, you know that?'];
   say(h, lines[Math.floor(Math.random() * lines.length)], 'calm', { force: false, cooldown: 4 });
+  petDog(h); ach('pets', h.name);
 }
 export function onWag() {
   if (S.ended || S.cut || S.inspectOpen) return;
   AU.wagSwish();
   if (S.coOn) dreadOnce('stare');
+  { const p = S.presence; if (p.visible && p.root.visible && dist2d(p.pos, dog.pos) < 7 && Math.abs(p.pos.y - dog.y) < 1.5) ach('wagthing'); }
   const h = [F.father, F.mother, F.lily].find((x) => awake(x) && !x.asleep && sameFloor(x) && dist2d(x.pos, dog.pos) < 3);
   if (!h || S.t - (h.lastWag || -99) < 15) return;
   h.lastWag = S.t; h.look(dogHead(), 3, S.t);
   S.strikes = Math.max(0, S.strikes - 1); h.annoy = 0;
   const lines = h === F.lily ? ['Your tail! Ha! Your whole butt is wagging!', 'Are you happy? I am happy too. A little.'] : h === F.father ? ['Hey, bud. Hey. At least somebody is happy.', 'What are you so happy about?'] : ['Oh, look at that tail. Hi, sweetheart.', 'Hi. Hi, Biscuit. I know.'];
   say(h, lines[Math.floor(Math.random() * lines.length)], 'calm', { force: false, cooldown: 4 });
+  petDog(h); ach('pets', h.name);
 }
 export function onWhine() {
   if (S.ended || S.cut || S.inspectOpen) return;
@@ -1218,6 +1352,7 @@ const nearJar = () => !puzzle.jarFallen && dog.surface && dog.surface.name === '
 function knockJar() {
   puzzle.jarFallen = true;
   act('nudge');
+  ach('jar');
   S.jarFall = { t: 0, x0: refs.jar.position.x, z0: refs.jar.position.z };
   later(0.55, () => {
     AU.crash(13.2, 0.1, 7.55);
@@ -1255,6 +1390,7 @@ export function onInteract() {
 
 function openInspect(def) {
   S.inspectOpen = def; def.read = true;
+  if (def.id.startsWith('photo') && inspectables.filter((d) => d.id.startsWith('photo')).every((d) => d.read)) ach('photos');
   dog.frozen = true;
   AU.paper(dog.pos.x, dog.y + 0.5, dog.pos.z);
   ui.inspect(def);
@@ -1628,7 +1764,7 @@ function nextStep() {
   if (S.finalFollow) return ['Lead Tom to the front door. Walk slowly; he follows you.', spots.frontDoor];
   switch (S.ch) {
     case 1:
-      if (S.wantSit) return ['Sit in front of Claire. Press X.', m.pos];
+      if (S.wantSit) return ['She said "Biscuit, sit." Sit in front of her: press X.', m.pos];
       if (S.feeding) return ['Good boy. Wait while she fills your bowl.', null];
       if (pz.bowl.full) return ['Eat your dinner: walk to your bowl and press E.', posOf(pz.bowl)];
       if (carry === pz.bowl) return ['Carry the bowl to Claire (the woman) at the kitchen sink, then press E to drop it near her.', m.pos];
@@ -1775,6 +1911,7 @@ export function onTrack() {
   if (S.sniff > 0.5 && S.labelKind) {
     if (groupOf(S.labelKind) === TRACK.group) { setTrack(null); ui.track(null); AU.sniffSnd(); return; }
     setTrack(S.labelKind);
+    if (achSet('nose', TRACK.group) >= 6) ach('nose');
     const col = SCENT[S.labelKind].col.map((v) => Math.round(v * 255)).join(',');
     ui.track(TRACK_NAME[TRACK.group], col);
     AU.sniffSnd(S.outside); later(0.25, () => AU.sniffSnd(S.outside));
@@ -1897,10 +2034,13 @@ function finish(id) {
   releaseStool();
   if (document.exitPointerLock) document.exitPointerLock();
   S.fade = 1; S.fadeSpeed = id === 'goodboy' ? 0.3 : 0.6;
+  if (!S.catches) ach('untouchable');
+  if (id === 'home') { ach('home'); const rate = S.yardDone.vent ? 0.55 : 1; if ((1 - S.coAcc) * CO_DUR / rate < 600) ach('wire'); }
   try {
     const found = JSON.parse(localStorage.getItem('goodboy_endings') || '[]');
     if (!found.includes(id)) found.push(id);
     localStorage.setItem('goodboy_endings', JSON.stringify(found));
+    if (found.length >= 6) ach('allend');
   } catch (e) { /* storage unavailable */ }
   setTimeout(() => startMontage(id), id === 'goodboy' ? 4000 : 2600);
 }
@@ -2031,6 +2171,7 @@ export function updateStory(dt) {
   } else ui.timer(null);
   updateGlints(dt);
   updateLife(dt);
+  updateAch(dt);
   if (S.jarFall) {
     // over the edge, tumbling, onto the floor
     const J = S.jarFall; J.t += dt; const k = Math.min(1, J.t / 0.55);
@@ -2043,8 +2184,8 @@ export function updateStory(dt) {
   dog.fear = Math.min(1, S.fearT / 4 + (S.stalkNear || 0) * 0.5);
   if (puzzle.drawerOpen && S.drawerAnim !== undefined && S.drawerAnim < 1) { S.drawerAnim = Math.min(1, S.drawerAnim + dt * 3); refs.drawer.position.z = -3.55 + S.drawerAnim * 0.3; }
 
-  const m = F.mother;
-  if (m.override && S.t > m.override.until) m.override = null;
+  for (const h of [F.father, F.mother, F.lily]) if (h.override && S.t > h.override.until) h.override = null;
+  familyGestures(dt);
   if (S.lullaby) S.lullaby.update();
 
   for (const h of [F.father, F.mother, F.lily, F.danny]) h.update(dt, S.t, S.co, dog.pos);
@@ -2107,9 +2248,16 @@ export function updateStory(dt) {
     p.root.visible = true;
     const cam = ui.camera;
     const f = dogForward();
-    p.root.position.set(cam.position.x + f.x * 0.55, cam.position.y - p.headH - 0.05, cam.position.z + f.z * 0.55);
+    p.root.position.set(cam.position.x + f.x * 0.55, cam.position.y - p.headH, cam.position.z + f.z * 0.55);
     p.root.rotation.set(0, dog.yaw, 0);
-    p.neck.rotation.set(0.2, 0, Math.sin(S.t * 40) * 0.2);
+    p.monster.update(S.t, dt, 'scare');
+    // put its face right in front of yours, whatever shape it is
+    p.root.updateMatrixWorld(true);
+    const fp = p.monster.face.getWorldPosition(v3());
+    const near = 0.66 - (1.2 - S.jumpscare) * 0.14;
+    p.root.position.x += cam.position.x + f.x * near - fp.x;
+    p.root.position.y += cam.position.y - 0.02 - fp.y;
+    p.root.position.z += cam.position.z + f.z * near - fp.z;
     P.uRed.value = 0.7;
   } else P.uRed.value = Math.max(0, (S.redFlash || 0));
   S.redFlash = Math.max(0, (S.redFlash || 0) - dt);

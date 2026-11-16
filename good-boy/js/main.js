@@ -14,6 +14,8 @@ import { TRACK } from './scent.js';
 import { isTouch, initTouch, goFullscreen } from './touch.js';
 import { T } from './textures.js';
 import { refs } from './house.js';
+import { MONSTERS, monsterChoice, setMonsterChoice, swapMonster } from './monster.js';
+import { ACH, achCount, achListHTML, achSet, unlock, resetAch } from './achievements.js';
 
 const $ = (id) => document.getElementById(id);
 // on a phone, name the on-screen buttons instead of keyboard keys
@@ -174,15 +176,33 @@ addEventListener('keydown', (e) => { if (S.inspectOpen && (e.key === 'Escape' ||
 try {
   const found = JSON.parse(localStorage.getItem('goodboy_endings') || '[]');
   if (found.length) $('titleFound').textContent = `endings found: ${found.length} / 6`;
-  if (found.length) $('resetSaves').style.display = 'block';
+  if (found.length || achCount()) $('resetSaves').style.display = 'block';
 } catch (e) { /* storage unavailable */ }
+// pick the shape of the thing; it walks toward you behind the title
+const showMon = (n) => {
+  for (const b of document.querySelectorAll('#monPick .mb')) b.classList.toggle('on', +b.dataset.n === n);
+  const m = MONSTERS[n - 1]; $('monName').textContent = `${m.name}: ${m.blurb}`;
+};
+showMon(monsterChoice());
+for (const b of document.querySelectorAll('#monPick .mb')) b.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const n = +b.dataset.n; setMonsterChoice(n); swapMonster(S.presence, n); showMon(n);
+  if (achSet('monsters', n) >= 5) unlock('monsters');
+  achLabel();
+});
+$('monPick').addEventListener('click', (e) => e.stopPropagation());
+const achLabel = () => { $('achBtn').textContent = `achievements: ${achCount()} / ${ACH.length}`; };
+achLabel();
+$('achBtn').addEventListener('click', (e) => { e.stopPropagation(); $('achGrid').innerHTML = achListHTML(); $('achPanel').classList.add('on'); });
+$('achPanel').addEventListener('click', (e) => { e.stopPropagation(); $('achPanel').classList.remove('on'); });
 // wipe the endings you have found, so the game is new again
 $('resetSaves').addEventListener('click', (e) => {
   e.stopPropagation(); // don't start the game
   const el = $('resetSaves');
   // click once to arm, again to confirm (pop-up dialogs can be blocked here)
-  if (!el.dataset.armed) { el.dataset.armed = '1'; el.textContent = 'click again to forget every ending you found'; setTimeout(() => { delete el.dataset.armed; el.textContent = 'forget everything and start over'; }, 4000); return; }
+  if (!el.dataset.armed) { el.dataset.armed = '1'; el.textContent = 'click again to forget every ending and achievement'; setTimeout(() => { delete el.dataset.armed; el.textContent = 'forget everything and start over'; }, 4000); return; }
   try { localStorage.removeItem('goodboy_endings'); } catch (err) { /* storage unavailable */ }
+  resetAch(); achLabel();
   $('titleFound').textContent = '';
   $('resetSaves').style.display = 'none';
 });
@@ -255,6 +275,7 @@ function frame() {
     const flick = (titleT % 6.5) < 0.18;
     pr.setPos(8.6 - Math.min(4.6, step * 0.9), 4.25, 0); pr.yaw = -Math.PI / 2; pr.visible = true;
     pr.update(dt, titleT, 0, camera.position);
+    if (pr.monster) pr.monster.update(titleT, dt, (titleT % 6.5) < 1.2 ? 'walk' : 'idle');
     pr.root.visible = !flick;
     $('title').classList.toggle('flick', flick);
     P.uFade.value = flick ? 0.75 : 0.3;
@@ -264,7 +285,8 @@ function frame() {
   updateLights(S.t || titleT);
   updateScent(dt, S.t);
   updateFx(dt, camera.position, S.outside ? 0.5 : 0.2, true);
-  if (dog.body) dog.body.visible = introDone && !S.montage;
+  if (dog.body) dog.body.visible = introDone && !S.montage && !S.hideDog;
+  if (dog.snout) dog.snout.visible = !S.hideDog && !S.montage;
   G.uTime.value += dt; P.uTime.value += dt;
   G.uCamPos.value.copy(camera.position);
   if (AU.A.ready) { camera.getWorldDirection(fwdV); AU.setListener(camera.position, fwdV); }

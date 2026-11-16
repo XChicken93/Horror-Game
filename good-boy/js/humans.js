@@ -387,6 +387,7 @@ export class Human {
       l.knee.add(sh);
     }
     this.arms.forEach((a, i) => hand(skin, a.el, -F + 0.005 * s, s * (spec.presence ? 1.5 : 1), i ? 1 : -1));
+    this.handY = -F - 0.06 * s;
     const hg = headGeo(headR, { child: kid, wide: !fem && !kid, fem });
     this.head = new THREE.Mesh(hg, this.faceMat);
     this.head.position.set(0, 0.068 * s + headR * 0.98, 0.018 * s);
@@ -428,6 +429,23 @@ export class Human {
     this.arrived = null;
   }
   setPos(x, z, y = 0) { this.pos.set(x, y, z); }
+  /** Put something in a hand (side 1 or 0). It rides on the forearm bone. */
+  hold(obj, side = 1, o = {}) {
+    const el = this.arms[side].el;
+    el.add(obj);
+    obj.position.set(o.x ?? 0, this.handY + (o.y ?? 0), o.z ?? 0.03);
+    obj.rotation.set(o.rx ?? 0, o.ry ?? 0, o.rz ?? 0);
+    obj.visible = true;
+    (this.held = this.held || []).push(obj);
+    return obj;
+  }
+  /** Let go of it: it is put down where the hand is, or at a given place. */
+  release(obj, scene, at) {
+    const wp = new THREE.Vector3(); obj.getWorldPosition(wp);
+    scene.add(obj);
+    obj.position.copy(at || wp); obj.rotation.set(0, at && at.ry !== undefined ? at.ry : 0, 0);
+    if (this.held) this.held = this.held.filter((x) => x !== obj);
+  }
   setFace(wrong) {
     if (this.wrongFace === wrong) return;
     this.wrongFace = wrong;
@@ -520,6 +538,21 @@ export class Human {
       Ar[0].sh.rotation.set(-w * 0.1, 0, -0.11); Ar[1].sh.rotation.set(w * 0.1, 0, 0.11);
       if (this.override?.type === 'rub') { Ar[1].sh.rotation.set(-2.6, 0, -0.3); Ar[1].el.rotation.set(-1.6, 0, 0); }
     }
+    // hand gestures that ride on top of any pose
+    const ov = this.override?.type, A1 = Ar[1], A0 = Ar[0];
+    if (ov === 'carry') { A1.sh.rotation.set(-0.55, 0, 0.12); A1.el.rotation.set(-1.15, 0, 0); }
+    else if (ov === 'carry2') { for (const a of Ar) { a.sh.rotation.set(-0.6, 0, a === A1 ? 0.25 : -0.25); a.el.rotation.set(-1.0, 0, 0); } }
+    else if (ov === 'point') { A1.sh.rotation.set(-1.05, 0, 0.12); A1.el.rotation.set(-0.08, 0, 0); A0.sh.rotation.set(-0.5, 0, -0.1); A0.el.rotation.set(-1.1, 0, 0); }
+    else if (ov === 'reach') { A1.sh.rotation.set(-1.3 + (Math.floor(now * 3) % 2) * 0.12, 0, 0.1); A1.el.rotation.set(-0.25, 0, 0); }
+    else if (ov === 'pour') { A1.sh.rotation.set(-1.15, 0, 0.3); A1.el.rotation.set(-0.5, 0, 0); A0.sh.rotation.set(-1.0, 0, -0.25); A0.el.rotation.set(-0.6, 0, 0); }
+    else if (ov === 'pat') { A1.sh.rotation.set(-1.25, 0, 0.1); A1.el.rotation.set(-0.15 - (Math.floor(now * 4) % 2) * 0.35, 0, 0); }
+    else if (ov === 'wave') { A1.sh.rotation.set(-2.6, 0, -0.3); A1.el.rotation.set(-0.4 - (Math.floor(now * 5) % 2) * 0.5, 0, 0); }
+    else if (ov === 'read') { for (const a of Ar) { a.sh.rotation.set(-0.85, 0, a === A1 ? 0.3 : -0.3); a.el.rotation.set(-1.25, 0, 0); } }
+    else if (ov === 'scribble') { A1.sh.rotation.set(-1.15, 0, 0.05 + (Math.floor(now * 6) % 3) * 0.06); A1.el.rotation.set(-0.35 - (Math.floor(now * 5) % 2) * 0.12, 0, 0); }
+    else if (ov === 'hug') { for (const a of Ar) { a.sh.rotation.set(-1.0, 0, a === A1 ? -0.5 : 0.5); a.el.rotation.set(-1.4, 0, 0); } }
+    else if (ov === 'stretch') { for (const a of Ar) { a.sh.rotation.set(-2.9, 0, a === A1 ? 0.25 : -0.25); a.el.rotation.set(-0.2, 0, 0); } this.chest.rotation.x = -0.15; }
+    else if (ov === 'rubeyes') { A1.sh.rotation.set(-2.3, 0, -0.5); A1.el.rotation.set(-2.0 - (Math.floor(now * 5) % 2) * 0.15, 0, 0); }
+    else if (ov === 'shiver') { for (const a of Ar) { a.sh.rotation.set(-0.7, 0, a === A1 ? -0.55 : 0.55); a.el.rotation.set(-1.9, 0, 0); } this.chest.rotation.z = (Math.floor(now * 12) % 2 ? 0.02 : -0.02); }
     this.hips.position.y = hipY;
     // the root: snapped facing; lying down for sleep
     if (this.pose === 'sleep') {
@@ -628,3 +661,4 @@ export function makeFamily(scene) {
   danny.visible = false;
   return { father, mother, lily, danny };
 }
+export { headGeo, facet };

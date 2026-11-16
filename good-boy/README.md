@@ -52,7 +52,7 @@ Use headphones and play in the dark. A first playthrough to the true ending is m
 
 Biscuit starts out understanding about twenty-five words. **Each puzzle you solve teaches him more**, so the family's garbled speech fills in as the night goes on, until by the end you understand every word.
 
-1. **Dinner.** Your bowl is empty. Carry it to the woman, sit for her (X) the way Danny taught you, then eat.
+1. **Dinner.** Your bowl is empty. Carry it to the woman. She takes it, points at the floor and says *"Biscuit, sit."* Sit (X). She walks to the kitchen cupboard, kneels and gets the dog food, carries the bag back, sets your bowl down in its place, pours, and puts the bag up on the counter. Then eat.
 2. **Lily's crayons.** Lily lost six crayons all over the house, from the laundry room to the parents' room. Sniff for her green scent on them. Two have rolled under furniture (the couch, the parents' bed): lie flat with **C** and stretch in to drag them out. She draws the family and tells you she can hear Danny *under the house*.
 3. **The voice under the house.** At bedtime the furnace lights. The basement door rattles on its hook every time the furnace cycles, and Tom explains why: it pulls air, and only the old latch holds the door shut. Find what Lily hears through the vent in her room. She goes to the basement door but can't reach the hook, so push the kitchen step stool over for her.
 4. **Danny's room.** Claire goes to bed and puts Danny's key in the cookie jar, high on the kitchen counter. Climb up after it: jump (Space) onto the kitchen chair nearest the counter, then jump from the chair up onto the counter (run at it if you fall short), walk to the jar and push it off (E). It smashes, and the key is in the pieces. Bring it to Lily so she unlocks Danny's room, shut for a year. Read his furnace checklist, his essay *My Dog Biscuit*, his photographs.
@@ -145,6 +145,30 @@ Lightning is just weather: the flash and the thunder.
 - The family can't walk through walls: they follow the doorways, and if they ever get stuck they find a new way round.
 - As the poison takes hold, the whole mix gets muffled.
 
+## The thing in the basement: five shapes
+
+Pick the shape the thing from the furnace takes on the title screen (THE THING IN THE BASEMENT: 1 to 5), or with `?monster=N` in the URL. The choice is remembered.
+
+| # | Name | What it is |
+| --- | --- | --- |
+| 1 | **The Hollow Man** | Nine feet of burnt, cracked skin over glowing ribs. Its jaw hangs open to its chest. Ember eyes. Its head tilts slowly sideways, then snaps back. |
+| 2 | **The Breather** | The furnace itself, walking on six duct legs. The grille is a mouth full of teeth that opens with every breath, with fire inside and pilot-light eyes. |
+| 3 | **Wrong Danny** | A tall figure in Danny's soaked hoodie. No face, only a mouth that runs from forehead to chin. Its head turns all the way round. |
+| 4 | **The Crawler** | Bent over backwards and skittering fast on all fours. Its head hangs upside down at dog height, grinning to the ears. |
+| 5 | **The Smoke Family** | A column of black smoke with the family's pale faces pressing out of it, mouths stretching, and too many arms. |
+
+Each one moves in stiff, stepped frames with sudden snaps, has its own walk, hunt and catch animation, and when it catches you its face is pushed right into yours.
+
+## Family animation
+
+The family carry things in their hands: the woman fetches the dog food and brings your bowl back, the man reads his newspaper in the armchair and turns the pages, and Lily draws with a crayon on the floor. When you sit or wag your tail near them they crouch down and pat your head. She reaches up to the thermostat. Now and then they stretch or shiver, and once the air goes bad they rub at their headaches.
+
+## Achievements (23)
+
+Shown with a toast when you earn them, listed on the title screen (**achievements**), and saved in your browser. "Forget everything" resets them with the endings.
+
+Good Boy · Everybody Pets the Dog · Counter Surfer · King of the Table · Zoomies · Play Dead · Speak! · Cold Nose · Shake It Off · Best Digger in Cutter County · The Long Way Round · The Nose Knows · Family Album · Good Listener · Like Smoke · Under the Bed · Wrong Tail · Second Wind · Untouchable · Down to the Wire · Home · He Still Waits · Know Your Monsters
+
 ## Endings (6)
 
 | # | Ending | How |
@@ -176,6 +200,8 @@ Every ending starts with a **rewind**. The camera runs back through every moment
 | `js/story.js` | chapters, puzzles, vocabulary, reactions, scares, the presence and the stalker, the flashlight, endings, the rewind |
 | `js/dread.js` | the scares: each one set off by something you do, once |
 | `js/lore.js` | Danny's room, photographs, letters, the clipping and tag, puzzle props |
-| `js/main.js` | bootstrap and render loop |
+| `js/monster.js` | the five shapes of the thing from the furnace, and their animation |
+| `js/achievements.js` | achievements: the list, toasts, saving |
+| `js/main.js` | bootstrap, title screen and render loop |
 
 `vendor/three.module.js` is three.js r160 (MIT, see `vendor/THREE_LICENSE`).

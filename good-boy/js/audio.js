@@ -835,3 +835,25 @@ export function crash(x, y, z) {
   for (let i = 0; i < 9; i++) { const tt = t0 + 0.02 + Math.random() * 0.5; const o = ctx.createOscillator(); o.frequency.value = 2500 + Math.random() * 3000; const og = ctx.createGain(); env(og, tt, 0.001, 0.05, 0.05); o.connect(og); at(og, x, y, z, 1, 1.3, 0.3); o.start(tt); o.stop(tt + 0.1); }
   const th = ctx.createOscillator(); th.frequency.setValueAtTime(160, t0); th.frequency.exponentialRampToValueAtTime(60, t0 + 0.1); const tg = ctx.createGain(); env(tg, t0, 0.002, 0.3, 0.12); th.connect(tg); at(tg, x, y, z, 1, 1.3, 0.3); th.start(t0); th.stop(t0 + 0.2);
 }
+
+// a kitchen cupboard door: a soft wooden click open
+export function cupboard(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  const s = noiseSrc(false, false); const f = bp(700, 3); const g = ctx.createGain(); env(g, t0, 0.005, 0.05, 0.08);
+  s.connect(f); f.connect(g); at(g, x, y, z, 1, 1.3, 0.3); s.stop(t0 + 0.2);
+  const s2 = noiseSrc(false, false); const f2 = bp(1400, 5); const g2 = ctx.createGain(); env(g2, t0 + 0.12, 0.001, 0.04, 0.03);
+  s2.connect(f2); f2.connect(g2); at(g2, x, y, z, 1, 1.3, 0.3); s2.stop(t0 + 0.3);
+}
+// dry kibble pouring into a steel bowl: a soft hiss of little ticks
+export function kibblePour(x, y, z) {
+  if (!A.ready) return;
+  const ctx = A.ctx;
+  for (let i = 0; i < 38; i++) {
+    const t0 = now() + i * 0.04 + Math.random() * 0.03;
+    const s = noiseSrc(false, false); const f = bp(2600 + Math.random() * 1800, 4); const g = ctx.createGain(); env(g, t0, 0.001, 0.025 * (1 - i / 50), 0.025);
+    s.connect(f); f.connect(g); at(g, x, y, z, 1, 1.3, 0.3); s.stop(t0 + 0.06);
+  }
+  const s = noiseSrc(false, false); const f = filt('lowpass', 1200, 0.5); const g = ctx.createGain(); env(g, now(), 0.15, 0.02, 1.4);
+  s.connect(f); f.connect(g); at(g, x, y, z, 1, 1.3, 0.3); s.stop(now() + 1.8);
+}

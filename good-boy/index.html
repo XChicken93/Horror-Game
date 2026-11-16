@@ -33,6 +33,25 @@
   #titleFound { margin-top: 16px; color: #6a8a6a; font-size: 18px; }
   #resetSaves { display: none; margin-top: 8px; color: #5a544a; font-size: 16px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   #resetSaves:hover { color: #c03020; }
+  #monPick { position: relative; margin-top: 14px; font-size: 15px; color: #8a8070; }
+  #monPick .mb { display: inline-block; width: 28px; height: 28px; line-height: 28px; margin: 0 3px; border: 1px solid #4a3a30; color: #b0a090; cursor: pointer; }
+  #monPick .mb.on { background: #6a1810; color: #fff; border-color: #c03020; }
+  #monName { color: #c8b8a0; margin-top: 4px; font-size: 14px; min-height: 18px; }
+  #achBtn { position: relative; margin-top: 10px; color: #b09a50; font-size: 16px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  #achPanel { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,0.93); overflow-y: auto; padding: 24px 16px; font-family: inherit; }
+  #achPanel.on { display: block; }
+  #achPanel h2 { text-align: center; color: #d8c890; letter-spacing: 6px; margin: 8px 0 18px; font-weight: normal; }
+  #achPanel .grid { max-width: 820px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  #achPanel .ai { border: 1px solid #2a2620; padding: 8px 10px; color: #6a6458; font-size: 14px; }
+  #achPanel .ai b { display: block; color: #8a8270; font-weight: normal; font-size: 16px; margin-bottom: 3px; }
+  #achPanel .ai.got { border-color: #6a5a28; color: #b8ae98; }
+  #achPanel .ai.got b { color: #f0d870; }
+  #achPanel .close { text-align: center; color: #8a8070; margin: 18px; cursor: pointer; }
+  #achToast { position: fixed; top: 18px; left: 50%; transform: translate(-50%, -140%); z-index: 70; background: rgba(12,10,6,0.94); border: 1px solid #8a7430; padding: 10px 18px; min-width: 260px; max-width: 90vw; text-align: center; transition: transform 0.5s ease; pointer-events: none; }
+  #achToast.on { transform: translate(-50%, 0); }
+  #achToast .ah { color: #a08a40; font-size: 11px; letter-spacing: 4px; }
+  #achToast .an { color: #f0d870; font-size: 20px; margin: 2px 0; }
+  #achToast .ad { color: #c0b8a0; font-size: 13px; }
   #intro { display: none; background: #000; z-index: 9; cursor: pointer; }
   #intro p { font-size: clamp(22px, 3.4vw, 34px); margin: 8px 0; opacity: 0; animation: fadeIn 1.6s forwards; max-width: 820px; }
   #intro p:last-of-type { color: #c02818; text-shadow: 0 0 12px rgba(200,0,0,0.5); }
@@ -163,8 +182,12 @@
   </div>
   <div class="warn">Contains grief, the death of a child (off-screen), a family in danger, flashing lights and loud sounds. Headphones recommended. Play in the dark.</div>
   <div id="titleFound"></div>
+  <div id="monPick">THE THING IN THE BASEMENT: <span class="mb" data-n="1">1</span><span class="mb" data-n="2">2</span><span class="mb" data-n="3">3</span><span class="mb" data-n="4">4</span><span class="mb" data-n="5">5</span><div id="monName"></div></div>
+  <div id="achBtn">achievements</div>
   <div id="resetSaves">forget everything and start over</div>
 </div>
+
+<div id="achPanel"><h2>ACHIEVEMENTS</h2><div class="grid" id="achGrid"></div><div class="close">close</div></div>
 
 <div id="intro" class="overlay"><span class="skip">click to skip</span></div>
 
