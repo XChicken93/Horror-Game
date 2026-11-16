@@ -1015,7 +1015,7 @@ function wakePresence() {
   lights[4].flicker = 1;
   later(1.2, () => {
     if (S.monsterTest) lights[4].flicker = 0.7; else lights[4].on = false;
-    S.presenceActive = true; S.presence.setPos(spots.furnace.x, spots.furnace.z, BASE_Y);
+    S.presenceActive = true; S.metThing = true; S.presence.setPos(spots.furnace.x, spots.furnace.z, BASE_Y);
     if (!S.monsterTest && once('presenceCard')) ui.card('It is not Danny.', 'Danny smelled of snow and pencils. This smells of the hot box, of the bad air that has been filling the house. It has no shape. Your poisoned head is giving it one. RUN. Up the stairs.');
   });
 }
@@ -1067,7 +1067,7 @@ function updateStalker(dt) {
       const [x, z] = near.length && Math.random() < 0.7 ? near[Math.floor(Math.random() * near.length)] : STALK_NODES[Math.floor(Math.random() * STALK_NODES.length)];
       p.goTo(v3(x, 0, z));
     }
-    if (sees) { K.state = 'hunt'; K.lost = 0; K.re = 0; AU.stinger(0.8); scared(1); AU.whoomp(p.pos.x, 1.2, p.pos.z); }
+    if (sees) { S.metThing = true; K.state = 'hunt'; K.lost = 0; K.re = 0; AU.stinger(0.8); scared(1); AU.whoomp(p.pos.x, 1.2, p.pos.z); }
     if (K.t <= 0 && !sees) { K.state = 'away'; K.t = 1e9; }
   } else if (K.state === 'hunt') {
     p.speed = 1.35 + S.co * 0.9;
@@ -2047,7 +2047,7 @@ function finish(id) {
   releaseStool();
   if (document.exitPointerLock) document.exitPointerLock();
   S.fade = 1; S.fadeSpeed = id === 'goodboy' ? 0.3 : 0.6;
-  if (!S.catches) ach('untouchable');
+  if (!S.catches && S.metThing) ach('untouchable'); // only counts if it ever came for you
   if (id === 'home') { ach('home'); const rate = S.yardDone.vent ? 0.55 : 1; if ((1 - S.coAcc) * CO_DUR / rate < 600) ach('wire'); }
   try {
     const found = JSON.parse(localStorage.getItem('goodboy_endings') || '[]');

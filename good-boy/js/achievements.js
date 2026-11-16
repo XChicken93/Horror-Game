@@ -20,7 +20,7 @@ export const ACH = [
   { id: 'hide', name: 'Under the Bed', desc: 'Hide from it while it is hunting you, and let it walk past.' },
   { id: 'wagthing', name: 'Wrong Tail', desc: 'Wag your tail at the thing from the furnace. It does not wag back.' },
   { id: 'caught', name: 'Second Wind', desc: 'Get caught by it, wake up on the floor, and keep going.' },
-  { id: 'untouchable', name: 'Untouchable', desc: 'Reach an ending without it ever catching you.' },
+  { id: 'untouchable', name: 'Untouchable', desc: 'Be hunted by it, and still reach an ending without it ever catching you.' },
   { id: 'wire', name: 'Down to the Wire', desc: 'Get them out with less than ten minutes left.' },
   { id: 'home', name: 'Home', desc: 'Get the whole family out of the house.' },
   { id: 'allend', name: 'He Still Waits', desc: 'Find all six endings.' },
