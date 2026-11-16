@@ -125,12 +125,9 @@
   #stick { position: fixed; width: 112px; height: 112px; border-radius: 50%; border: 2px solid rgba(240,216,144,0.35); background: rgba(0,0,0,0.25); z-index: 6; pointer-events: none; opacity: 0; }
   #stick.on { opacity: 1; }
   #knob { position: absolute; left: 34px; top: 34px; width: 44px; height: 44px; border-radius: 50%; background: rgba(240,216,144,0.55); }
-  #pad { position: fixed; right: 14px; bottom: 14px; width: 172px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; z-index: 6; }
-  #padSmall { position: fixed; right: 196px; bottom: 14px; display: flex; flex-direction: column-reverse; flex-wrap: wrap-reverse; gap: 8px; max-height: 210px; z-index: 6; }
-  .tbtn { width: 50px; height: 50px; border-radius: 50%; background: rgba(10,8,6,0.55); border: 2px solid rgba(240,216,144,0.45); color: #f0d890; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; touch-action: none; user-select: none; -webkit-user-select: none; }
-  .tbtn.big { width: 78px; height: 78px; }
-  .tbtn span { font-size: 22px; } .tbtn.big span { font-size: 30px; }
-  .tbtn small { font-size: 11px; color: #b8a888; letter-spacing: 0.05em; margin-top: 2px; }
+  .tbtn { position: fixed; z-index: 6; border-radius: 50%; background: rgba(10,8,6,0.45); border: 1.5px solid rgba(240,216,144,0.4); color: #f0d890; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .tbtn span { font-size: 1em; }
+  .tbtn small { font-size: 9px; color: #b8a888; letter-spacing: 0.03em; margin-top: 1px; }
   .tbtn.lit { background: rgba(240,216,144,0.45); color: #1a1408; }
   #rotate { display: none; }
   @media (orientation: portrait) { body.touch #rotate { display: flex; position: fixed; inset: 0; z-index: 30; background: #000; color: #e8dfc8; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 26px; padding: 24px; }

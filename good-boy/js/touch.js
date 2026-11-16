@@ -12,21 +12,22 @@ export const isTouch = (() => {
 
 const send = (type, key) => dispatchEvent(new KeyboardEvent(type, { key, bubbles: true }));
 
-// [key, label, kind]  kind: 'tap' = press and release; 'hold' = held while touched; 'toggle'
-const BIG = [
-  ['e', 'E', 'hold', 'use'],
-  [' ', '⤒', 'tap', 'jump'],
-  ['b', 'B', 'tap', 'bark'],
-  ['f', 'F', 'hold', 'sniff'],
-];
-const SMALL = [
-  ['r', 'R', 'hold', 'dig'],
-  ['c', 'C', 'hold', 'lie'],
-  ['t', 'T', 'tap', 'follow'],
-  ['x', 'X', 'tap', 'sit'],
-  ['g', 'G', 'tap', 'wag'],
-  ['q', 'Q', 'tap', 'whine'],
-  ['Shift', '»', 'toggle', 'run'],
+// [key, label, kind, name, size, side, x, y]  kind: 'tap' | 'hold' (held while touched) | 'toggle'
+// x/y are offsets in px from that side's bottom corner (right side: from the right edge).
+const BUTTONS = [
+  // right thumb: the things you do all the time, in an arc around E
+  ['e', 'E', 'hold', 'use', 54, 'right', 14, 16],
+  [' ', '⤒', 'tap', 'jump', 46, 'right', 78, 12],
+  ['b', 'B', 'tap', 'bark', 46, 'right', 18, 82],
+  ['f', 'F', 'hold', 'sniff', 46, 'right', 74, 66],
+  ['r', 'R', 'hold', 'dig', 38, 'right', 132, 26],
+  ['t', 'T', 'tap', 'follow', 38, 'right', 26, 140],
+  // left edge: the occasional ones, in a slim column clear of the joystick
+  ['Shift', '»', 'toggle', 'run', 36, 'left', 10, 214],
+  ['c', 'C', 'hold', 'lie', 36, 'left', 10, 170],
+  ['x', 'X', 'tap', 'sit', 36, 'left', 10, 126],
+  ['g', 'G', 'tap', 'wag', 36, 'left', 10, 82],
+  ['q', 'Q', 'tap', 'whine', 36, 'left', 10, 38],
 ];
 
 export function initTouch() {
@@ -46,7 +47,7 @@ export function initTouch() {
   zone.addEventListener('touchstart', (e) => {
     e.preventDefault();
     for (const t of e.changedTouches) {
-      if (t.clientX < innerWidth * 0.42 && stickId === null) {
+      if (t.clientX < innerWidth * 0.42 && t.clientX > 56 && stickId === null) {
         stickId = t.identifier; sx = t.clientX; sy = t.clientY;
         stick.style.left = `${sx - R}px`; stick.style.top = `${sy - R}px`; stick.classList.add('on');
         knob.style.transform = 'translate(0px, 0px)';
@@ -78,12 +79,13 @@ export function initTouch() {
   zone.addEventListener('touchend', end); zone.addEventListener('touchcancel', end);
 
   // ---- buttons
-  const pad = document.createElement('div'); pad.id = 'pad'; root.appendChild(pad);
-  const row = document.createElement('div'); row.id = 'padSmall'; root.appendChild(row);
-  const make = ([key, label, kind, name], parent, big) => {
-    const b = document.createElement('div'); b.className = 'tbtn' + (big ? ' big' : '');
+  const make = ([key, label, kind, name, size, side, x, y]) => {
+    const b = document.createElement('div'); b.className = 'tbtn';
     b.innerHTML = `<span>${label}</span><small>${name}</small>`;
-    parent.appendChild(b);
+    b.style.width = b.style.height = `${size}px`;
+    b.style[side] = `${x}px`; b.style.bottom = `${y}px`;
+    b.style.fontSize = `${Math.round(size * 0.38)}px`;
+    root.appendChild(b);
     let on = false;
     b.addEventListener('touchstart', (e) => {
       e.preventDefault(); e.stopPropagation();
@@ -96,8 +98,7 @@ export function initTouch() {
       b.addEventListener('touchend', up); b.addEventListener('touchcancel', up);
     }
   };
-  BIG.forEach((d) => make(d, pad, true));
-  SMALL.forEach((d) => make(d, row, false));
+  BUTTONS.forEach(make);
 
   // ---- turn the phone sideways
   const rot = document.createElement('div'); rot.id = 'rotate';
