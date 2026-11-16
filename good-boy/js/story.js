@@ -2120,7 +2120,7 @@ export function updateStory(dt) {
   G.uSniff.value = S.sniff;
   P.uSniff.value = S.sniff;
   if (input.sniff && S.deep && !S.outside && !inBasement()) dreadOnce('prints');
-  if (input.sniff) { S.sniffSnd = (S.sniffSnd || 0) - dt; if (S.sniffSnd <= 0) { S.sniffSnd = 0.55; AU.sniffSnd(S.outside); } }
+  if (input.sniff) { S.sniffSnd = (S.sniffSnd || 0) - dt; if (S.sniffSnd <= 0) { S.sniffSnd = 2.6; AU.sniffSnd(S.outside); } } else S.sniffSnd = 0; // one when you start, then now and then
   S.label = S.sniff > 0.5 ? sniffLabel() : '';
   S.prompt = computePrompt();
 

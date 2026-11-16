@@ -605,14 +605,16 @@ export function flop() {
 }
 export function sniffSnd(outside = false) {
   if (!A.ready) return;
+  // two soft, low intakes of breath through the nose. Nothing sharp.
   const ctx = A.ctx;
-  for (let i = 0; i < 3; i++) {
-    const t0 = now() + i * 0.085;
-    const n = noiseSrc(false, false); const f = bp(outside ? 2600 : 2200, 1.6); const g = ctx.createGain();
-    env(g, t0, 0.012, 0.07, 0.05); f.frequency.setValueAtTime(1800, t0); f.frequency.linearRampToValueAtTime(3000, t0 + 0.06);
-    n.connect(f); f.connect(g); out(g, 0.05); n.stop(t0 + 0.12);
+  for (let i = 0; i < 2; i++) {
+    const t0 = now() + i * 0.16;
+    const n = noiseSrc(true, false); const f = filt('lowpass', outside ? 1300 : 1100, 0.5); const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.022, t0 + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.13);
+    n.connect(f); f.connect(g); out(g, 0.03); n.stop(t0 + 0.15);
   }
 }
+
 export function dig(snow = true) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
