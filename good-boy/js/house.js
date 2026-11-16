@@ -475,11 +475,24 @@ export function buildHouse(sc) {
 
   // ---- kitchen -------------------------------------------------------------
   // east counters with cabinets
-  prop(13.7, 0.45, 7.3, 0.6, 0.9, 4.5, M.cab, { solid: true, planar: true });
+  // plain wood carcasses: the doors and knobs are real pieces, added below
+  const carcass = ps1Mat({ map: T.wood, color: 0x9a7a58 });
+  prop(13.7, 0.45, 7.3, 0.6, 0.9, 4.5, carcass, { solid: true, planar: true, noBevel: true });
   prop(13.68, 0.92, 7.3, 0.64, 0.04, 4.5, M.counter, { planar: true, uvScale: 0.5 });
-  prop(13.8, 1.85, 7.3, 0.4, 0.7, 4.5, M.cab, { planar: true });
+  // wall cabinets either side of the window (not across it), each with real doors
+  const upDoor = ps1Mat({ color: 0x6a4a2e, emissive: 0x0a0604 }), upKnob = ps1Mat({ color: 0xc0a050, emissive: 0x201808 });
+  for (const [z0, z1] of [[5.08, 6.4], [7.9, 9.52]]) {
+    const zc = (z0 + z1) / 2, len = z1 - z0;
+    prop(13.8, 1.85, zc, 0.4, 0.7, len, carcass, { planar: true });
+    const n = Math.max(2, Math.round(len / 0.45));
+    for (let i = 0; i < n; i++) {
+      const z = z0 + (i + 0.5) * len / n;
+      prop(13.585, 1.85, z, 0.035, 0.62, len / n - 0.04, upDoor);
+      prop(13.555, 1.6, z + (i % 2 ? -1 : 1) * (len / n / 2 - 0.07), 0.03, 0.04, 0.04, upKnob);
+    }
+  }
   // south counter with sink under the window
-  prop(12.3, 0.45, 9.7, 2.6, 0.9, 0.6, M.cab, { solid: true, planar: true });
+  prop(12.3, 0.45, 9.7, 2.6, 0.9, 0.6, carcass, { solid: true, planar: true, noBevel: true });
   prop(12.3, 0.92, 9.68, 2.6, 0.04, 0.64, M.counter, { planar: true, uvScale: 0.5 });
   prop(11.75, 0.9, 9.68, 0.7, 0.05, 0.45, M.metal);
   prop(11.75, 1.05, 9.88, 0.04, 0.25, 0.04, M.metal);
