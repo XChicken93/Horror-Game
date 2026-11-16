@@ -1,5 +1,5 @@
-// Dread: something is always a little wrong in this house, and it gets worse as the night
-// goes on. Small sounds all the time; every half minute or so, something bigger.
+// Dread: the scares. None of them happen on a timer or at random: each one is set off by
+// something you do, and each one only ever happens once.
 import * as THREE from '../vendor/three.module.js';
 import { ps1Mat } from './ps1.js';
 import * as AU from './audio.js';
@@ -15,7 +15,17 @@ const note = (t, secs = 3) => showSubtitle('note', `<span class="note">${t}</spa
 const ROOMNAME = { parents: 'the parents\' room', lily: 'the girl\'s room', danny: 'Danny\'s room', laundry: 'the laundry room', kitchen: 'the kitchen', living: 'the living room', entry: 'by the front door', hall: 'the hall', basement: 'under the house' };
 const ROOMSPOT = { parents: [1.6, 1.6], lily: [6.2, 1.2], danny: [9.2, 1.0], laundry: [11.6, 2.4], kitchen: [12.8, 8.8], living: [4.0, 6.0], entry: [0.6, 6.2] };
 
-export function initDread(ctx) { C = ctx; C.S.nextDread = 45; C.S.nextMicro = 8; C.S.dreadLog = []; }
+export function initDread(ctx) { C = ctx; C.S.dreadLog = []; }
+/** set off a scare, once. Returns false (and can be tried again later) if it can't happen here. */
+export function dreadOnce(id) {
+  const S = C.S;
+  if (!S || S.cut || S.ended || S.dreadLog.includes(id)) return false;
+  const e = EVENTS.find((x) => x.id === id);
+  if (!e || !e.ok()) return false;
+  S.dreadLog.push(id);
+  e.run();
+  return true;
+}
 
 const indoors = () => !isOutside(dog.pos.x, dog.pos.z, dog.y);
 const groundFloor = () => indoors() && !inBasement() && dog.y > -0.3;
@@ -77,7 +87,7 @@ const EVENTS = [
     },
   },
   {
-    id: 'flicker', w: 3, ok: () => groundFloor() && C.S.power !== false && !C.S.stalkOn,
+    id: 'flicker', w: 3, ok: () => groundFloor() && C.S.power !== false && !C.S.stalkOn && C.S.co > 0.001,
     run() {
       const room = roomAt(dog.pos.x, dog.pos.z, dog.y);
       const L = room === 'kitchen' ? lights[0] : room === 'living' || room === 'entry' ? lights[1] : lights[3];
@@ -87,7 +97,7 @@ const EVENTS = [
       // when it comes back on, for a moment, something is standing in the room
       C.later(2.6, () => {
         L.on = true; L.flicker = f0;
-        if (C.S.co < 0.12 || C.S.presenceActive) return;
+        if (C.S.presenceActive) return;
         const f = dogForward(), side = Math.random() < 0.5 ? -1 : 1;
         const x = dog.pos.x + f.x * 3.2 - f.z * side * 1.6, z = dog.pos.z + f.z * 3.2 + f.x * side * 1.6;
         if (roomAt(x, z, 0) !== room) return;
@@ -99,21 +109,21 @@ const EVENTS = [
     },
   },
   {
-    id: 'phone', w: 1, ok: () => indoors() && C.S.coOn && C.S.co > 0.15, once: true,
+    id: 'phone', w: 1, ok: () => indoors() && C.S.coOn, once: true,
     run() { AU.phone(9.08, 1.4, 6.0, 1); C.later(3.5, () => note('(The phone rings once in the kitchen, and stops. Nobody calls this late.)', 3.5)); },
   },
   {
     id: 'groan', w: 2, ok: () => indoors(), run() { AU.groan(9 + Math.random() * 4, -0.6, -1.5 + Math.random() * 3, 0.9); },
   },
   {
-    id: 'ball', w: 1, ok: () => groundFloor() && roomAt(dog.pos.x, dog.pos.z, dog.y) === 'hall' && C.ball && !C.ball.carried && !C.ball.gone, once: true,
+    id: 'ball', w: 1, ok: () => groundFloor() && C.ball && !C.ball.carried && !C.ball.gone, once: true,
     run() {
-      // his ball comes bouncing down the hall toward you out of the dark
-      const fromX = dog.pos.x < 7 ? 13.0 : 0.6;
+      // you lie down in your bed, and his ball comes bouncing across the floor to you out of the dark
+      const fromX = 8.6;
       const b = C.ball;
-      b.mesh.position.set(fromX, 0.05, 4.25);
-      C.S.ballRoll = { x0: fromX, x1: dog.pos.x + (fromX > dog.pos.x ? 0.9 : -0.9), t: 0 };
-      AU.ballBounce(fromX, 0.3, 4.25, 7);
+      b.mesh.position.set(fromX, 0.05, dog.pos.z);
+      C.S.ballRoll = { x0: fromX, x1: dog.pos.x + 0.7, t: 0, z: dog.pos.z };
+      AU.ballBounce(fromX, 0.3, dog.pos.z, 7);
       C.later(0.3, () => C.scared(0.5));
       C.later(4, () => note('(Danny\'s ball. It stops right in front of you, as if somebody wanted to play.)', 3.5));
     },
@@ -133,7 +143,7 @@ const EVENTS = [
     },
   },
   {
-    id: 'prints', w: 2, ok: () => groundFloor() && C.S.coOn && C.S.co > 0.1,
+    id: 'prints', w: 2, ok: () => groundFloor() && C.S.coOn,
     run() {
       // small wet boot prints, from the front door to the basement door
       const pts = [[1.5, 9.6], [1.55, 8.9], [1.45, 8.2], [1.55, 7.5], [1.45, 6.8], [1.55, 6.1], [1.6, 5.3], [2.1, 4.4], [2.8, 4.2], [3.5, 4.3], [4.2, 4.2], [4.9, 4.3], [5.6, 4.2], [6.3, 4.3], [7.0, 4.2], [7.7, 4.3], [8.4, 4.2], [9.1, 4.3], [9.8, 4.2], [10.5, 4.3], [11.2, 4.2], [11.9, 4.3], [12.6, 4.2], [13.2, 3.9]];
@@ -142,7 +152,7 @@ const EVENTS = [
     },
   },
   {
-    id: 'sleepwalk', w: 2, once: true, ok: () => groundFloor() && C.S.deep && C.S.ch < 8 && C.S.co > 0.3 && C.F.father.pose === 'sleep' && !C.S.cut,
+    id: 'sleepwalk', w: 2, once: true, ok: () => groundFloor() && C.S.deep && C.S.ch < 8 && C.F.father.pose === 'sleep' && !C.S.cut,
     run() {
       // he is out of bed, standing at the end of the hall with his face to the wall
       const f = C.F.father;
@@ -210,34 +220,12 @@ function eyes(x, z) {
 export function updateDread(dt) {
   const S = C.S;
   if (S.cut || S.ended || S.inspectOpen) return;
-  // the small things: the house settling, never quite quiet
-  S.nextMicro -= dt;
-  if (S.nextMicro <= 0) {
-    S.nextMicro = 6 + Math.random() * 12 - S.co * 4;
-    if (indoors()) {
-      const r = Math.random();
-      const x = Math.random() * 14, z = Math.random() * 10;
-      if (r < 0.35) AU.creak(x, 1.5 + Math.random(), z, 0.4 + Math.random() * 0.8, 0.55);
-      else if (r < 0.55) AU.knock(x, 2.5, z, 1, 0.25);
-      else if (r < 0.7) AU.groan(9 + Math.random() * 4, -0.6, -1.5, 0.35);
-      else if (r < 0.82 && S.coOn) AU.ventVoice(spots.lilyVent.x, 0.1, spots.lilyVent.z);
-      else AU.step('heavy', x, 2.7, z, 0.35); // someone in the attic. There is no attic.
-    }
-  }
-  // the bigger things
-  S.nextDread -= dt;
-  if (S.nextDread <= 0 && S.t > 40) {
-    S.nextDread = 32 + Math.random() * 38 - S.co * 18;
-    const pool = EVENTS.filter((e) => (!e.once || !S.dreadLog.includes(e.id)) && !S.dreadLog.slice(-3).includes(e.id) && e.ok());
-    let total = 0; for (const e of pool) total += e.w;
-    let r = Math.random() * total;
-    for (const e of pool) { r -= e.w; if (r <= 0) { S.dreadLog.push(e.id); e.run(); break; } }
-  }
   // things in progress
   if (S.ballRoll) {
     const B = S.ballRoll, b = C.ball; B.t += dt;
     const k = Math.min(1, B.t / 3.2), e = 1 - Math.pow(1 - k, 2.4);
     b.mesh.position.x = B.x0 + (B.x1 - B.x0) * e;
+    if (B.z !== undefined) b.mesh.position.z = B.z;
     b.mesh.position.y = 0.05 + Math.abs(Math.sin(B.t * 6)) * 0.25 * (1 - k);
     b.mesh.rotation.z -= dt * 10 * (1 - k);
     if (k >= 1) S.ballRoll = null;

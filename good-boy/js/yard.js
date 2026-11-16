@@ -145,30 +145,6 @@ export function buildYard(scene, M) {
   solid(37.85, 2.85, 39.35, 4.35, 2, 'hole'); // you will not go near it
   for (let i = 0; i < 22; i++) { const a = i / 22 * Math.PI * 2; prop(38.0 + Math.cos(a) * 3.55, 0.3, 3.2 + Math.sin(a) * 3.55, 0.03, 0.6, 0.03, ps1Mat({ color: 0x5a5030 }), { rz: Math.sin(i) * 0.2 }); } // reeds
   spots.pond = new THREE.Vector3(35.2, 0, 3.4);
-  // a deer, standing in the field, watching. Most of the time it is not there.
-  const deer = new THREE.Group(); deer.position.set(31.2, 0, -1.2); deer.rotation.y = -Math.PI / 2 + 0.3; scene.add(deer);
-  const dm = ps1Mat({ color: 0x2a1c14, emissive: 0x050302 });
-  prop(0, 1.0, 0, 0.32, 0.35, 0.95, dm, { parent: deer });
-  for (const [x, z] of [[-0.1, -0.35], [0.1, -0.35], [-0.1, 0.35], [0.1, 0.35]]) prop(x, 0.42, z, 0.06, 0.84, 0.06, dm, { parent: deer });
-  prop(0, 1.35, -0.55, 0.12, 0.42, 0.14, dm, { parent: deer, rx: 0.35 });
-  prop(0, 1.58, -0.7, 0.16, 0.16, 0.26, dm, { parent: deer });
-  for (const s of [-1, 1]) prop(s * 0.1, 1.74, -0.64, 0.04, 0.12, 0.03, dm, { parent: deer, rz: s * 0.5 });
-  const eyeM = ps1Mat({ color: 0xd8f0c0, unlit: true, unique: true });
-  for (const s of [-1, 1]) prop(s * 0.075, 1.62, -0.8, 0.025, 0.02, 0.01, eyeM, { parent: deer });
-  deer.visible = false;
-  refs.deer = deer;
-  // something taller than a man, standing at the treeline. Only the lightning shows it.
-  const fig = new THREE.Group(); scene.add(fig);
-  const blk = ps1Mat({ color: 0x020202 });
-  prop(0, 1.55, 0, 0.34, 1.5, 0.2, blk, { parent: fig });
-  prop(0, 2.45, 0, 0.1, 0.3, 0.1, blk, { parent: fig });
-  for (const sx of [-1, 1]) { prop(sx * 0.24, 1.3, 0, 0.07, 1.6, 0.07, blk, { parent: fig, rz: sx * 0.06 }); prop(sx * 0.1, 0.4, 0, 0.09, 0.8, 0.09, blk, { parent: fig }); }
-  prop(0, 2.72, 0.03, 0.2, 0.3, 0.16, ps1Mat({ color: 0x8a8a84, unlit: true }), { parent: fig });
-  for (const sx of [-1, 1]) prop(sx * 0.05, 2.76, 0.115, 0.045, 0.06, 0.01, blk, { parent: fig });
-  prop(0, 2.63, 0.115, 0.05, 0.07, 0.01, blk, { parent: fig });
-  fig.visible = false;
-  refs.yardFigure = fig;
-
   // ---- the old oak, Danny's tire swing, and what you buried under it ------------
   const oak = new THREE.Group(); oak.position.set(22.8, 0, 8.7); scene.add(oak);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.45, 3.6, 7, 3), bark); trunk.position.y = 1.8; oak.add(trunk);

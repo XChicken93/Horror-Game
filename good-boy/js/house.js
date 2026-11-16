@@ -313,8 +313,8 @@ export function buildHouse(sc) {
 
   // ---- doors --------------------------------------------------------------
   makeDoor('front', 1.0, 10.0, 1.0, 'x', 0, T.frontDoor, { alwaysSolid: false });
-  makeDoor('parents', 1.5, 3.5, 0.9, 'x', 0, T.door); doors.parents.angle = doors.parents.target = 1.4;
-  makeDoor('lily', 5.5, 3.5, 0.9, 'x', 0, T.door); doors.lily.angle = doors.lily.target = 1.2;
+  makeDoor('parents', 1.5, 3.5, 0.9, 'x', 0, T.door); doors.parents.angle = doors.parents.target = 0.04;
+  makeDoor('lily', 5.5, 3.5, 0.9, 'x', 0, T.door); doors.lily.angle = doors.lily.target = 0.04;
   makeDoor('danny', 9.0, 3.5, 0.9, 'x', 0, T.door, { locked: true, alwaysSolid: true });
   makeDoor('laundry', 11.0, 3.5, 0.9, 'x', 0, T.door); doors.laundry.angle = doors.laundry.target = 1.5;
   makeDoor('basement', 13.0, 3.5, 0.8, 'x', 0, T.door, { alwaysSolid: false });

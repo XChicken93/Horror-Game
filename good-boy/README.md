@@ -94,31 +94,38 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 - **Speech you slowly learn.** Lines are voiced by formant synthesis and run through a garbler that shows only the words Biscuit knows. The vocabulary grows with each solved puzzle, and the voices get less muffled as he understands more.
 - They react to you. Barking adds strikes and three strikes get you locked in the laundry room. Whining earns forgiveness. Tugging a sleeve makes them follow you. Every object has a reaction from each person.
 
-**Horror: you're never sure you'll survive**
-- **Lightning shows you things.** When lightning flashes, something is sometimes standing at the window: too tall and too thin, its grey face and long-fingered hand pressed flat to the glass, its mouth opening as you watch. Your head snaps round to it and the view punches in, so you can't miss it. It only appears in a window you can actually see from where you are. Outside, it stands at the treeline instead.
-- **It hunts you once the lights go out.** From chapter 6 the thing from the furnace walks the dark ground floor. You hear its heavy steps and its breathing coming closer, your heart speeds up, and its grey smell drifts ahead of it (follow THE BAD AIR scent to see where it is). It wanders toward wherever you are and hunts you if it sees you. You can outrun it, but not by walking. Hide by lying still in the dark (under the kitchen table or a bed is safest; not with the flashlight in your mouth). Bark at it face to face and it comes apart like smoke, but your throat needs time before that works again. It can't follow you outside, where the air is clean, but the cold drives you back in.
-- **Getting caught costs you.** You black out, drop what you were carrying and lose time, and the air gets worse. The second time you're told plainly that the third will be the last. The third time is the UNDER THE HOUSE ending.
-- **Something is always wrong.** A "dread director" keeps the house unsettled all night, more and more as the poison builds. The house never stops creaking, knocking and groaning in the pipes, and there are footsteps in an attic the house doesn't have. Every half minute or so, something bigger happens:
-  - Heavy footsteps behind you, then breathing.
-  - Knocks from right under your paws.
-  - Your name whispered beside your ear.
-  - A door easing shut by itself while you aren't looking.
-  - The whole family stopping and staring at you at once without blinking.
-  - The lights flickering off, then back on with something standing in the corner of the room.
-  - The phone ringing once at 1 a.m.
-  - Danny's ball bouncing down the dark hall to stop at your feet.
-  - Claire's voice calling you from a room she isn't in, and only the hot-box smell waiting when you get there.
-  - Small wet boot prints from the front door to the basement door.
-  - Tom out of bed, standing at the end of the hall with his face to the wall, turning to look at you with his eyes open and nobody behind them.
-  - The TV switching itself on to a face.
-  - Eyes looking back at you from under the furniture when you lie down.
-- A drone sits under everything, always slightly out of tune with itself, and it rises with the poison and with whatever is close. Fear makes your heart pound and slows you down.
+**Horror: nothing happens on its own. You set it off.**
+No scare fires on a timer or at random. Every scare is set off by something you do, and each one happens only once, so the house reacts to you.
+
+| You... | ...and this happens, once |
+| --- | --- |
+| push the step stool | the lights flicker out, and when they come back something is standing in the corner of the room |
+| lie down near a bed | two eyes look back at you from underneath it |
+| lie down in your own bed, at night | Danny's ball comes bouncing out of the dark to you |
+| wag your tail near the family | they all stop and stare at you at once, without blinking |
+| land on the kitchen counter | the phone rings once, and stops |
+| pick the key out of the broken jar | heavy footsteps behind you, then breathing |
+| close Danny's notebook | something knocks back from under the floor |
+| close Claire's letter | her voice calls you from a dark room she isn't in |
+| sniff in the hall at night | small wet boot prints appear, from the front door to the basement door |
+| bark near the open basement door | something whispers your name from the stairs |
+| nudge Tom while he's deep asleep | he gets up and stands at the end of the hall facing the wall, then turns to look at you with nobody behind his eyes |
+| pick up Danny's tennis ball | the TV switches itself on to a face |
+| scratch Danny's locked door | a light comes on underneath it, and footsteps |
+| scratch the front door at night | something outside knocks back, three times |
+| push a door open | another one eases shut somewhere else |
+| go down into the basement | a lullaby from the dark |
+| look at a photo after the power goes | every face in every frame along the hall changes |
+| stare at someone while you're poisoned | their face goes wrong |
+
+**The thing from the furnace** only comes when you call it by what you do: when you take Danny's jacket or the red tag in the basement (it chases you up the stairs), when you take Danny's flashlight in the dark, and when you carry the jacket up into the house. Then it walks the dark rooms, its steps and breathing coming closer and its grey smell drifting ahead of it (follow THE BAD AIR to see where it is). You can outrun it, but not by walking. Hide by lying still in the dark (under the kitchen table or a bed is safest; not with the flashlight in your mouth). Bark at it face to face and it comes apart like smoke. If it catches you, you black out, drop what you carried and lose time; the third time is the UNDER THE HOUSE ending.
+
+Lightning is just weather: the flash and the thunder.
+
+**Doors** you can push open just by walking into them (the parents' and Lily's doors start closed), and they open for the family as they walk through. Danny's door stays locked until Lily unlocks it; the basement door stays hooked until she unhooks it.
+
+- A drone sits under everything, slightly out of tune with itself, rising with the poison.
 - A furnace that breathes, its grille growing teeth as the night goes on.
-- A face in the TV static, a figure outside every window in a lightning flash, and knocking at the front door.
-- Light and footsteps under Danny's locked door, and a whisper from inside.
-- Danny's shape at the end of the hall, walking down into the basement.
-- A lullaby coming up from the basement while the mother is asleep upstairs.
-- When you take the jacket or the red tag, **the thing from the furnace** wakes up and chases you up the stairs. If it catches you, you get a jumpscare, wake up in the basement, and lose time.
 
 **Sound**
 - Every sound is synthesised in WebAudio and placed in 3D, modelled on how the real sound is made. Barks are formant-filtered bursts with a chest thump. Creaks and scratches are stick-slip impulse trains through wood resonances. Knocks excite a resonant body. Footsteps are paw pads with nail clicks, or a heel and toe with the odd floorboard creak. Voices have three vowel formants and consonants. There's also the CO alarm's real temporal pattern, the latch rattle, eating, the drawer, paper, and the furnace breathing through a vent like a voice.
@@ -136,7 +143,7 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 | 3 | **THE LAUNDRY ROOM** | Be locked in the laundry room (under its cracked window) when the night ends |
 | 4 | **BAD DOG** | Bite one of them once the poison is strong |
 | 5 | **HOME** *(true ending)* | Finish all eight chapters and lead Tom out of the front door |
-| 6 | **UNDER THE HOUSE** | Let the thing in the dark catch you three times |
+| 6 | **UNDER THE HOUSE** | Let the thing from the furnace catch you three times |
 
 Every ending starts with a **rewind**. The camera runs back through every moment of dialogue, in reverse, at the spot it happened, now in plain English. It stops on the lines that mattered and highlights them with a note on what they really meant.
 
@@ -156,7 +163,7 @@ Every ending starts with a **rewind**. The camera runs back through every moment
 | `js/fx.js` | visible particles: falling snow, snow thrown by digging, breath, the pipe's steam |
 | `js/audio.js` | procedural audio |
 | `js/story.js` | chapters, puzzles, vocabulary, reactions, scares, the presence and the stalker, the flashlight, endings, the rewind |
-| `js/dread.js` | the dread director: the constant small wrongness and the bigger scares, scheduled by where you are and how far the night has gone |
+| `js/dread.js` | the scares: each one set off by something you do, once |
 | `js/lore.js` | Danny's room, photographs, letters, the clipping and tag, puzzle props |
 | `js/main.js` | bootstrap and render loop |
 

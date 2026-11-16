@@ -2,7 +2,7 @@
 // the scares, the endings, and the rewind through everything they said.
 import * as THREE from '../vendor/three.module.js';
 import { G, P, ps1Mat } from './ps1.js';
-import { T, updateTV, updateWindow, figureWindow, paintFigureWindow } from './textures.js';
+import { T, updateTV, updateWindow } from './textures.js';
 import * as AU from './audio.js';
 import { doors, lights, items, spots, refs, windows, roomAt, floorAt, collide, isOutside, BASE_Y } from './house.js';
 import { Human, speechLog, showSubtitle, learnWords, knows, VOCAB_STATE, speechHook, LABEL } from './humans.js';
@@ -11,7 +11,7 @@ import { dog, input, inBasement, dogForward, act, lookAtPoint } from './player.j
 import { inspectables, puzzle, DOCS, PHOTOS } from './lore.js';
 import { yard, digHole, updateFlap, pawPrint } from './yard.js';
 import { puff, spray, breath } from './fx.js';
-import { initDread, updateDread } from './dread.js';
+import { initDread, updateDread, dreadOnce } from './dread.js';
 
 export const S = {
   t: 0, co: 0, dogCO: 0, coOn: false, coT0: 0, strikes: 0, fired: new Set(), locked: false, ended: false, cut: null,
@@ -114,7 +114,6 @@ function snapshot() {
 
 // ---------------------------------------------------------------------------
 // Lightning
-let figTex = null, figMat = null;
 const ray = new THREE.Raycaster();
 /** is there a clear line from your eyes to this point? */
 function canSee(pt, ignore) {
@@ -130,54 +129,15 @@ function canSee(pt, ignore) {
   }
   return true;
 }
-function lightning(withFigure = false) {
+function lightning() {
   let best = windows[0], bd = 1e9;
   for (const w of windows) { const d = w.pos.distanceTo(dog.pos); if (d < bd) { bd = d; best = w; } }
   lights[7].pos.copy(best.pos).addScaledVector(best.out, 2.5);
   lights[7].pos.y = 2.2;
+  if (isOutside(dog.pos.x, dog.pos.z, dog.y)) lights[7].pos.set(dog.pos.x + 6, 9, dog.pos.z - 4);
   S.flashSeq = [[0, 1], [0.07, 0.1], [0.14, 0.85], [0.3, 0]];
   S.flashT = 0;
   AU.thunder(1 + Math.random() * 0.6);
-  // something is out there, and the flash shows it to you
-  if (isOutside(dog.pos.x, dog.pos.z, dog.y)) { lights[7].pos.set(dog.pos.x + 6, 9, dog.pos.z - 4); S.deerShow = Math.random() < 0.5; }
-  // every flash: your head snaps to the window, and something is standing in it
-  if (S.cut || S.inspectOpen || S.ended || inBasement()) return;
-  if (isOutside(dog.pos.x, dog.pos.z, dog.y)) {
-    lights[7].pos.set(dog.pos.x + 6, 9, dog.pos.z - 4);
-    const spots2 = [[30.6, -2.5], [30.4, 6.5], [20.5, -7.4], [25.5, -7.2], [30.8, 1.5]];
-    let pick = null, pd = -1;
-    for (const [x, z] of spots2) { const d = Math.hypot(x - dog.pos.x, z - dog.pos.z); if (d < 16 && d > pd) { pd = d; pick = [x, z]; } }
-    if (!pick) return;
-    S.lastFigure = S.t;
-    refs.yardFigure.position.set(pick[0], 0, pick[1]);
-    refs.yardFigure.rotation.y = Math.atan2(dog.pos.x - pick[0], dog.pos.z - pick[1]);
-    S.yardFigureT = 2.2;
-    later(0.05, () => { lookAtPoint(pick[0], 1.6, pick[1], 1.9); AU.stinger(0.9); scared(0.8); });
-    return;
-  }
-  const room = roomAt(dog.pos.x, dog.pos.z, dog.y);
-  let win = null, wd = 1e9;
-  // a window in this room first; otherwise any window you can see from here, through a doorway
-  for (const pass of [0, 1]) {
-    for (const w of windows) {
-      const inner = w.pos.clone().addScaledVector(w.out, -0.4);
-      if (pass === 0 && roomAt(inner.x, inner.z, 0) !== room) continue;
-      const d = w.pos.distanceTo(dog.pos);
-      if (d >= wd || d > (pass ? 10 : 8)) continue;
-      // the middle of the pane, or failing that its top, over the furniture
-      const top = w.pos.clone(); top.y += 0.35;
-      if (canSee(w.pos, w.mesh)) { wd = d; win = w; win.aim = w.pos.y + 0.15; }
-      else if (canSee(top, w.mesh)) { wd = d; win = w; win.aim = top.y; }
-    }
-    if (win) break;
-  }
-  if (!win) return;
-  S.lastFigure = S.t;
-  lights[7].pos.copy(win.pos).addScaledVector(win.out, 2.5); lights[7].pos.y = 2.2;
-  if (!figTex) { figTex = figureWindow(); figMat = ps1Mat({ map: figTex, unlit: true, unique: true }); }
-  S.figWin = { w: win, orig: win.mesh.material, t: 0 };
-  win.mesh.material = figMat;
-  later(0.04, () => { lookAtPoint(win.pos.x, win.aim, win.pos.z, 2.0); AU.stinger(1); scared(1); });
 }
 // your heart jumps; you flinch and whimper
 function scared(k = 1) {
@@ -194,22 +154,8 @@ function updateLightning(dt) {
     if (S.flashT > 0.5) { S.flashSeq = null; v = 0; S.figureFlash = false; }
     S.flash = v;
   } else S.flash = Math.max(0, S.flash - dt * 4);
-  if (S.figWin) {
-    // it stays in the glass a moment after the flash, faintly, and its mouth opens
-    const F = S.figWin; F.t += dt;
-    paintFigureWindow(figTex, S.flash, F.t > 0.7 ? 1 : 0);
-    if (F.t > 2.1) { F.w.mesh.material = F.orig; S.figWin = null; }
-  }
-  // the view punches in on it while you are made to look
   const cam = ui.camera;
-  const wantFov = (S.figWin && S.figWin.t < 1.7) || (S.yardFigureT || 0) > 0.6 ? 44 : 72;
-  if (Math.abs(cam.fov - wantFov) > 0.1) { cam.fov += (wantFov - cam.fov) * Math.min(1, dt * (wantFov < 60 ? 9 : 3)); cam.updateProjectionMatrix(); }
-  if (refs.yardFigure) {
-    S.yardFigureT = Math.max(0, (S.yardFigureT || 0) - dt);
-    refs.yardFigure.visible = S.yardFigureT > 0 && (S.flash > 0.05 || S.yardFigureT > 0.6) && Math.random() > 0.08;
-  }
-  lights[7].intensity = S.flash * (inBasement() ? 0.15 : S.outside ? 3.2 : 2.4);
-  P.uFlash.value = S.flash * (inBasement() ? 0.02 : S.outside ? 0.22 : 0.12);
+  if (Math.abs(cam.fov - 72) > 0.1) { cam.fov += (72 - cam.fov) * Math.min(1, dt * 3); cam.updateProjectionMatrix(); }
   S.lastWindow -= dt;
   if (S.flash > 0.01 || S.lastWindow <= 0) { updateWindow(S.flash, S.figureFlash); S.lastWindow = 0.12; }
   if (S.t > S.nextLightning) { lightning(); S.nextLightning = S.t + (S.outside ? 12 + Math.random() * 14 : 25 + Math.random() * 30); }
@@ -471,7 +417,7 @@ function powerCut() {
     });
   });
   later(8, () => ui.card('Lights out', 'The storm has taken the power. The furnace does not need it. It keeps breathing in the dark. And now that the house is dark, the thing that lives in the bad air does not have to stay under the house.'));
-  later(14, () => { S.stalkOn = true; S.stalk = { state: 'away', t: 20 }; });
+  S.stalkOn = true; S.stalk = { state: 'away', t: 1e9 };
 }
 function lilyFound() {
   const l = F.lily;
@@ -694,7 +640,6 @@ function updateYard(dt) {
   }
   if (S.ghostState && S.ghostState.kind === 'pond' && (S.ghostState.t > 6 || dist2d(dog.pos, F.danny.pos) < 3)) { F.danny.visible = false; S.ghostState = null; }
   // the deer, out in the field, only when the lightning shows it
-  if (refs.deer) refs.deer.visible = S.outside && S.flash > 0.3 && S.deerShow;
 }
 function readClipping() {
   if (!once('clippingLearn')) return;
@@ -829,14 +774,13 @@ function phaseUpdate(dt) {
   if (S.lilyGone && !S.escort && !S.lilyDazed && inBasement() && dist2d(dog.pos, lily.pos) < 2.8 && once('lilyFound')) lilyFound();
   if (S.power === false) for (const i of [0, 1, 2, 3, 4, 6, 8, 10, 13]) if (lights[i]) lights[i].on = false;
   // middle of the night
-  if (co > 0.2 && !puzzle.dannyOpen && once('dannyLight')) { refs.dannyDoorLight.visible = true; S.dannyLightOn = true; }
-  if (co > 0.3 && once('knock')) {
-    AU.knock(1.5, 1.2, 10.2, 3, 1.1);
-    later(3, () => { if (!S.deep && awake(father) && father.pose !== 'sleep') say(father, 'Who the hell is out in this?', 'calm'); });
-  }
-  if (co > 0.42 && once('basementLullaby')) AU.lullaby(() => [9.5, BASE_Y + 1.2, -2.5], 0.8, 0.75);
-  if (co > 0.62 && once('wrongPhotos')) { refs.photoWrong(); AU.stinger(0.4); }
-  if (co > 0.62) { for (const h of [father, mother]) if (h.asleep && h.pose === 'sleep' && S.t > h.awakeUntil) h.setFace(true); }
+  // the first time you go down into the basement, something down there is singing
+  if (inBasement() && S.coOn && once('basementLullaby')) { AU.lullaby(() => [9.5, BASE_Y + 1.2, -2.5], 0.8, 0.75); AU.groan(9, -1, -1, 0.7); }
+  // lying down for the first time, near a bed: something is under it, looking back
+  if (dog.lying > 0.5 && !S.wasLying) { const r = roomAt(dog.pos.x, dog.pos.z, dog.y); if (r === 'parents' || r === 'lily') dreadOnce('eyes'); if (dist2d(dog.pos, spots.dogBed) < 0.7 && S.coOn) dreadOnce('ball'); }
+  S.wasLying = dog.lying > 0.5;
+  // landing on the kitchen counter for the first time: the phone rings, once
+  if (dog.surface && dog.surface.name === 'the counter' && S.coOn) dreadOnce('phone');
   if (co > 0.9) for (const h of [father, mother, lily]) if (!S.alarmOn && !S.finalFollow) h.unconscious = true;
   if (co > 0.92 && lily.pose === 'sit' && !S.alarmDone && once('lilyFaints')) { lily.setActivity({ spot: spots.lilyBed.clone(), pose: 'sleep', face: 0 }); }
   if (co >= 1 && !S.ended && !S.cut) endByTime();
@@ -863,16 +807,31 @@ function phaseUpdate(dt) {
 }
 
 // ---------------------------------------------------------------------------
+// Doors you can push open just by walking into them (and that open for the family too)
+const PUSH_OPEN = { parents: 1.4, lily: 1.2, laundry: 1.5, basement: 0.95, danny: 1.35 };
+function updatePushDoors() {
+  for (const [name, open] of Object.entries(PUSH_OPEN)) {
+    const d = doors[name];
+    if (d.locked || (name === 'laundry' && S.locked) || (name === 'basement' && puzzle.latched)) continue;
+    if (d.angle > 0.5 || d.target > 0.5) continue;
+    const at = (p, reach) => Math.abs(p.z - d.hingeZ) < reach && p.x > d.hingeX - 0.1 && p.x < d.hingeX + d.width + 0.1;
+    const dogPush = dog.moving && dog.y > -0.3 && at(dog.pos, 0.45);
+    const human = [F.father, F.mother, F.lily].some((h) => h.path.length && Math.abs(h.pos.y) < 0.3 && at(h.pos, 0.9));
+    if (!dogPush && !human) continue;
+    d.target = open; d.speed = dogPush ? 1.6 : 1.2;
+    AU.creak(d.hingeX + d.width / 2, 1, d.hingeZ, 1.0, 0.6);
+    if (dogPush) { act('nudge'); if (S.coOn) later(3, () => dreadOnce('doorDrift')); }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Scares and guidance that depend on where Biscuit is
 function scares(dt) {
   const { danny } = F;
   const room = roomAt(dog.pos.x, dog.pos.z, dog.y);
   const fwd = dogForward();
-  if (S.coOn && room === 'living' && S.tvOn && !S.fired.has('tvFace')) {
-    const to = v3(8 - dog.pos.x, 0, 5.7 - dog.pos.z); const d = to.length(); to.normalize();
-    if (d < 4 && fwd.dot(to) > 0.85) { S.fired.add('tvFace'); S.tvFace = 0.35; AU.stinger(0.6); }
-  }
-  if (S.co > 0.18 && room === 'living' && once('figure')) lightning(true);
+
+
   if (S.dannyLightOn) {
     S.dannyStepT = (S.dannyStepT || 0) - dt;
     if (S.dannyStepT <= 0) { S.dannyStepT = 2.5 + Math.random() * 3; AU.step('heavy', 9.4 + Math.random(), 0.1, 2.0, 0.3); }
@@ -940,6 +899,11 @@ function wakePresence() {
 }
 // Upstairs, once the lights are out, it walks the dark rooms looking for you.
 const STALK_NODES = [[1.5, 7.6], [1.95, 4.25], [5.9, 4.25], [9.45, 4.25], [11.45, 4.25], [13.0, 4.25], [6, 6.2], [4.4, 8.6], [8.0, 8.4], [9.7, 8.6], [12.8, 8.6], [12.8, 5.8], [2.9, 2.6], [6.3, 2.5], [11.45, 2.3], [3.6, 6.0]];
+// it comes once for each of these: taking Danny's flashlight in the dark, and carrying his jacket up
+function summonHunt(why) {
+  if (!once('hunt_' + why) || !S.stalk) return;
+  later(2.5, () => { S.stalk.state = 'away'; S.stalk.t = 0; S.stalk.pending = true; });
+}
 function dogHidden(d) {
   if (dog.lying < 0.5 || dog.moving || (puzzle.flashlight.carried && S.flashOn)) return false;
   const x = dog.pos.x, z = dog.pos.z;
@@ -948,13 +912,13 @@ function dogHidden(d) {
 }
 function updateStalker(dt) {
   const p = S.presence, K = S.stalk;
-  if (!S.stalkOn || !K || S.cut || S.finalFollow || S.alarmOn || S.ended || S.escortUp) { if (!(S.glimpse > 0) && !(S.jumpscare > 0)) p.root.visible = false; if (K && K.state !== 'away') { K.state = 'away'; K.t = 30; } return; }
+  if (!S.stalkOn || !K || S.cut || S.finalFollow || S.alarmOn || S.ended || S.escortUp) { if (!(S.glimpse > 0) && !(S.jumpscare > 0)) p.root.visible = false; if (K && K.state !== 'away') { K.state = 'away'; K.t = 1e9; } return; }
   K.t -= dt;
   const dogIn = !S.outside && !inBasement() && dog.y > -0.3;
   if (K.state === 'away') {
     if (!(S.glimpse > 0) && !(S.jumpscare > 0)) p.root.visible = false;
     p.visible = false;
-    if (K.t <= 0) {
+    if (K.t <= 0 && K.pending) {
       K.t = 3;
       if (!dogIn) return;
       const fwd = dogForward();
@@ -963,7 +927,7 @@ function updateStalker(dt) {
       if (!opts.length) return;
       const [x, z] = opts[Math.floor(Math.random() * opts.length)];
       p.setPos(x, z, 0); p.path = []; p.arrived = null;
-      K.state = 'roam'; K.t = 45 + Math.random() * 35; K.re = 0;
+      K.state = 'roam'; K.t = 45 + Math.random() * 35; K.re = 0; K.pending = false;
       AU.knock(x, 0.2, z, 2, 0.5); // something under the floor, coming up
     }
     return;
@@ -982,13 +946,13 @@ function updateStalker(dt) {
       p.goTo(v3(x, 0, z));
     }
     if (sees) { K.state = 'hunt'; K.lost = 0; K.re = 0; AU.stinger(0.8); scared(1); AU.whoomp(p.pos.x, 1.2, p.pos.z); }
-    if (K.t <= 0 && !sees) { K.state = 'away'; K.t = 50 + Math.random() * 50 - S.co * 30; }
+    if (K.t <= 0 && !sees) { K.state = 'away'; K.t = 1e9; }
   } else if (K.state === 'hunt') {
     p.speed = 1.35 + S.co * 0.9;
     K.re -= dt;
     if (K.re <= 0) { K.re = 0.6; p.goTo(v3(dog.pos.x, 0, dog.pos.z)); }
     K.lost = sees ? 0 : K.lost + dt;
-    if (K.lost > 4 || !dogIn) { K.state = 'roam'; K.t = 14; p.path = []; if (!dogIn) { K.state = 'away'; K.t = 25; } }
+    if (K.lost > 4 || !dogIn) { K.state = 'roam'; K.t = 14; p.path = []; if (!dogIn) { K.state = 'away'; K.t = 1e9; } }
     if (d < 0.75 && dogIn) caughtUpstairs();
   }
   p.update(dt, S.t, 0, dog.pos);
@@ -1002,7 +966,7 @@ function updateStalker(dt) {
 function caughtUpstairs() {
   S.jumpscare = 1.2; dog.frozen = true;
   AU.scream();
-  const K = S.stalk; K.state = 'away'; K.t = 70;
+  const K = S.stalk; K.state = 'away'; K.t = 1e9;
   later(1.1, () => {
     S.blackout = 2.8;
     if (dog.carrying) dropItem(dog.carrying, true);
@@ -1031,7 +995,7 @@ function barkRepel() {
   AU.stinger(0.5);
   for (let i = 0; i < 40; i++) emit(p.pos.x, p.pos.y + Math.random() * 2.2, p.pos.z, 'wrong', { spread: 1.2, life: 1.5, size: 0.07, vy: 0.4 });
   if (S.presenceActive) S.presenceSleep = 12;
-  else { S.stalk.state = 'away'; S.stalk.t = 40; }
+  else { S.stalk.state = 'away'; S.stalk.t = 1e9; }
   p.root.visible = false; p.visible = false;
   if (once('repelNote')) showSubtitle('note', '<span class="note">(It comes apart when you bark at it, like smoke. It is not gone. It will come back.)</span>', 3.5);
   return true;
@@ -1051,7 +1015,7 @@ function updatePresence(dt) {
   for (const a of p.arms) a.sh.rotation.x = -1.45 + Math.sin(S.t * 9) * 0.05;
   p.root.visible = Math.random() > 0.06;
   for (let i = 0; i < 3; i++) emit(p.pos.x, p.pos.y + 0.6 + Math.random() * 1.6, p.pos.z, 'wrong', { spread: 0.5, life: 1.5, size: 0.06 });
-  if (!inBasement() || dog.y > -0.25) { S.presenceActive = false; p.root.visible = false; AU.stinger(0.4); if (S.stalk) { S.stalk.state = 'away'; S.stalk.t = 30; } return; }
+  if (!inBasement() || dog.y > -0.25) { S.presenceActive = false; p.root.visible = false; AU.stinger(0.4); if (S.stalk) { S.stalk.state = 'away'; S.stalk.t = 1e9; } return; }
   if (d < 0.75) caught();
 }
 function caught() {
@@ -1091,6 +1055,7 @@ export function onBark() {
   if (S.outside) { const f = dogForward(); breath(dog.pos.x, dog.y + 0.33, dog.pos.z, f.x, f.z, 2); }
   const { father, mother, lily } = F;
   if (S.lilyDazed && dist2d(lily.pos, dog.pos) < 3.8 && Math.abs(lily.pos.y - dog.y) < 1) { lilyWakesUp(); return; }
+  if (!puzzle.latched && dist2d(dog.pos, v3(13.4, 0, 3.5)) < 2.5 && !inBasement()) dreadOnce('whisper');
   if (barkRepel()) return;
   if (inBasement()) { if (S.coOn) later(0.9, () => AU.whoomp(spots.furnace.x, BASE_Y + 1, spots.furnace.z)); return; }
   for (const h of [father, mother, lily]) {
@@ -1109,6 +1074,7 @@ export function onBark() {
 }
 function wake(h) {
   act('nudge');
+  if (h === F.father && S.deep && h.pose === 'sleep' && S.ch < 8) dreadOnce('sleepwalk');
   if (h.unconscious || (S.deep && h !== F.lily)) {
     if (S.t - (h.lastNoWake || 0) > 6) {
       h.lastNoWake = S.t;
@@ -1163,6 +1129,7 @@ export function onSit() {
 export function onWag() {
   if (S.ended || S.cut || S.inspectOpen) return;
   AU.wagSwish();
+  if (S.coOn) dreadOnce('stare');
   const h = [F.father, F.mother, F.lily].find((x) => awake(x) && !x.asleep && sameFloor(x) && dist2d(x.pos, dog.pos) < 3);
   if (!h || S.t - (h.lastWag || -99) < 15) return;
   h.lastWag = S.t; h.look(dogHead(), 3, S.t);
@@ -1208,7 +1175,7 @@ function nearestItem(maxD) {
     if (it.under) {
       // under furniture: only lying flat, with a paw stretched in
       const d = dist2d(p, dog.pos);
-      if (dog.lying > 0.5 && d < 1.05 && d < bd) { bd = d; best = it; }
+      if (dog.lying > 0.5 && d < 1.1 && (!best || d < bd)) { bd = d; best = it; }
       continue;
     }
     const to = v3(p.x - dog.pos.x, 0, p.z - dog.pos.z); const d = to.length();
@@ -1299,6 +1266,9 @@ export function closeInspect() {
   ui.closeInspect();
   if (def.id === 'notebook') readNotebook();
   later(0.6, () => learnSight(def.id));
+  if (def.id.startsWith('photo_') && S.power === false && once('wrongPhotos')) later(0.3, () => { refs.photoWrong(); AU.stinger(0.5); scared(0.6); showSubtitle('note', '<span class="note">(Behind you, along the hall, every face in every frame has changed.)</span>', 3.5); });
+  if (def.id === 'letter') later(1.5, () => dreadOnce('callFromDark'));
+  if (def.id === 'notebook') later(1.0, () => dreadOnce('knockUnder'));
   if (def.id === 'clipping') readClipping();
   if (def.id === 'letter' && once('letterLearn')) learn('room', 'Her letter. Biscuit cannot read it, but he knows her voice when she reads to herself.');
 }
@@ -1306,6 +1276,7 @@ export function closeInspect() {
 function grabStool() {
   const st = puzzle.stool;
   st.dragging = true; puzzle.setStoolCol(); act('nudge');
+  later(1.2, () => dreadOnce('flicker'));
   AU.drawer(st.mesh.position.x, 0.2, st.mesh.position.z);
 }
 function releaseStool() {
@@ -1337,6 +1308,9 @@ function pullDrawer() {
 
 function pickItem(it) {
   act('pickup');
+  if (it.name === 'key' && puzzle.jarFallen) later(1.5, () => dreadOnce('stepsBehind'));
+  if (it.name === 'ball') later(0.8, () => dreadOnce('tvOn'));
+  if (it.name === 'flashlight' && S.power === false) summonHunt('flashlight');
   it.carried = true;
   dog.carrying = it;
   dog.mouth.add(it.mesh);
@@ -1357,7 +1331,7 @@ function dropItem(it, silent) {
   it.mesh.rotation.set(0, dog.yaw, 0);
   it.mesh.scale.setScalar(1);
   if (!inBasement() && dog.y > -0.3) {
-    if (it === puzzle.jacket && !S.got.jacketUp) { S.got.jacketUp = true; checkBasement(); }
+    if (it === puzzle.jacket && !S.got.jacketUp) { S.got.jacketUp = true; checkBasement(); if (S.power === false) summonHunt('jacket'); }
     if (it === puzzle.tag && !S.got.tagUp) { S.got.tagUp = true; checkBasement(); }
   }
   if (silent) return;
@@ -1513,6 +1487,7 @@ function scratchDoor(name) {
     return;
   }
   if (name === 'danny') {
+    if (S.coOn && !puzzle.dannyOpen && once('dannyLight')) later(1.5, () => { refs.dannyDoorLight.visible = true; S.dannyLightOn = true; AU.stinger(0.4); });
     const m = F.mother;
     if (awake(m) && !S.deep && dist2d(m.pos, dog.pos) < 7 && sameFloor(m)) say(m, 'Biscuit, no. Not his door. Please, not his door.', 'sad', { force: false, cooldown: 6 });
     return;
@@ -1524,6 +1499,11 @@ function scratchDoor(name) {
   }
   if (name === 'front') {
     emit(1.5, 0.05, 9.95, 'outside', { spread: 0.8, life: 2 });
+    if (S.coOn && once('knock')) later(1.2, () => {
+      // something on the other side knocks back, three times
+      AU.knock(1.5, 1.2, 10.2, 3, 1.1); scared(0.8);
+      later(3, () => { if (!S.deep && awake(F.father) && F.father.pose !== 'sleep') say(F.father, 'Who the hell is out in this?', 'calm'); });
+    });
     for (const h of [F.father, F.mother]) {
       if (awake(h) && !S.deep && dist2d(h.pos, dog.pos) < 6) { say(h, 'He is not coming home, Biscuit. He is not coming home.', 'sad', { force: false, cooldown: 15 }); break; }
     }
@@ -2036,6 +2016,7 @@ export function updateStory(dt) {
   updateFollow(dt);
   updateLightning(dt);
   updateStool();
+  updatePushDoors();
   updateDigging(dt);
   updateYard(dt);
   updateEscort(dt);
@@ -2079,7 +2060,7 @@ export function updateStory(dt) {
       const to = v3(h.pos.x - dog.pos.x, 0, h.pos.z - dog.pos.z); const d = to.length();
       const looking = d < 3 && dogForward().dot(to.normalize()) > 0.93;
       h.gaze = looking ? (h.gaze || 0) + dt : 0;
-      if (h.gaze > 1.8 && !h.wrongFace) { h.setFace(true); AU.stinger(0.3); later(1.2, () => h.setFace(false)); }
+      if (h.gaze > 1.8 && !h.wrongFace && once('gazeWrong')) { h.setFace(true); AU.stinger(0.3); later(1.2, () => h.setFace(false)); }
     }
   }
 
@@ -2137,6 +2118,7 @@ export function updateStory(dt) {
   S.sniff += (sniffTarget - S.sniff) * Math.min(1, dt * 6);
   G.uSniff.value = S.sniff;
   P.uSniff.value = S.sniff;
+  if (input.sniff && S.deep && !S.outside && !inBasement()) dreadOnce('prints');
   if (input.sniff) { S.sniffSnd = (S.sniffSnd || 0) - dt; if (S.sniffSnd <= 0) { S.sniffSnd = 0.55; AU.sniffSnd(S.outside); } }
   S.label = S.sniff > 0.5 ? sniffLabel() : '';
   S.prompt = computePrompt();
