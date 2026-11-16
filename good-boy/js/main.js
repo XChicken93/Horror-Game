@@ -193,6 +193,7 @@ for (const b of document.querySelectorAll('#monPick .mb')) b.addEventListener('c
 $('monPick').addEventListener('click', (e) => e.stopPropagation());
 const achLabel = () => { $('achBtn').textContent = `achievements: ${achCount()} / ${ACH.length}`; };
 achLabel();
+$('basementBtn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); endIntro(); DBG.monsterRoom(); });
 $('achBtn').addEventListener('click', (e) => { e.stopPropagation(); $('achGrid').innerHTML = achListHTML(); $('achPanel').classList.add('on'); });
 $('achPanel').addEventListener('click', (e) => { e.stopPropagation(); $('achPanel').classList.remove('on'); });
 // wipe the endings you have found, so the game is new again

@@ -147,7 +147,7 @@ Lightning is just weather: the flash and the thunder.
 
 ## The thing in the basement: five shapes
 
-Pick the shape the thing from the furnace takes on the title screen (THE THING IN THE BASEMENT: 1 to 5), or with `?monster=N` in the URL. The choice is remembered.
+Pick the shape the thing from the furnace takes on the title screen (THE THING IN THE BASEMENT: 1 to 5), or with `?monster=N` in the URL. The choice is remembered. **▶ start in the basement, with it** on the title screen drops you straight into the basement as it climbs out of the furnace, with the stairs door open. It comes back every time you go back down.
 
 | # | Name | What it is |
 | --- | --- | --- |

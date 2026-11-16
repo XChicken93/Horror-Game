@@ -1014,8 +1014,9 @@ function wakePresence() {
   later(0.3, () => AU.whoomp(spots.furnace.x, BASE_Y + 1, spots.furnace.z));
   lights[4].flicker = 1;
   later(1.2, () => {
-    lights[4].on = false; S.presenceActive = true; S.presence.setPos(spots.furnace.x, spots.furnace.z, BASE_Y);
-    if (once('presenceCard')) ui.card('It is not Danny.', 'Danny smelled of snow and pencils. This smells of the hot box, of the bad air that has been filling the house. It has no shape. Your poisoned head is giving it one. RUN. Up the stairs.');
+    if (S.monsterTest) lights[4].flicker = 0.7; else lights[4].on = false;
+    S.presenceActive = true; S.presence.setPos(spots.furnace.x, spots.furnace.z, BASE_Y);
+    if (!S.monsterTest && once('presenceCard')) ui.card('It is not Danny.', 'Danny smelled of snow and pencils. This smells of the hot box, of the bad air that has been filling the house. It has no shape. Your poisoned head is giving it one. RUN. Up the stairs.');
   });
 }
 // Upstairs, once the lights are out, it walks the dark rooms looking for you.
@@ -1124,8 +1125,19 @@ function barkRepel() {
   if (once('repelNote')) showSubtitle('note', '<span class="note">(It comes apart when you bark at it, like smoke. It is not gone. It will come back.)</span>', 3.5);
   return true;
 }
+// straight to the basement, with it: for meeting the thing (title screen button)
+function monsterRoom() {
+  S.monsterTest = true;
+  puzzle.latched = false; refs.hook.rotation.z = 1.2; doors.basement.target = 0.95;
+  dog.pos.set(11.6, BASE_Y, -2.4); dog.y = BASE_Y; dog.yaw = Math.atan2(4, -1.3); dog.pitch = 0.12;
+  S.fade = 0; S.fadeV = 0.6;
+  setObj('It is down here with you. Run up the stairs, hide (hold C), or bark it apart (B).');
+  later(2.5, wakePresence);
+}
 function updatePresence(dt) {
   const p = S.presence;
+  // in the basement test, it comes back every time you go back down
+  if (S.monsterTest && !S.presenceActive && !S.ended && inBasement() && dog.y < -1 && !S.reWake) { S.reWake = true; later(2.5, () => { S.reWake = false; if (inBasement() && dog.y < -1 && !S.presenceActive) wakePresence(); }); }
   if (S.monsterPreview) { // testing / preview aid: hold it still where we put it
     const M = S.monsterPreview;
     p.setPos(M.x, M.z, M.y); p.yaw = M.yaw; p.visible = true; p.path = [];
@@ -1761,6 +1773,7 @@ function nextStep() {
   const { father: f, mother: m, lily: l } = F;
   const carry = dog.carrying;
   const pz = puzzle, Y = S.yardDone;
+  if (S.monsterTest) return [S.presenceActive ? 'It is down here with you. Run up the stairs, hide (hold C), or bark it apart (B).' : inBasement() ? 'Something is coming out of the furnace.' : 'Go back down the basement stairs. It is waiting.', S.presenceActive || inBasement() ? null : spots.stairBottom];
   if (S.finalFollow) return ['Lead Tom to the front door. Walk slowly; he follows you.', spots.frontDoor];
   switch (S.ch) {
     case 1:
@@ -2290,4 +2303,4 @@ export function updateStory(dt) {
 }
 
 // testing hooks
-export const DBG = { powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
+export const DBG = { monsterRoom, powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
