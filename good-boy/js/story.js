@@ -2005,6 +2005,7 @@ export function updateStory(dt) {
   // out in the clean cold air, your head clears
   const dogTarget = Math.min(1, S.outside ? S.co * 0.3 : S.co + (S.coOn ? extra : 0));
   S.dogCO += (dogTarget - S.dogCO) * Math.min(1, dt * (dogTarget < S.dogCO ? 0.35 : 0.8));
+  if (S.dogCO > 0.42 && once('poisonCard')) ui.card('The bad air is in you now', 'Your eyes are doubling and the edges of everything are going dark, in time with your heart. That is the poison, in you too. The longer you stay inside, the worse it gets. Clean air outside clears it, for a while. When it is this bad, do not stare at them: their faces go wrong.');
   G.uCO.value = S.dogCO * 0.9;
   P.uCO.value = S.dogCO;
 

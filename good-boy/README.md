@@ -73,6 +73,7 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 ## What's in the prototype
 
 **Look and feel**
+- Solid things have depth: every plain-coloured or wood, fabric or metal prop has bevelled edges that catch the light, and the house is full of real parts (cabinet doors with knobs and drawer fronts, the fridge's handles and freezer seam, the stove's oven door, knobs and burner rings, a deep CRT television with knobs, raised panels on every door, bars and frames on every window, lamp shades, back cushions on the couch, light switches and outlets).
 - A frightening title screen: the dark hall at dog height, the title flickering and bleeding red over a heartbeat-pulsing vignette, and at the far end of the hall something standing. Every time the screen flickers, it is a little closer.
 - Things you can pick up catch the light, with small glints rising off them, so you can find them on the floor.
 - A custom PS1-style renderer. Lighting and fog are per-vertex (Gouraud) and textures are low-resolution with crunchy nearest-neighbour filtering. The scene renders at 240p and is upscaled, with 15-bit colour and 4×4 ordered dithering. Geometry and textures are rock-steady, with no jitter or warping.
@@ -116,7 +117,7 @@ No scare fires on a timer or at random. Every scare is set off by something you 
 | push a door open | another one eases shut somewhere else |
 | go down into the basement | a lullaby from the dark |
 | look at a photo after the power goes | every face in every frame along the hall changes |
-| stare at someone while you're poisoned | their face goes wrong |
+| stare at someone for a couple of seconds once the poison is in *you* (your vision doubles and the edges pulse dark; a card tells you when) | their face goes wrong |
 
 **The thing from the furnace** only comes when you call it by what you do: when you take Danny's jacket or the red tag in the basement (it chases you up the stairs), when you take Danny's flashlight in the dark, and when you carry the jacket up into the house. Then it walks the dark rooms, its steps and breathing coming closer and its grey smell drifting ahead of it (follow THE BAD AIR to see where it is). You can outrun it, but not by walking. Hide by lying still in the dark (under the kitchen table or a bed is safest; not with the flashlight in your mouth). Bark at it face to face and it comes apart like smoke. If it catches you, you black out, drop what you carried and lose time; the third time is the UNDER THE HOUSE ending.
 
@@ -131,7 +132,8 @@ Lightning is just weather: the flash and the thunder.
 - Every sound is synthesised in WebAudio and placed in 3D, modelled on how the real sound is made. Barks are formant-filtered bursts with a chest thump. Creaks and scratches are stick-slip impulse trains through wood resonances. Knocks excite a resonant body. Footsteps are paw pads with nail clicks, or a heel and toe with the odd floorboard creak. Voices have three vowel formants and consonants. There's also the CO alarm's real temporal pattern, the latch rattle, eating, the drawer, paper, and the furnace breathing through a vent like a voice.
 - Biscuit's own body has sounds too: sniffing in short bursts, a growl and teeth snapping on a bite, a thump and a long sigh when you lie down, claws raking snow when you dig, snow squeaking underfoot, the dog flap slapping shut behind you, and collar tags jingling when you shake off the snow. The wind is louder outside.
 - **The world goes on around you.** Outside there are owls in the pines, a coyote far across the fields, a neighbour's dog a long way off and the wind chimes on the back porch. Inside, doors open and close in other rooms, the toilet flushes, Claire clinks dishes at the sink, and the pipes groan. Through the evening Tom, Claire and Lily talk to each other in the next room (about the roads, the tree they haven't put up, where the big flashlight is). You only catch the words if you are close. The wind is soft low gusts indoors and a howl around the eaves outside, rather than a hiss.
-- All the dog sounds were rebalanced to be neutral: a rounder bark with no distortion, quieter paw pads with only the occasional soft claw click, softer scratching, digging and landing, and a gentle tail thump.
+- Biscuit's own sounds are kept soft and natural: one low round "boof" of a bark, a short quiet whimper for the whine, a soft pad on every other step with no clicking claws, and a wag that is silent unless your tail thumps the floor. Thunder is a deep, slow rumble rather than a burst of noise.
+- The family can't walk through walls: they follow the doorways, and if they ever get stuck they find a new way round.
 - As the poison takes hold, the whole mix gets muffled.
 
 ## Endings (6)

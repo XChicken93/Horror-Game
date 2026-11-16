@@ -1,7 +1,7 @@
 // Biscuit: first-person dog controller.
 import * as THREE from '../vendor/three.module.js';
 import { ps1Mat } from './ps1.js';
-import { collide, floorAt, isOutside, surfaceAt, BASE_Y } from './house.js';
+import { collide, floorAt, isOutside, surfaceAt, colliders, BASE_Y } from './house.js';
 import { step, flop, thunk, tailThump } from './audio.js';
 import { T } from './textures.js';
 
@@ -15,6 +15,22 @@ export const dog = {
   act: null, actT: 0, actDur: 0, digging: false, lean: 0, pawsT: 0,
 };
 
+function crossesWall(x0, z0, x1, z1, y) {
+  const dx = x1 - x0, dz = z1 - z0;
+  if (Math.abs(dx) < 1e-6 && Math.abs(dz) < 1e-6) return false;
+  for (const c of colliders) {
+    if (c.tag !== 'wall' || c.disabled || y + 0.5 < c.minY || y > c.maxY) continue;
+    // slab test: does the segment touch the wall's box?
+    let t0 = 0, t1 = 1, ok = true;
+    for (const [p, dd, mn, mx] of [[x0, dx, c.minX, c.maxX], [z0, dz, c.minZ, c.maxZ]]) {
+      if (Math.abs(dd) < 1e-9) { if (p < mn || p > mx) { ok = false; break; } continue; }
+      let a = (mn - p) / dd, b = (mx - p) / dd; if (a > b) [a, b] = [b, a];
+      t0 = Math.max(t0, a); t1 = Math.min(t1, b); if (t0 > t1) { ok = false; break; }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
 function jump() {
   const d = dog;
   if (d.frozen || d.lying > 0.3 || d.digging || d.y < -0.3) return;
@@ -242,6 +258,7 @@ export function updateDog(dt, camera, co, t) {
   fwd.set(-Math.sin(d.yaw), 0, -Math.cos(d.yaw));
   right.set(Math.cos(d.yaw), 0, -Math.sin(d.yaw));
   const len = Math.hypot(mx, mz);
+  const ox = d.pos.x, oz = d.pos.z;
   d.moving = len > 0;
   if (len > 0) {
     const an = input.stickX || input.stickY ? Math.min(1, len) : 1; // a gentle push walks slowly
@@ -250,7 +267,7 @@ export function updateDog(dt, camera, co, t) {
     d.bob += dt * sp * 4.2;
     d.stepT -= dt;
     if (d.stepT <= 0) {
-      d.stepT = run ? 0.13 : 0.2;
+      d.stepT = run ? 0.26 : 0.4; // one soft pad every other footfall
       const onStairs = d.pos.x > 12.5 && d.pos.z > 0.4 && d.pos.z < 3.0;
       const carpet = (d.pos.z < 3.5 && d.pos.x < 8) || (Math.abs(d.pos.z - 4.25) < 0.35);
       const out = isOutside(d.pos.x, d.pos.z, d.y);
@@ -261,6 +278,8 @@ export function updateDog(dt, camera, co, t) {
   }
   d.speed = len > 0 ? sp : 0;
   collide(d.pos, d.radius, d.y, 0.5);
+  // never through a wall, whatever you jump on: if this step crosses one, it doesn't happen
+  if (crossesWall(ox, oz, d.pos.x, d.pos.z, d.y)) { d.pos.x = ox; d.pos.z = oz; }
   // the ground under you: the floor, or the top of whatever you have jumped up onto
   const surf = d.y > -0.3 ? surfaceAt(d.pos.x, d.pos.z, d.y) : null;
   const fy = Math.max(floorAt(d.pos.x, d.pos.z, d.y), surf ? surf.top : -99);
@@ -306,7 +325,7 @@ export function updateDog(dt, camera, co, t) {
     const w = Math.sin(t * 17) * Math.min(1, d.wagT);
     rollOff += w * 0.025; yawOff += w * 0.015;
     d.thumpT = (d.thumpT || 0) - dt;
-    if (d.thumpT <= 0 && (d.sit > 0.5 || d.lying > 0.5)) { d.thumpT = 0.19; tailThump(d.pos.x, d.y, d.pos.z); }
+    if (d.thumpT <= 0 && (d.sit > 0.5 || d.lying > 0.5)) { d.thumpT = 0.38; tailThump(d.pos.x, d.y, d.pos.z); }
   }
   if (input.sniff) { eyeOff -= 0.05; pitchOff -= 0.08; if (d.nose) d.nose.scale.set(1 + Math.max(0, Math.sin(t * 22)) * 0.35, 1, 1); }
   else if (d.nose) d.nose.scale.set(1, 1, 1);

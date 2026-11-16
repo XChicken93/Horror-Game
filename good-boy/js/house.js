@@ -27,10 +27,37 @@ export function box(x0, y0, z0, x1, y1, z1, mat, o = {}) {
   return m;
 }
 
+// Solid things get bevelled edges, so they catch the light like real objects instead of
+// reading as painted boxes. Only plain colours and tiling materials (wood, fabric, metal)
+// are bevelled; textures that are a picture of one face (a fridge door, a TV) keep their box.
+let TILE = null;
+const bevelCache = new Map();
+function bevelBox(w, h, d) {
+  const b = Math.min(0.03, Math.min(w, h, d) * 0.16);
+  const key = [w, h, d].map((v) => v.toFixed(3)).join('|');
+  if (bevelCache.has(key)) return bevelCache.get(key).clone();
+  const sh = new THREE.Shape();
+  const x0 = -w / 2 + b, x1 = w / 2 - b, y0 = -h / 2 + b, y1 = h / 2 - b;
+  sh.moveTo(x0, y0); sh.lineTo(x1, y0); sh.lineTo(x1, y1); sh.lineTo(x0, y1); sh.lineTo(x0, y0);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: Math.max(0.001, d - 2 * b), bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 1, curveSegments: 1 });
+  geo.translate(0, 0, -(d - 2 * b) / 2);
+  geo.computeVertexNormals();
+  bevelCache.set(key, geo);
+  return geo.clone();
+}
+function canBevel(w, h, d, mat) {
+  if (Array.isArray(mat) || Math.min(w, h, d) < 0.045) return false;
+  const map = mat.uniforms && mat.uniforms.map.value;
+  if (!map) return true;
+  if (!TILE) TILE = new Set([T.wood, T.woodLight, T.plaid, T.metal, T.enamel, T.cardboard, T.quilt, T.fur, T.bark, T.fence, T.drift, T.planks, T.concrete, T.cinder, T.trim, T.exterior, T.dirt, T.snowGround].filter(Boolean));
+  return TILE.has(map);
+}
+
 /** Box positioned by centre & size, useful for props. */
 export function prop(cx, cy, cz, w, h, d, mat, o = {}) {
-  const geo = new THREE.BoxGeometry(w, h, d, o.seg ?? 1, o.seg ?? 1, o.seg ?? 1);
-  if (o.planar) planarUV(geo, new THREE.Vector3(cx, cy, cz), o.uvScale ?? 1);
+  const bev = !o.noBevel && canBevel(w, h, d, mat);
+  const geo = bev ? bevelBox(w, h, d) : new THREE.BoxGeometry(w, h, d, o.seg ?? 1, o.seg ?? 1, o.seg ?? 1);
+  if (o.planar || (bev && mat.uniforms.map.value)) planarUV(geo, new THREE.Vector3(cx, cy, cz), o.uvScale ?? (o.planar ? 1 : 0.5));
   const m = new THREE.Mesh(geo, mat);
   m.position.set(cx, cy, cz);
   if (o.ry) m.rotation.y = o.ry;
@@ -48,10 +75,10 @@ function wallZ(z, x0, x1, y0, y1, matN, matS, openings = [], t = 0.12) {
   const ops = [...openings].sort((p, q) => p.a - q.a);
   let x = x0;
   for (const op of ops) {
-    if (op.a > x) box(x, y0, z - t / 2, op.a, y1, z + t / 2, mats, { solid: true });
-    if (op.y0 > y0) box(op.a, y0, z - t / 2, op.b, op.y0, z + t / 2, mats, { solid: true });
-    if (op.y1 < y1) box(op.a, op.y1, z - t / 2, op.b, y1, z + t / 2, mats, { solid: true });
-    if (op.y0 > y0) colliders.push({ minX: op.a, maxX: op.b, minZ: z - t / 2, maxZ: z + t / 2, minY: op.y0 - 0.05, maxY: op.y1 }); // the glass
+    if (op.a > x) box(x, y0, z - t / 2, op.a, y1, z + t / 2, mats, { solid: true, tag: 'wall' });
+    if (op.y0 > y0) box(op.a, y0, z - t / 2, op.b, op.y0, z + t / 2, mats, { solid: true, tag: 'wall' });
+    if (op.y1 < y1) box(op.a, op.y1, z - t / 2, op.b, y1, z + t / 2, mats, { solid: true, tag: 'wall' });
+    if (op.y0 > y0) colliders.push({ minX: op.a, maxX: op.b, minZ: z - t / 2, maxZ: z + t / 2, minY: op.y0 - 0.05, maxY: op.y1, tag: 'wall' }); // the glass
     // door/window frame
     const fm = ps1Mat({ map: T.trim });
     box(op.a - 0.06, op.y0, z - t / 2 - 0.02, op.a, op.y1, z + t / 2 + 0.02, fm);
@@ -59,7 +86,7 @@ function wallZ(z, x0, x1, y0, y1, matN, matS, openings = [], t = 0.12) {
     box(op.a - 0.06, op.y1, z - t / 2 - 0.02, op.b + 0.06, op.y1 + 0.06, z + t / 2 + 0.02, fm);
     x = op.b;
   }
-  if (x < x1) box(x, y0, z - t / 2, x1, y1, z + t / 2, mats, { solid: true });
+  if (x < x1) box(x, y0, z - t / 2, x1, y1, z + t / 2, mats, { solid: true, tag: 'wall' });
 }
 
 /** Wall along Z at constant x. matW faces -x, matE faces +x. */
@@ -69,17 +96,17 @@ function wallX(x, z0, z1, y0, y1, matW, matE, openings = [], t = 0.12) {
   const ops = [...openings].sort((p, q) => p.a - q.a);
   let z = z0;
   for (const op of ops) {
-    if (op.a > z) box(x - t / 2, y0, z, x + t / 2, y1, op.a, mats, { solid: true });
-    if (op.y0 > y0) box(x - t / 2, y0, op.a, x + t / 2, op.y0, op.b, mats, { solid: true });
-    if (op.y1 < y1) box(x - t / 2, op.y1, op.a, x + t / 2, y1, op.b, mats, { solid: true });
-    if (op.y0 > y0) colliders.push({ minX: x - t / 2, maxX: x + t / 2, minZ: op.a, maxZ: op.b, minY: op.y0 - 0.05, maxY: op.y1 }); // the glass
+    if (op.a > z) box(x - t / 2, y0, z, x + t / 2, y1, op.a, mats, { solid: true, tag: 'wall' });
+    if (op.y0 > y0) box(x - t / 2, y0, op.a, x + t / 2, op.y0, op.b, mats, { solid: true, tag: 'wall' });
+    if (op.y1 < y1) box(x - t / 2, op.y1, op.a, x + t / 2, y1, op.b, mats, { solid: true, tag: 'wall' });
+    if (op.y0 > y0) colliders.push({ minX: x - t / 2, maxX: x + t / 2, minZ: op.a, maxZ: op.b, minY: op.y0 - 0.05, maxY: op.y1, tag: 'wall' }); // the glass
     const fm = ps1Mat({ map: T.trim });
     box(x - t / 2 - 0.02, op.y0, op.a - 0.06, x + t / 2 + 0.02, op.y1, op.a, fm);
     box(x - t / 2 - 0.02, op.y0, op.b, x + t / 2 + 0.02, op.y1, op.b + 0.06, fm);
     box(x - t / 2 - 0.02, op.y1, op.a - 0.06, x + t / 2 + 0.02, op.y1 + 0.06, op.b + 0.06, fm);
     z = op.b;
   }
-  if (z < z1) box(x - t / 2, y0, z, x + t / 2, y1, z1, mats, { solid: true });
+  if (z < z1) box(x - t / 2, y0, z, x + t / 2, y1, z1, mats, { solid: true, tag: 'wall' });
 }
 
 function floor(x0, z0, x1, z1, topMat, botMat, y = 0) {
@@ -99,6 +126,12 @@ function makeDoor(name, hingeX, hingeZ, width, axis, closedAngle, tex, o = {}) {
   const edge = ps1Mat({ map: T.trim });
   const geo = new THREE.BoxGeometry(width, 2.04, 0.05, 2, 3, 1);
   const mesh = new THREE.Mesh(geo, [edge, edge, edge, edge, mat, mat]);
+  // raised panels on both faces, so the door has depth
+  const panel = ps1Mat({ map: tex, color: 0xe8e0d0 });
+  for (const zs of [-1, 1]) for (const [px, py, pw, ph] of [[-0.2, 0.42, 0.28, 0.75], [0.2, 0.42, 0.28, 0.75], [-0.2, -0.45, 0.28, 0.75], [0.2, -0.45, 0.28, 0.75]]) {
+    const pm = new THREE.Mesh(bevelBox(pw * width / 0.9, ph, 0.05), panel);
+    pm.position.set(px * width / 0.9, py, zs * 0.016); pm.scale.z = 0.4; mesh.add(pm);
+  }
   mesh.position.set(width / 2, 1.02, 0);
   pivot.add(mesh);
   const knob = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.12), ps1Mat({ color: 0xb09040 }));
@@ -190,6 +223,12 @@ function windowPane(x, y, z, w, h, facing) {
   const rot = { n: 0, s: Math.PI, e: -Math.PI / 2, w: Math.PI / 2 }[facing];
   mesh.rotation.y = rot;
   scene.add(mesh);
+  // the frame and the bars across the glass, standing out from it
+  const bar = ps1Mat({ color: 0x3a2818 });
+  const g = new THREE.Group(); g.position.copy(mesh.position); g.rotation.y = rot; scene.add(g);
+  const bb = (bx, by, bw, bh) => { const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.04), bar); m.position.set(bx, by, -0.015); g.add(m); };
+  bb(0, 0, 0.035, h); bb(0, 0, w, 0.035);
+  bb(0, h / 2, w + 0.04, 0.05); bb(0, -h / 2, w + 0.04, 0.05); bb(-w / 2, 0, 0.05, h); bb(w / 2, 0, 0.05, h);
   // sill
   const sx = facing === 'n' || facing === 's' ? w + 0.1 : 0.18;
   const sz = facing === 'n' || facing === 's' ? 0.18 : w + 0.1;
@@ -381,6 +420,12 @@ export function buildHouse(sc) {
   colliders.push({ minX: 4.95, maxX: 7.05, minZ: 8.12, maxZ: 8.88, minY: 0, maxY: 0.51 });
   colliders.push({ minX: 5.45, maxX: 6.55, minZ: 7.0, maxZ: 7.6, minY: 0.4, maxY: 0.445 });
   spots.couch = new THREE.Vector3(6, 0, 8.4);
+  prop(5.5, 0.78, 8.82, 0.92, 0.42, 0.2, M.plaid, { rx: -0.18 }); prop(6.5, 0.78, 8.82, 0.92, 0.42, 0.2, M.plaid, { rx: -0.18 }); // back cushions
+  // light switches and outlets, at the height people put them
+  const switchPlate = ps1Mat({ color: 0xe0dccc, emissive: 0x141410 });
+  for (const [x, y, z, ry] of [[2.2, 1.2, 4.95, 0], [5.0, 1.2, 4.95, 0], [11.0, 1.2, 4.95, 0], [1.4, 1.2, 3.55, 0], [3.06, 1.2, 6.6, Math.PI / 2], [9.06, 1.2, 6.2, Math.PI / 2], [4.5, 0.3, 9.93, 0], [12.2, 1.1, 9.93, 0], [6.5, 0.3, 5.07, 0], [1.0, 0.3, 0.07, 0]]) {
+    prop(x, y, z, 0.08, 0.12, 0.012, switchPlate, { ry, noBevel: true });
+  }
   // coffee table with mugs and sympathy cards
   prop(6, 0.42, 7.3, 1.1, 0.05, 0.6, M.wood);
   for (const [x, z] of [[5.5, 7.05], [6.5, 7.05], [5.5, 7.55], [6.5, 7.55]]) prop(x, 0.2, z, 0.05, 0.4, 0.05, M.wood, { solid: true });
@@ -391,6 +436,9 @@ export function buildHouse(sc) {
   prop(8.0, 0.25, 5.35, 1.0, 0.5, 0.45, M.wood, { solid: true });
   prop(8.0, 0.8, 5.4, 0.7, 0.58, 0.55, ps1Mat({ color: 0x1a1a1c }), { solid: true });
   refs.tvScreen = prop(8.0, 0.82, 5.68, 0.52, 0.42, 0.01, ps1Mat({ map: T.tvStatic, unlit: true, unique: true }));
+  prop(8.0, 0.8, 5.22, 0.5, 0.42, 0.3, ps1Mat({ color: 0x141416 })); // the picture tube bulging out the back
+  for (let i = 0; i < 2; i++) prop(8.29, 0.94 - i * 0.12, 5.69, 0.04, 0.04, 0.03, ps1Mat({ color: 0x8a8a84 }));
+  prop(7.75, 0.54, 5.69, 0.4, 0.05, 0.02, ps1Mat({ color: 0x2a2a2a }), { noBevel: true }); // speaker grille
   prop(7.8, 1.15, 5.4, 0.02, 0.3, 0.02, M.metal, { rz: 0.4 }); prop(8.2, 1.15, 5.4, 0.02, 0.3, 0.02, M.metal, { rz: -0.4 });
   // armchair (father's)
   prop(8.25, 0.25, 7.6, 0.8, 0.3, 0.8, ps1Mat({ color: 0x5a4a32 }), { solid: true });
@@ -404,7 +452,8 @@ export function buildHouse(sc) {
   // floor lamp
   prop(3.7, 0.75, 9.3, 0.04, 1.5, 0.04, M.metal);
   prop(3.7, 0.02, 9.3, 0.3, 0.04, 0.3, M.metal, { solid: true });
-  refs.lampShade = prop(3.7, 1.55, 9.3, 0.4, 0.3, 0.4, ps1Mat({ color: 0xd8b880, emissive: 0x403010, unique: true }));
+  refs.lampShade = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.24, 0.3, 10, 1, true), ps1Mat({ color: 0xd8b880, emissive: 0x403010, unique: true, side: THREE.DoubleSide }));
+  refs.lampShade.position.set(3.7, 1.55, 9.3); scene.add(refs.lampShade);
   // bookshelf on west wall with christmas stockings (4, one with D)
   prop(3.25, 0.95, 5.95, 0.35, 1.9, 1.2, M.wood, { solid: true });
   for (let i = 0; i < 4; i++) prop(3.43, 0.3 + i * 0.45, 5.95, 0.01, 0.38, 1.1, ps1Mat({ map: T.books }));
@@ -446,6 +495,28 @@ export function buildHouse(sc) {
   for (let i = 0; i < 3; i++) prop(13.6, 1.0, 6.5 + i * 0.07, 0.05, 0.1, 0.05, ps1Mat({ color: 0xc07a20 }));
   // fridge
   prop(9.55, 0.9, 9.62, 0.75, 1.8, 0.7, ps1Mat({ map: T.fridge }), { solid: true });
+  const chrome = ps1Mat({ color: 0xb8b8b0, emissive: 0x181818 });
+  prop(9.83, 1.25, 9.255, 0.035, 0.5, 0.045, chrome); prop(9.83, 0.55, 9.255, 0.035, 0.3, 0.045, chrome); // handles
+  prop(9.55, 1.32, 9.262, 0.74, 0.012, 0.02, ps1Mat({ color: 0x3a3a38 }), { noBevel: true }); // the freezer seam
+  prop(9.55, 0.03, 9.27, 0.7, 0.05, 0.03, ps1Mat({ color: 0x1a1a1a }), { noBevel: true }); // kick grille
+  // cabinet doors, knobs and drawers along both counters
+  const cabDoor = ps1Mat({ color: 0x6a4a2e, emissive: 0x0a0604 }), knobM = ps1Mat({ color: 0xc0a050, emissive: 0x201808 });
+  for (let z = 5.35; z < 9.4; z += 0.5) {
+    if (Math.abs(z - 8.6) < 0.35) continue; // the stove
+    prop(13.385, 0.42, z, 0.04, 0.62, 0.44, cabDoor); prop(13.355, 0.6, z + 0.15, 0.03, 0.04, 0.04, knobM);
+    prop(13.385, 0.82, z, 0.04, 0.12, 0.44, cabDoor); prop(13.355, 0.82, z, 0.03, 0.03, 0.08, knobM);
+  }
+  for (let x = 11.3; x < 13.5; x += 0.5) {
+    prop(x, 0.42, 9.385, 0.44, 0.62, 0.04, cabDoor); prop(x - 0.15, 0.6, 9.355, 0.04, 0.04, 0.03, knobM);
+  }
+  // the stove: a door with a window, knobs, four burners
+  prop(13.385, 0.45, 8.6, 0.04, 0.55, 0.6, ps1Mat({ color: 0x2a2a28 }));
+  prop(13.36, 0.5, 8.6, 0.02, 0.22, 0.4, ps1Mat({ color: 0x0a0a0a, emissive: 0x050302 }), { noBevel: true });
+  for (let i = 0; i < 4; i++) prop(13.36, 0.85, 8.37 + i * 0.15, 0.04, 0.06, 0.06, ps1Mat({ color: 0xd8d8d0 }));
+  for (const [bx, bz] of [[13.55, 8.42], [13.55, 8.78], [13.82, 8.42], [13.82, 8.78]]) {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.012, 3, 10), ps1Mat({ color: 0x1a1a1a }));
+    ring.rotation.x = Math.PI / 2; ring.position.set(bx, 0.957, bz); scene.add(ring);
+  }
   // dog bowls by the fridge
   prop(10.6, 0.04, 9.6, 0.24, 0.07, 0.24, M.metal);
   prop(10.6, 0.075, 9.6, 0.18, 0.01, 0.18, ps1Mat({ color: 0x3a4a6a }));
@@ -496,7 +567,8 @@ export function buildHouse(sc) {
   prop(0.95, 0.66, 0.4, 0.5, 0.12, 0.3, ps1Mat({ color: 0xd8d4c8 })); prop(1.85, 0.66, 0.4, 0.5, 0.12, 0.3, ps1Mat({ color: 0xd8d4c8 }));
   prop(0.35, 0.3, 0.4, 0.4, 0.6, 0.4, M.wood, { solid: true }); prop(2.5, 0.3, 0.4, 0.4, 0.6, 0.4, M.wood, { solid: true });
   prop(2.5, 0.68, 0.4, 0.14, 0.16, 0.1, ps1Mat({ color: 0xe8e4e0 })); // tissue box
-  prop(0.35, 0.75, 0.4, 0.2, 0.3, 0.2, ps1Mat({ color: 0xc8b080 })); // lamp
+  { const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.13, 0.17, 8), ps1Mat({ color: 0xc8b080 })); sh.position.set(0.35, 0.86, 0.4); scene.add(sh);
+    const bs = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.18, 8), ps1Mat({ color: 0x6a5a40 })); bs.position.set(0.35, 0.69, 0.4); scene.add(bs); } // bedside lamp
   prop(3.8, 0.55, 0.35, 1.0, 1.1, 0.5, M.wood, { solid: true });
   prop(3.8, 1.4, 0.15, 0.6, 0.6, 0.02, ps1Mat({ color: 0x404850 })); // mirror
   spots.parentBedF = new THREE.Vector3(1.85, 0.62, 1.2);

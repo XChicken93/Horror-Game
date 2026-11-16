@@ -212,89 +212,54 @@ function impulseTrain(secs, rate0, rate1, jitter = 0.4) {
 
 export function thunder(dist = 1) {
   if (!A.ready) return;
-  const ctx = A.ctx, t0 = now() + 0.3 * dist;
-  const s = noiseSrc(true, false);
-  const f = filt('lowpass', 300);
-  const g = ctx.createGain();
-  env(g, t0, 0.05, 1.3 / dist, 4.5);
-  f.frequency.setValueAtTime(900, t0); f.frequency.exponentialRampToValueAtTime(110, t0 + 3);
-  s.connect(f); f.connect(g); out(g, 0.6);
-  const c = noiseSrc(false, false); const cf = bp(1800, 0.7);
-  const cg = ctx.createGain(); env(cg, t0, 0.01, 0.22 / dist, 0.5);
-  c.connect(cf); cf.connect(cg); out(cg, 0.5);
-  // rolling aftershocks
-  for (let i = 1; i < 4; i++) {
-    const r = noiseSrc(true, false); const rf = filt('lowpass', 160); const rg = ctx.createGain();
-    env(rg, t0 + i * (0.5 + Math.random() * 0.6), 0.1, 0.5 / dist / i, 1.5);
-    r.connect(rf); rf.connect(rg); out(rg, 0.6);
+  // far-off thunder: a deep rumble that rolls in slowly and rolls away, no hiss
+  const ctx = A.ctx, t0 = now() + 0.4 + 0.3 * dist;
+  for (let i = 0; i < 3; i++) {
+    const st = t0 + i * (0.6 + Math.random() * 0.5);
+    const s1 = noiseSrc(true, false); const f = filt('lowpass', 140 - i * 20, 0.5); const f2 = filt('lowpass', 220, 0.5);
+    const g = ctx.createGain(); const peak = (0.32 - i * 0.08) / dist;
+    g.gain.setValueAtTime(0.0001, st); g.gain.linearRampToValueAtTime(peak, st + 0.35 + i * 0.2); g.gain.exponentialRampToValueAtTime(0.0001, st + 3.5 + i);
+    s1.connect(f); f.connect(f2); f2.connect(g); out(g, 0.35); s1.stop(st + 5);
   }
 }
 
 export function bark(loud = 1) {
   if (!A.ready) return;
-  const ctx = A.ctx;
-  const n = loud > 0.8 ? 2 : 1;
-  for (let i = 0; i < n; i++) {
-    const t0 = now() + i * (0.21 + Math.random() * 0.05);
-    const f0 = 210 + Math.random() * 30;
-    // a medium dog: one voiced source, rounded off, through "woof" formants. No distortion.
-    const o = ctx.createOscillator(); o.type = 'sawtooth';
-    o.frequency.setValueAtTime(f0 * 1.15, t0);
-    o.frequency.linearRampToValueAtTime(f0 * 1.75, t0 + 0.04);
-    o.frequency.exponentialRampToValueAtTime(f0 * 1.05, t0 + 0.17);
-    const soft = filt('lowpass', 1900, 0.6);
-    o.connect(soft);
-    const breath = noiseSrc(true, false); const bg = ctx.createGain(); env(bg, t0, 0.006, 0.18, 0.1); breath.connect(bg);
-    const sum = ctx.createGain(); sum.gain.value = 1;
-    for (const [fr, q, gn] of [[560, 4, 1], [1150, 5, 0.55], [2300, 6, 0.18]]) {
-      const f = bp(fr, q); const fg = ctx.createGain(); fg.gain.value = gn;
-      soft.connect(f); bg.connect(f); f.connect(fg); fg.connect(sum);
-      f.frequency.setValueAtTime(fr * 0.8, t0); f.frequency.linearRampToValueAtTime(fr, t0 + 0.04); f.frequency.linearRampToValueAtTime(fr * 0.88, t0 + 0.17);
-    }
-    const g = ctx.createGain(); env(g, t0, 0.01, 0.42 * loud, 0.18);
-    sum.connect(g);
-    const th = ctx.createOscillator(); th.frequency.setValueAtTime(130, t0); th.frequency.exponentialRampToValueAtTime(70, t0 + 0.08);
-    const tg = ctx.createGain(); env(tg, t0, 0.006, 0.18 * loud, 0.08); th.connect(tg); tg.connect(g);
-    out(g, 0.35);
-    for (const x of [o, th]) { x.start(t0); x.stop(t0 + 0.3); }
-    breath.stop(t0 + 0.3);
-  }
+  // one low, round "boof": a quick pitch drop through a soft mouth, with a little breath
+  const ctx = A.ctx, t0 = now();
+  const o = ctx.createOscillator(); o.type = 'triangle';
+  o.frequency.setValueAtTime(260, t0); o.frequency.exponentialRampToValueAtTime(150, t0 + 0.13);
+  const o2 = ctx.createOscillator(); o2.type = 'sine';
+  o2.frequency.setValueAtTime(520, t0); o2.frequency.exponentialRampToValueAtTime(300, t0 + 0.13);
+  const g2 = ctx.createGain(); g2.gain.value = 0.25; o2.connect(g2);
+  const mouth = bp(480, 1.6); const soft = filt('lowpass', 1100, 0.5);
+  o.connect(mouth); g2.connect(mouth); o.connect(soft);
+  const br = noiseSrc(true, false); const bf = filt('lowpass', 700, 0.5); const bg = ctx.createGain(); env(bg, t0, 0.01, 0.12, 0.09); br.connect(bf); bf.connect(bg);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.32 * loud, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+  mouth.connect(g); soft.connect(g); bg.connect(g); out(g, 0.18);
+  o.start(t0); o2.start(t0); o.stop(t0 + 0.25); o2.stop(t0 + 0.25); br.stop(t0 + 0.25);
 }
 
 export function whine() {
   if (!A.ready) return;
+  // a short, quiet whimper through the nose
   const ctx = A.ctx, t0 = now();
-  const o = ctx.createOscillator(); o.type = 'sawtooth';
-  const pts = [[0, 700], [0.15, 1150], [0.35, 1300], [0.55, 1050], [0.8, 1250], [1.05, 820]];
-  o.frequency.setValueAtTime(pts[0][1], t0);
-  for (const [t, f] of pts) o.frequency.linearRampToValueAtTime(f * (0.95 + Math.random() * 0.1), t0 + t);
-  const v = ctx.createOscillator(); v.frequency.value = 6.5; const vg = ctx.createGain(); vg.gain.value = 30; v.connect(vg); vg.connect(o.frequency);
-  const nose = bp(1300, 2.5), nose2 = bp(2600, 4);
-  const air = noiseSrc(false, false); const ag = ctx.createGain(); ag.gain.value = 0.25; air.connect(ag); ag.connect(nose2);
-  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.14, t0 + 0.1); g.gain.setValueAtTime(0.14, t0 + 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.15);
-  o.connect(nose); o.connect(nose2); nose.connect(g); nose2.connect(g); out(g, 0.4);
-  o.start(t0); v.start(t0); o.stop(t0 + 1.2); v.stop(t0 + 1.2); air.stop(t0 + 1.2);
+  const o = ctx.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(820, t0); o.frequency.linearRampToValueAtTime(1020, t0 + 0.18); o.frequency.linearRampToValueAtTime(760, t0 + 0.62);
+  const v = ctx.createOscillator(); v.frequency.value = 5; const vg = ctx.createGain(); vg.gain.value = 12; v.connect(vg); vg.connect(o.frequency);
+  const f = filt('lowpass', 1600, 0.5);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.045, t0 + 0.08); g.gain.setValueAtTime(0.045, t0 + 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.68);
+  o.connect(f); f.connect(g); out(g, 0.2);
+  o.start(t0); v.start(t0); o.stop(t0 + 0.7); v.stop(t0 + 0.7);
 }
 
 export function step(kind, x, y, z, vol = 1) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  if (kind === 'snow') {
-    // a paw pressing into deep snow: a soft compression squeak and a crunch
-    const n = noiseSrc(false, false); const f = bp(1400 + Math.random() * 900, 1.1); const g = ctx.createGain();
-    env(g, t0, 0.012, 0.09 * vol, 0.11); n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.6, 0.05); n.stop(t0 + 0.25);
-    const tr = impulseTrain(0.09, 900, 300, 0.9); const tf = bp(3200, 1.5); const tg = ctx.createGain();
-    env(tg, t0 + 0.02, 0.004, 0.06 * vol, 0.08); tr.connect(tf); tf.connect(tg); at(tg, x, y, z, 1, 1.6, 0.05); tr.start(t0 + 0.02);
-    return;
-  }
-  if (kind === 'claw' || kind === 'soft' || kind === 'stair') {
-    // paw pad thump + nail clicks (no clicks on carpet)
-    const pad = noiseSrc(true, false); const pf = filt('lowpass', kind === 'stair' ? 500 : 280); const pg = ctx.createGain();
-    env(pg, t0, 0.006, (kind === 'stair' ? 0.18 : 0.06) * vol, 0.07); pad.connect(pf); pf.connect(pg); at(pg, x, y, z, 1, 1.6, 0.15); pad.stop(t0 + 0.2);
-    if (kind !== 'soft' && Math.random() < 0.6) for (let i = 0; i < 1; i++) {
-      const c = noiseSrc(false, false); const cf = bp(2600 + Math.random() * 800, 2); const cg = ctx.createGain();
-      env(cg, t0 + 0.015, 0.002, 0.018 * vol, 0.015); c.connect(cf); cf.connect(cg); at(cg, x, y, z, 1, 1.6, 0.15); c.stop(t0 + 0.1);
-    }
+  if (kind === 'snow' || kind === 'claw' || kind === 'soft' || kind === 'stair') {
+    // your own paws: a soft, low pad on the floor (a little crunch in snow). Nothing sharp.
+    const pad = noiseSrc(true, false); const pf = filt('lowpass', kind === 'snow' ? 600 : kind === 'stair' ? 260 : 170, 0.5); const pg = ctx.createGain();
+    env(pg, t0, 0.008, (kind === 'stair' ? 0.06 : kind === 'snow' ? 0.035 : 0.03) * vol, 0.06); pad.connect(pf); pf.connect(pg); at(pg, x, y, z, 1, 1.6, 0.05); pad.stop(t0 + 0.15);
     return;
   }
   // a person: heel, then toe, and sometimes the old floor complains
@@ -764,17 +729,12 @@ export function setDrone(level, t) {
 export function tailThump(x, y, z) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
-  const n = noiseSrc(true, false); const f = filt('lowpass', 220); const g = ctx.createGain(); env(g, t0, 0.005, 0.1, 0.07);
-  n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.6, 0.1); n.stop(t0 + 0.15);
-}
-export function wagSwish() {
-  if (!A.ready) return;
-  const ctx = A.ctx;
-  for (let i = 0; i < 6; i++) { const t0 = now() + i * 0.18; const n = noiseSrc(false, false); const f = bp(1500 + (i % 2) * 400, 0.9); const g = ctx.createGain(); env(g, t0, 0.03, 0.035, 0.08); n.connect(f); f.connect(g); out(g, 0.1); n.stop(t0 + 0.15); }
+  const n = noiseSrc(true, false); const f = filt('lowpass', 140, 0.5); const g = ctx.createGain(); env(g, t0, 0.01, 0.04, 0.06);
+  n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.6, 0.05); n.stop(t0 + 0.12);
 }
 
-// ---------------------------------------------------------------------------
-// The world going on around you: animals outside, the house's own noises
+export function wagSwish() { /* a wag is silent unless your tail is hitting the floor */ }
+
 export function owl(x, y, z) {
   if (!A.ready) return;
   const ctx = A.ctx;

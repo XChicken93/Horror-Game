@@ -3,7 +3,19 @@ import * as THREE from '../vendor/three.module.js';
 import { ps1Mat } from './ps1.js';
 import { T } from './textures.js';
 import { speak, step, setPos } from './audio.js';
-import { roomAt } from './house.js';
+import { roomAt, colliders } from './house.js';
+
+// people can't walk through walls: push them back out of any wall they step into
+function wallPush(pos, r, y) {
+  for (const c of colliders) {
+    if (c.tag !== 'wall' || c.disabled || y + 1.5 < c.minY || y > c.maxY - 0.05) continue;
+    const cx = Math.max(c.minX, Math.min(pos.x, c.maxX)), cz = Math.max(c.minZ, Math.min(pos.z, c.maxZ));
+    const dx = pos.x - cx, dz = pos.z - cz, d2 = dx * dx + dz * dz;
+    if (d2 >= r * r) continue;
+    if (d2 > 1e-8) { const d = Math.sqrt(d2); pos.x += dx / d * (r - d); pos.z += dz / d * (r - d); }
+    else { const l = pos.x - c.minX, rr = c.maxX - pos.x, b = pos.z - c.minZ, f = c.maxZ - pos.z, m = Math.min(l, rr, b, f); if (m === l) pos.x = c.minX - r; else if (m === rr) pos.x = c.maxX + r; else if (m === b) pos.z = c.minZ - r; else pos.z = c.maxZ + r; }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Words a dog actually knows. Everything else is noise. Biscuit learns more words as
@@ -555,6 +567,7 @@ export class Human {
       const d = Math.hypot(dx, dz);
       const sp = this.speed * (1 - co * 0.45) * (this.override?.hurry ? 1.8 : 1);
       if (d < 0.08) {
+        this._unstick = 0;
         this.path.shift();
         if (!this.path.length && this.arrived) { const f = this.arrived; this.arrived = null; f(); }
       } else {
@@ -562,8 +575,21 @@ export class Human {
         let da = want - this.yaw; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
         this.yaw += da * Math.min(1, dt * 6);
         const mv = Math.min(d, sp * dt);
+        const ox = this.pos.x, oz = this.pos.z;
         this.pos.x += (dx / d) * mv; this.pos.z += (dz / d) * mv;
         this.moving = true;
+        if (!this.spec.ghost) {
+          wallPush(this.pos, 0.2, this.pos.y);
+          // stuck against something: find a fresh way round, through the doorways
+          const moved = Math.hypot(this.pos.x - ox, this.pos.z - oz);
+          this._stuck = moved < mv * 0.3 ? (this._stuck || 0) + dt : 0;
+          if (this._stuck > 0.7) {
+            this._stuck = 0; this._unstick = (this._unstick || 0) + 1;
+            const goal = this.path[this.path.length - 1];
+            if (this._unstick > 3) { this.pos.x = this.path[0].x; this.pos.z = this.path[0].z; this._unstick = 0; } // last resort
+            else { const np = findPath(this.pos, goal); if (np.length) this.path = np; }
+          }
+        }
         this.walkPhase += dt * 6.2;
         this.stepTimer -= dt;
         if (this.stepTimer <= 0) { this.stepTimer = 0.55 / (sp + 0.1) * 1.1; step('heavy', this.pos.x, 0.05, this.pos.z, this.s * 0.7); }
