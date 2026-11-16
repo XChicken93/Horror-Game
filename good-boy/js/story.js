@@ -1277,7 +1277,7 @@ function grabStool() {
   const st = puzzle.stool;
   st.dragging = true; puzzle.setStoolCol(); act('nudge');
   later(1.2, () => dreadOnce('flicker'));
-  AU.drawer(st.mesh.position.x, 0.2, st.mesh.position.z);
+  AU.scoot(st.mesh.position.x, 0.2, st.mesh.position.z);
 }
 function releaseStool() {
   const st = puzzle.stool;
@@ -1296,7 +1296,7 @@ function updateStool() {
   st.mesh.position.set(p.x, 0, p.z);
   st.mesh.rotation.y = dog.yaw;
   S.stoolScrape = (S.stoolScrape || 0) - 1 / 60;
-  if (dog.moving && S.stoolScrape <= 0) { S.stoolScrape = 0.45; AU.drawer(p.x, 0.1, p.z); }
+  if (dog.moving && S.stoolScrape <= 0) { S.stoolScrape = 0.7; AU.scoot(p.x, 0.1, p.z); }
 }
 function pullDrawer() {
   puzzle.drawerOpen = true;
@@ -2136,7 +2136,7 @@ export function updateStory(dt) {
   const dk = S.power === false && !S.outside ? 0.62 : 1;
   G.uAmbient.value.set((0.15 + ok * 0.0) * dk + S.flash * 0.1, (0.15 + ok * 0.01) * dk + S.flash * 0.1, (0.18 + ok * 0.01) * dk + S.flash * 0.12);
   G.uCamLight.value.set(0.46, 0.43, 0.4);
-  G.uFogFar.value = 11 + ok * 4;
+  G.uFogFar.value = 15 + ok * 3;
   G.uFogColor.value.set(0.05 + ok * 0.03, 0.048 + ok * 0.035, 0.055 + ok * 0.05);
   if (S.debugLight) G.uAmbient.value.setScalar(S.debugLight); // testing aid only
 }

@@ -4,7 +4,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { ps1Mat } from './ps1.js';
 import { T } from './textures.js';
-import { box, prop, colliders, refs, spots, light, lights, addItem, H } from './house.js';
+import { box, prop, cyl, sph, tor, colliders, refs, spots, light, lights, addItem, H } from './house.js';
 
 export const yard = { digSpots: [], holes: [] };
 
@@ -172,7 +172,9 @@ export function buildYard(scene, M) {
   spots.doghouse = new THREE.Vector3(17.75, 0, -1.55);
 
   // ---- woodpile, the shed, the clothesline with a sheet frozen on it -------------
-  for (let i = 0; i < 4; i++) prop(21.2, 0.15 + i * 0.25, -5.4, 2.2 - i * 0.2, 0.24, 0.6, ps1Mat({ map: T.wood }), { planar: true });
+  // the woodpile: split logs stacked in rows, their cut ends pale
+  { const bark = ps1Mat({ map: T.bark }), endM = ps1Mat({ color: 0xc8a878 });
+    for (let r = 0; r < 4; r++) for (let k = 0; k < 9 - r; k++) { const x = 20.15 + r * 0.11 + k * 0.23, y = 0.11 + r * 0.21; cyl(x, y, -5.4, 0.1, 0.1, 0.62, bark, { rx: Math.PI / 2, seg: 7 }); cyl(x, y, -5.09, 0.095, 0.095, 0.01, endM, { rx: Math.PI / 2, seg: 7 }); } }
   prop(21.2, 1.12, -5.4, 2.0, 0.08, 0.66, snowCap);
   solid(20.0, -5.8, 22.4, -5.0, 1.2);
   prop(22.6, 0.45, -5.0, 0.04, 0.6, 0.04, M.woodL, { rz: 0.4 }); prop(22.75, 0.72, -5.0, 0.04, 0.16, 0.14, M.metal); // an axe in the block
@@ -245,8 +247,8 @@ export function buildYard(scene, M) {
   yard.tinItem = addItem('tin', "Danny's treasure tin", tin, { scent: 'danny' });
   yard.tinItem.gone = true;
   const bone = new THREE.Group();
-  prop(0, 0, 0, 0.2, 0.035, 0.04, ps1Mat({ color: 0xd8cca8 }), { parent: bone });
-  for (const s of [-1, 1]) prop(s * 0.1, 0, 0, 0.05, 0.05, 0.07, ps1Mat({ color: 0xd8cca8 }), { parent: bone });
+  { const bm = ps1Mat({ color: 0xd8cca8 }); cyl(0, 0, 0, 0.018, 0.018, 0.18, bm, { parent: bone, rz: Math.PI / 2, seg: 8 });
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) sph(sx * 0.095, 0, sz * 0.018, 0.026, bm, { parent: bone, detail: 0 }); }
   bone.position.set(18.6, 0.04, -3.45); scene.add(bone); bone.visible = false;
   yard.boneItem = addItem('bone', 'your old bone', bone, { scent: 'bone' });
   yard.boneItem.gone = true;

@@ -3,7 +3,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { ps1Mat } from './ps1.js';
 import { T } from './textures.js';
-import { box, prop, addItem, items, colliders, refs, spots, light, lights, doors, BASE_Y } from './house.js';
+import { box, prop, cyl, sph, tor, cone, addItem, items, colliders, refs, spots, light, lights, doors, BASE_Y } from './house.js';
 
 export const inspectables = [];
 export const puzzle = {};
@@ -364,10 +364,11 @@ export function buildLore(scene, M) {
   spots.lilySit = new THREE.Vector3(7.25, 0, 1.95);
 
   // ---- the kitchen step stool (Biscuit can push it) ----------------------------------
+  // the kitchen step stool: a round seat on four splayed legs, a rung to stand on
   const stool = new THREE.Group();
-  prop(0, 0.34, 0, 0.36, 0.04, 0.3, M.woodL, { parent: stool });
-  prop(0, 0.18, 0, 0.3, 0.03, 0.24, M.woodL, { parent: stool });
-  for (const [x, z] of [[-0.15, -0.12], [0.15, -0.12], [-0.15, 0.12], [0.15, 0.12]]) prop(x, 0.17, z, 0.03, 0.34, 0.03, M.woodL, { parent: stool });
+  cyl(0, 0.34, 0, 0.17, 0.16, 0.04, M.woodL, { parent: stool, seg: 14 });
+  for (const [x, z] of [[-0.11, -0.11], [0.11, -0.11], [-0.11, 0.11], [0.11, 0.11]]) cyl(x, 0.16, z, 0.016, 0.02, 0.34, M.woodL, { parent: stool, rx: z * 0.6, rz: -x * 0.6, seg: 6 });
+  tor(0, 0.13, 0, 0.13, 0.012, M.woodL, { parent: stool, rx: Math.PI / 2, seg: 12, tube: 4 });
   stool.position.set(12.55, 0, 8.75);
   scene.add(stool);
   const stoolCol = { minX: 0, maxX: 0, minZ: 0, maxZ: 0, minY: 0, maxY: 0.36, tag: 'stool' };
@@ -393,16 +394,25 @@ export function buildLore(scene, M) {
   inspect('letter', 11.25, 0.8, 7.4, 1.1, { dogPos: new THREE.Vector3(11.25, 0, 8.4), needs: () => puzzle.letterOut });
 
   // ---- carry-able puzzle items ----------------------------------------------------------
+  // your food bowl: steel, round, with a rim, BISCUIT on it in Danny's marker
   const bowl = new THREE.Group();
-  prop(0, 0, 0, 0.24, 0.07, 0.24, M.metal, { parent: bowl });
-  const kibble = prop(0, 0.04, 0, 0.18, 0.02, 0.18, ps1Mat({ color: 0x7a4a20 }), { parent: bowl });
+  cyl(0, 0, 0, 0.13, 0.1, 0.07, M.metal, { parent: bowl, seg: 14 });
+  tor(0, 0.035, 0, 0.13, 0.01, M.metal, { parent: bowl, rx: Math.PI / 2, seg: 14, tube: 3 });
+  cyl(0, 0.03, 0, 0.11, 0.11, 0.005, ps1Mat({ color: 0x5a5a58 }), { parent: bowl, seg: 14 });
+  const kibble = sph(0, 0.035, 0, 0.1, ps1Mat({ color: 0x7a4a20 }), { parent: bowl, sy: 0.25 });
   kibble.visible = false;
   bowl.position.set(10.3, 0.04, 9.6); scene.add(bowl);
   puzzle.bowl = addItem('bowl', 'your empty bowl', bowl);
   puzzle.bowl.kibble = kibble;
 
   const crayon = (col, x, z, label) => {
-    const m = prop(x, 0.02, z, 0.09, 0.02, 0.022, ps1Mat({ color: col }), { ry: rnd() * 3 });
+    // a crayon: a waxy tip, a paper wrapper, a flat end
+    const m = new THREE.Group(); m.position.set(x, 0.012, z); m.rotation.y = rnd() * 3; scene.add(m);
+    const wax = ps1Mat({ color: col, emissive: 0x080808 });
+    cyl(0, 0, 0, 0.011, 0.011, 0.07, wax, { parent: m, rz: Math.PI / 2, seg: 8 });
+    cone(0.045, 0, 0, 0.011, 0.02, wax, { parent: m, rz: -Math.PI / 2, seg: 8 });
+    cyl(-0.005, 0, 0, 0.0115, 0.0115, 0.045, ps1Mat({ color: 0xe8e0c8 }), { parent: m, rz: Math.PI / 2, seg: 8 });
+    cyl(-0.005, 0, 0, 0.012, 0.012, 0.012, wax, { parent: m, rz: Math.PI / 2, seg: 8 });
     const it = addItem('crayon', label, m, { scent: 'lily' });
     it.crayon = true; it.gone = true; m.visible = false;
     return it;
@@ -419,17 +429,23 @@ export function buildLore(scene, M) {
   for (const i of [0, 5]) { puzzle.crayons[i].under = true; }
   puzzle.crayons[0].underWhat = 'the couch'; puzzle.crayons[5].underWhat = 'the bed';
 
-  const key = new THREE.Group();
-  prop(0, 0, 0, 0.09, 0.012, 0.03, ps1Mat({ color: 0xc8a840 }), { parent: key });
-  prop(0.06, 0, 0, 0.03, 0.014, 0.04, ps1Mat({ color: 0xc8a840 }), { parent: key });
-  prop(-0.02, 0, -0.03, 0.06, 0.006, 0.04, ps1Mat({ color: 0xc02020 }), { parent: key }); // a red ribbon
+  // an old brass door key: a ring bow, a shaft, cut teeth, and a red ribbon tied through it
+  const key = new THREE.Group(); const brass = ps1Mat({ color: 0xc8a840, emissive: 0x201804 });
+  tor(-0.045, 0, 0, 0.022, 0.006, brass, { parent: key, rx: Math.PI / 2, seg: 10, tube: 3 });
+  cyl(0.01, 0, 0, 0.005, 0.005, 0.09, brass, { parent: key, rz: Math.PI / 2, seg: 6 });
+  prop(0.045, 0, 0.012, 0.012, 0.004, 0.02, brass, { parent: key, noBevel: true }); prop(0.03, 0, 0.01, 0.008, 0.004, 0.014, brass, { parent: key, noBevel: true });
+  prop(-0.075, 0, -0.02, 0.05, 0.003, 0.012, ps1Mat({ color: 0xc02020 }), { parent: key, ry: 0.5, noBevel: true }); prop(-0.075, 0, 0.015, 0.05, 0.003, 0.012, ps1Mat({ color: 0xc02020 }), { parent: key, ry: -0.6, noBevel: true });
   key.position.set(0.3, 0.02, 1.35); scene.add(key);
   puzzle.key = addItem('key', "the key to Danny's room", key);
   puzzle.key.gone = true; key.visible = false;
 
+  // the red tag: stiff card, DANGER across it, a metal eyelet and a loop of string
   const tag = new THREE.Group();
-  prop(0, 0, 0, 0.1, 0.01, 0.17, ps1Mat({ color: 0xc01818 }), { parent: tag });
-  prop(0, 0.006, 0.06, 0.02, 0.004, 0.02, ps1Mat({ color: 0xe0e0e0 }), { parent: tag });
+  { const c = document.createElement('canvas'); c.width = 32; c.height = 56; const g = c.getContext('2d'); g.fillStyle = '#b81818'; g.fillRect(0, 0, 32, 56); g.fillStyle = '#fff1e0'; g.font = 'bold 7px monospace'; g.fillText('DANGER', 2, 18); g.fillRect(2, 22, 28, 1); for (let i = 0; i < 6; i++) g.fillRect(3, 27 + i * 4, 18 + (i * 7) % 8, 1);
+    const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.NoColorSpace;
+    prop(0, 0, 0, 0.1, 0.004, 0.17, ps1Mat({ map: t }), { parent: tag, noBevel: true, rx: -Math.PI / 2 * 0 }); }
+  tor(0, 0.004, -0.065, 0.008, 0.003, ps1Mat({ color: 0xd0d0d0 }), { parent: tag, rx: Math.PI / 2, seg: 8, tube: 3 });
+  tor(0.02, 0.004, -0.1, 0.035, 0.002, ps1Mat({ color: 0xe0d8c0 }), { parent: tag, rx: Math.PI / 2, seg: 10, tube: 3 });
   tag.position.set(10.5, BASE_Y + 0.02, -3.05); scene.add(tag);
   puzzle.tag = addItem('tag', 'the red tag', tag);
   puzzle.tag.gone = true; tag.visible = false;
@@ -445,10 +461,10 @@ export function buildLore(scene, M) {
   // ---- the cookie jar on the counter, where Claire hides Danny's key ------------
   const jar = new THREE.Group();
   const jarM = ps1Mat({ color: 0xd8c8a0, emissive: 0x141008 });
-  prop(0, 0.1, 0, 0.18, 0.2, 0.18, jarM, { parent: jar });
-  prop(0, 0.215, 0, 0.14, 0.03, 0.14, ps1Mat({ color: 0x8a5a3a }), { parent: jar });
-  prop(0, 0.24, 0, 0.04, 0.03, 0.04, ps1Mat({ color: 0x8a5a3a }), { parent: jar });
-  prop(0, 0.1, 0.091, 0.12, 0.06, 0.005, ps1Mat({ color: 0xa04030 }), { parent: jar }); // a painted apple
+  cyl(0, 0.1, 0, 0.09, 0.08, 0.2, jarM, { parent: jar, seg: 12 });
+  cyl(0, 0.215, 0, 0.075, 0.09, 0.03, ps1Mat({ color: 0x8a5a3a }), { parent: jar, seg: 12 });
+  sph(0, 0.245, 0, 0.025, ps1Mat({ color: 0x8a5a3a }), { parent: jar, detail: 0 });
+  sph(0, 0.1, 0.085, 0.035, ps1Mat({ color: 0xa04030 }), { parent: jar, sz: 0.3, detail: 0 }); // a painted apple
   jar.position.set(13.72, 0.94, 7.55); scene.add(jar);
   refs.jar = jar;
   spots.jar = new THREE.Vector3(13.72, 0.94, 7.55);
@@ -456,9 +472,11 @@ export function buildLore(scene, M) {
 
   // ---- Danny's flashlight: knocked off his nightstand. It still works, mostly. ----------
   const fl = new THREE.Group();
-  prop(0, 0, 0, 0.05, 0.05, 0.2, ps1Mat({ color: 0x8a1a14 }), { parent: fl });
-  prop(0, 0, -0.11, 0.07, 0.07, 0.04, ps1Mat({ color: 0x2a2a2a }), { parent: fl });
-  refs.flashLens = prop(0, 0, -0.132, 0.055, 0.055, 0.005, ps1Mat({ color: 0xfff0c0, unlit: true, unique: true }), { parent: fl });
+  // a red metal flashlight: the barrel, a flared head, the lens, the switch
+  cyl(0, 0, 0.0, 0.025, 0.025, 0.2, ps1Mat({ color: 0x8a1a14, emissive: 0x100202 }), { parent: fl, rx: Math.PI / 2, seg: 10 });
+  cyl(0, 0, -0.11, 0.04, 0.026, 0.05, ps1Mat({ color: 0x2a2a2a }), { parent: fl, rx: Math.PI / 2, seg: 10 });
+  refs.flashLens = cyl(0, 0, -0.136, 0.034, 0.034, 0.004, ps1Mat({ color: 0xfff0c0, unlit: true, unique: true }), { parent: fl, rx: Math.PI / 2, seg: 10 });
+  prop(0, 0.026, 0.02, 0.014, 0.008, 0.03, ps1Mat({ color: 0x1a1a1a }), { parent: fl });
   fl.position.set(9.1, 0.03, 2.25); fl.rotation.y = 0.9; scene.add(fl);
   puzzle.flashlight = addItem('flashlight', "Danny's flashlight", fl, { scent: 'danny' });
   light(12, 'flashlight', [9.1, 0.2, 2.0], 0xfff0d0, 3.5, [-1, -3.5, -5, 40, 6, 14]);

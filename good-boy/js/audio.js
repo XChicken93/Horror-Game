@@ -408,20 +408,30 @@ export function scratch() {
 
 export function eat() {
   if (!A.ready) return;
+  // quiet, low crunching, and the bowl nudging the floor now and then
   const ctx = A.ctx;
-  for (let i = 0; i < 9; i++) {
-    const t0 = now() + i * (0.13 + Math.random() * 0.08);
-    const s = noiseSrc(false, false); const f = bp(2200 + Math.random() * 1500, 1.4); const g = ctx.createGain(); env(g, t0, 0.002, 0.25, 0.05 + Math.random() * 0.04);
-    s.connect(f); f.connect(g); out(g, 0.1); s.stop(t0 + 0.2);
-    if (i % 3 === 0) knockSmall(t0 + 0.02, 0.15); // tags hitting the steel bowl
+  for (let i = 0; i < 6; i++) {
+    const t0 = now() + i * (0.28 + Math.random() * 0.1);
+    const s1 = noiseSrc(true, false); const f = filt('lowpass', 900, 0.5); const g = ctx.createGain(); env(g, t0, 0.01, 0.05, 0.07);
+    s1.connect(f); f.connect(g); out(g, 0.05); s1.stop(t0 + 0.15);
+    if (i === 2) knockSmall(t0 + 0.05, 0.04);
   }
+}
+
+export function scoot(x, y, z) {
+  if (!A.ready) return;
+  // a light wooden stool shifting over the floor: a soft, short, low scrape
+  const ctx = A.ctx, t0 = now();
+  const n = noiseSrc(true, false); const f = filt('lowpass', 320, 0.5); const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.05, t0 + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+  n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.5, 0.1); n.stop(t0 + 0.3);
 }
 
 export function drawer(x, y, z) {
   if (!A.ready) return;
   const ctx = A.ctx, t0 = now();
   const src = impulseTrain(0.6, 120, 60, 0.6);
-  const b = bp(700, 3); const g = ctx.createGain(); env(g, t0, 0.02, 1.5, 0.6);
+  const b = bp(500, 2); const g = ctx.createGain(); env(g, t0, 0.03, 0.3, 0.6);
   src.connect(b); b.connect(g); at(g, x, y, z, 1, 1.2, 0.4); src.start(t0);
   setTimeout(() => { knock(x, y - 0.5, z, 1, 0.9); paper(x, y - 0.8, z); }, 650);
 }

@@ -22,7 +22,7 @@ Use headphones and play in the dark. A first playthrough to the true ending is m
 | --- | --- |
 | **WASD** / mouse | move / look (click to capture the mouse; arrow keys also turn) |
 | **Shift** | run |
-| **Space** | jump (up onto the couch, the beds, the armchair, the coffee table, the bench) |
+| **Space** | jump, about a metre: up onto anything solid you could stand on, from the step stool and the beds to the washer, the freezer and the kitchen counter. If you're coming down close to something, you land on it rather than just past it. |
 | **B** / left click | bark (wakes sleepers, annoys the family, scatters the thing in the dark). Left click barks once the mouse is captured. |
 | **X** | sit (Claire won't feed you until you sit; the family likes it) |
 | **G** | wag your tail (your back end sways and thumps; the family softens) |
@@ -73,6 +73,15 @@ Biscuit starts out understanding about twenty-five words. **Each puzzle you solv
 ## What's in the prototype
 
 **Look and feel**
+- Everything is modelled as the thing it is, not a painted box:
+  - Your tennis ball has its wrapping white seam, the crayons have tips and paper wrappers, the key has its bow, teeth and ribbon, the red tag has its eyelet and string, the 9V battery has its terminals, and the flashlight has a flared head and lens.
+  - Coats hang by their shoulders, and boots and sneakers have soles and toes.
+  - The couch and armchair have rolled arms and legs, the coffee table has a shelf, the bookshelf holds individual books, the stockings are sock-shaped, the Christmas tree is a real tree with ornaments, and your bed is round.
+  - The kitchen has a sink with a faucet, a dish rack, a kettle with a spout, a radio with an antenna, round pill bottles, spindle-backed chairs, full place settings, a wall phone with a coiled cord and a pedal bin.
+  - In the bedrooms there are bed posts and plump pillows, dressers and nightstands with drawers and knobs, a teddy bear with ears and a muzzle, a dollhouse with a roof and a toy truck with wheels.
+  - The washer and dryer have round glass doors.
+  - In the basement: a water heater cylinder, a pegboard of tools, round jars, a real bicycle and a hockey stick.
+- The scene renders at 360 lines (300 on phones) and the fog starts further away, so things stay readable across a room.
 - Solid things have depth: every plain-coloured or wood, fabric or metal prop has bevelled edges that catch the light, and the house is full of real parts (cabinet doors with knobs and drawer fronts, the fridge's handles and freezer seam, the stove's oven door, knobs and burner rings, a deep CRT television with knobs, raised panels on every door, bars and frames on every window, lamp shades, back cushions on the couch, light switches and outlets).
 - A frightening title screen: the dark hall at dog height, the title flickering and bleeding red over a heartbeat-pulsing vignette, and at the far end of the hall something standing. Every time the screen flickers, it is a little closer.
 - Things you can pick up catch the light, with small glints rising off them, so you can find them on the floor.

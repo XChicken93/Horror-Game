@@ -25,7 +25,8 @@ const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(1);
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-const LOW_H = 240;
+// render resolution: higher than a real PS1, so things stay readable at a distance
+const LOW_H = matchMedia('(pointer: coarse)').matches ? 300 : 360;
 const rt = new THREE.WebGLRenderTarget(320, LOW_H, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: true });
 const post = makePost();
 P.tDiffuse.value = rt.texture;

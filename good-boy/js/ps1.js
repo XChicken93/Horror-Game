@@ -15,7 +15,7 @@ export const G = {
   uCamPos: { value: new THREE.Vector3() },
   uCamLight: { value: new THREE.Vector3(0.26, 0.24, 0.24) },
   uFogColor: { value: new THREE.Vector3(0.05, 0.048, 0.055) },
-  uFogNear: { value: 2.2 },
+  uFogNear: { value: 3.0 },
   uFogFar: { value: 9.0 },
   uSnap: { value: new THREE.Vector2(160, 120) },
   uTime: { value: 0 },

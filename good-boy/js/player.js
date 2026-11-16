@@ -1,7 +1,7 @@
 // Biscuit: first-person dog controller.
 import * as THREE from '../vendor/three.module.js';
 import { ps1Mat } from './ps1.js';
-import { collide, floorAt, isOutside, surfaceAt, colliders, BASE_Y } from './house.js';
+import { collide, floorAt, isOutside, surfaceAt, landingNear, colliders, BASE_Y } from './house.js';
 import { step, flop, thunk, tailThump } from './audio.js';
 import { T } from './textures.js';
 
@@ -33,12 +33,12 @@ function crossesWall(x0, z0, x1, z1, y) {
 }
 function jump() {
   const d = dog;
-  if (d.frozen || d.lying > 0.3 || d.digging || d.y < -0.3) return;
+  if (d.frozen || d.lying > 0.3 || d.digging) return;
   // a moment of grace after stepping off an edge; and a press just before landing still counts
   if (d.air && !(d.coyote > 0)) { d.jumpBuffer = 0.18; return; }
   d.coyote = 0;
   d.sitting = false;
-  d.air = true; d.vy = 3.75; // about 0.7 m: enough for the couch and the beds
+  d.air = true; d.jumped = true; d.vy = 4.55; // about 1.05 m: up onto anything as high as the kitchen counter
   thunk(d.pos.x, d.y + 0.1, d.pos.z, 0.25);
 }
 /** Play a visible body action: 'scratch', 'bite', 'tug', 'eat', 'pull', 'pickup', 'drop', 'whine', 'shake', 'nudge'. */
@@ -261,7 +261,8 @@ export function updateDog(dt, camera, co, t) {
   const ox = d.pos.x, oz = d.pos.z;
   d.moving = len > 0;
   if (len > 0) {
-    const an = input.stickX || input.stickY ? Math.min(1, len) : 1; // a gentle push walks slowly
+    let an = input.stickX || input.stickY ? Math.min(1, len) : 1; // a gentle push walks slowly
+    if (d.air) an *= 0.55; // in the air you mostly go up, so you come down on what you jumped at
     const vx = (fwd.x * mz + right.x * mx) / len * sp * an, vz = (fwd.z * mz + right.z * mx) / len * sp * an;
     d.pos.x += vx * dt; d.pos.z += vz * dt;
     d.bob += dt * sp * 4.2;
@@ -281,14 +282,30 @@ export function updateDog(dt, camera, co, t) {
   // never through a wall, whatever you jump on: if this step crosses one, it doesn't happen
   if (crossesWall(ox, oz, d.pos.x, d.pos.z, d.y)) { d.pos.x = ox; d.pos.z = oz; }
   // the ground under you: the floor, or the top of whatever you have jumped up onto
-  const surf = d.y > -0.3 ? surfaceAt(d.pos.x, d.pos.z, d.y) : null;
+  const surf = surfaceAt(d.pos.x, d.pos.z, d.y);
   const fy = Math.max(floorAt(d.pos.x, d.pos.z, d.y), surf ? surf.top : -99);
   d.surface = surf && Math.abs(d.y - surf.top) < 0.05 ? surf : null;
   d.coyote = Math.max(0, (d.coyote || 0) - dt);
   d.jumpBuffer = Math.max(0, (d.jumpBuffer || 0) - dt);
   if (d.air) {
+    const py = d.y; // where you were at the start of this frame: at low frame rates you can drop past a top in one step
     d.vy -= 9.8 * dt; d.y += d.vy * dt;
-    if (d.vy < 0 && d.y <= fy) { d.y = fy; d.air = false; d.vy = 0; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; if (d.jumpBuffer > 0) { d.jumpBuffer = 0; jump(); } }
+    // coming down close to something you could stand on: you land on it, not just past it
+    if (d.vy < 0 && d.jumped) {
+      const L = landingNear(d.pos.x, d.pos.z, py + 0.05, 0.45);
+      if (L && L.top >= fy - 0.01 && L.top > floorAt(d.pos.x, d.pos.z, d.y) + 0.05) {
+        const nx = Math.max(L.x0 + 0.06, Math.min(L.x1 - 0.06, d.pos.x)), nz = Math.max(L.z0 + 0.06, Math.min(L.z1 - 0.06, d.pos.z));
+        if (!crossesWall(d.pos.x, d.pos.z, nx, nz, L.top)) {
+          d.pos.x += (nx - d.pos.x) * Math.min(1, dt * 14); d.pos.z += (nz - d.pos.z) * Math.min(1, dt * 14);
+          if (d.y <= L.top + 0.03) { d.pos.x = nx; d.pos.z = nz; d.y = L.top; d.air = false; d.vy = 0; d.jumped = false; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; }
+        }
+      }
+    }
+    if (d.air && d.vy < 0 && d.y <= fy) {
+      // landed on top of something: settle a little in from its edge so you don't slide off
+      const L = fy > floorAt(d.pos.x, d.pos.z, d.y) + 0.05 ? landingNear(d.pos.x, d.pos.z, fy + 0.01, 0.05) : null;
+      if (L) { d.pos.x = Math.max(L.x0 + 0.08, Math.min(L.x1 - 0.08, d.pos.x)); d.pos.z = Math.max(L.z0 + 0.08, Math.min(L.z1 - 0.08, d.pos.z)); }
+      d.y = fy; d.air = false; d.vy = 0; d.jumped = false; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; if (d.jumpBuffer > 0) { d.jumpBuffer = 0; jump(); } }
   } else if (fy < d.y - 0.12) { d.air = true; d.vy = 0; d.coyote = 0.2; } // walked off the edge
   else d.y += (fy - d.y) * Math.min(1, dt * 14);
   d.pos.y = d.y;
