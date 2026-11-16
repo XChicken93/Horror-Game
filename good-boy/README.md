@@ -44,6 +44,8 @@ Use headphones and play in the dark. A first playthrough to the true ending is m
 
 **You can see yourself.** Biscuit has a body: look down to see your chest, front legs and paws. Everything you do shows. Your paws come up and scratch at a door, leaving claw marks; your legs stretch out in front of you when you lie down; your paws dig and throw snow; your jaw opens with teeth showing when you bark or bite; you lunge and shake your head when you bite, brace and pull when you tug or pull a rope, put your head down to eat, carry or drop something, and shake the snow off when you come back inside. Out in the cold your breath smokes, and you leave paw prints in the snow.
 
+**On a phone or tablet** the same link switches to touch controls by itself. Hold the phone sideways (in portrait it asks you to turn it); tapping to begin goes full screen. Put your left thumb anywhere on the left side for a joystick: push gently to walk, all the way to run. Drag anywhere else with your right thumb to look. Big buttons on the right: **E** use/take/drop (hold to bite), **⤒** jump, **B** bark, **F** sniff (hold). Small buttons: **R** dig (hold), **C** lie down (hold), **T** follow a smell, **X** sit, **G** wag, **Q** whine, **»** run (toggle). The buttons carry the same letters as the keyboard keys, so every prompt still matches. The HUD is rearranged to fit around your thumbs. Add `?mobile=1` to the address to force touch controls, or `?mobile=0` to turn them off.
+
 **You always know what to do next.** Under the objective in the top right, a **NEXT** line says exactly what to do, which key to press and where, and it updates the moment you do it. A marker at the top of the screen points toward the target, tells you how far away it is and which room it's in, and says "upstairs", "downstairs, in the basement" or "outside, through your flap" when the target is on another level.
 
 ## The story, in eight chapters
@@ -150,6 +152,7 @@ Every ending starts with a **rewind**. The camera runs back through every moment
 | `js/player.js` | dog controller, input, and Biscuit's visible body (legs, paws, jaw, teeth) and its action animations |
 | `js/scent.js` | scent-vision particles and following a single scent |
 | `js/yard.js` | the back yard: dog flap, fence and gate, oak, doghouse, snowman, the buried pipe and the dig spots |
+| `js/touch.js` | touch controls for phones and tablets: joystick, drag to look, on-screen buttons |
 | `js/fx.js` | visible particles: falling snow, snow thrown by digging, breath, the pipe's steam |
 | `js/audio.js` | procedural audio |
 | `js/story.js` | chapters, puzzles, vocabulary, reactions, scares, the presence and the stalker, the flashlight, endings, the rewind |

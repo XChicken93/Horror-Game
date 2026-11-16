@@ -117,6 +117,36 @@
   @keyframes blink { 50% { opacity: 0.15; } }
   @keyframes jit { 0% { transform: translate(0,0); } 92% { transform: translate(0,0); } 93% { transform: translate(3px,-2px) skewX(4deg); } 95% { transform: translate(-2px,1px); } 97% { transform: translate(0,0); } }
   @media (max-width: 640px) { #controls { font-size: 15px; } #prompt { font-size: 16px; white-space: normal; width: 92vw; text-align: center; } }
+  /* ---- touch screens ---- */
+  #touchUI { display: none; }
+  body.touch.playing #touchUI { display: block; }
+  body.touch #controls, body.touch #lockHint { display: none !important; }
+  #touchZone { position: fixed; inset: 0; z-index: 4; touch-action: none; }
+  #stick { position: fixed; width: 112px; height: 112px; border-radius: 50%; border: 2px solid rgba(240,216,144,0.35); background: rgba(0,0,0,0.25); z-index: 6; pointer-events: none; opacity: 0; }
+  #stick.on { opacity: 1; }
+  #knob { position: absolute; left: 34px; top: 34px; width: 44px; height: 44px; border-radius: 50%; background: rgba(240,216,144,0.55); }
+  #pad { position: fixed; right: 14px; bottom: 14px; width: 172px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; z-index: 6; }
+  #padSmall { position: fixed; right: 196px; bottom: 14px; display: flex; flex-direction: column-reverse; flex-wrap: wrap-reverse; gap: 8px; max-height: 210px; z-index: 6; }
+  .tbtn { width: 50px; height: 50px; border-radius: 50%; background: rgba(10,8,6,0.55); border: 2px solid rgba(240,216,144,0.45); color: #f0d890; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .tbtn.big { width: 78px; height: 78px; }
+  .tbtn span { font-size: 22px; } .tbtn.big span { font-size: 30px; }
+  .tbtn small { font-size: 11px; color: #b8a888; letter-spacing: 0.05em; margin-top: 2px; }
+  .tbtn.lit { background: rgba(240,216,144,0.45); color: #1a1408; }
+  #rotate { display: none; }
+  @media (orientation: portrait) { body.touch #rotate { display: flex; position: fixed; inset: 0; z-index: 30; background: #000; color: #e8dfc8; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 26px; padding: 24px; }
+    body.touch #rotate div { font-size: 64px; color: #c02818; margin-bottom: 10px; } body.touch #rotate small { display: block; margin-top: 10px; font-size: 16px; color: #7a746a; } }
+  body.touch #goalBox { max-width: 40vw; top: 8px; right: 10px; gap: 4px; }
+  body.touch #objective { font-size: 14px; } body.touch #next { font-size: 14px; }
+  body.touch #objective::before { font-size: 10px; }
+  body.touch #compass { top: 4px; } body.touch #cArrow { font-size: 22px; line-height: 22px; } body.touch #cText { font-size: 12px; }
+  body.touch #timer { top: 8px; left: 12px; bottom: auto; } body.touch #tVal { font-size: 24px; } body.touch #timer .tl { font-size: 10px; }
+  body.touch #prompt { bottom: auto; top: 44vh; font-size: 16px; }
+  body.touch #subs { font-size: 16px; bottom: auto; top: 58vh; width: 56vw; }
+  body.touch #label { bottom: auto; top: 26vh; font-size: 15px; width: 60vw; }
+  body.touch #card { top: 12vh; width: min(420px, 60vw); padding: 8px 12px; } body.touch #card .cw { font-size: 16px; }
+  body.touch #track { bottom: auto; top: 36vh; right: 10px; font-size: 14px; }
+  body.touch #title h1 { font-size: clamp(44px, 11vw, 90px); } body.touch #title .ctl { font-size: 14px; } body.touch #title .warn { font-size: 13px; margin-top: 14px; } body.touch #title .start { margin-top: 18px; }
+  body.touch #inspDoc { max-height: 52vh; overflow-y: auto; font-size: 15px; }
 </style>
 </head>
 <body>

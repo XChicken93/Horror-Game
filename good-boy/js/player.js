@@ -224,6 +224,7 @@ export function updateDog(dt, camera, co, t) {
   if (!d.frozen) {
     if (keys.has('w')) mz += 1; if (keys.has('s')) mz -= 1;
     if (keys.has('a')) mx -= 1; if (keys.has('d')) mx += 1;
+    if (input.stickX || input.stickY) { mx += input.stickX; mz += input.stickY; } // touch joystick
   }
   const lyingNow = input.cDown && !d.frozen && !d.digging && !d.air;
   if (lyingNow && !d.wasLying) flop();
@@ -235,7 +236,7 @@ export function updateDog(dt, camera, co, t) {
   if (d.act) { d.actT += dt; if (d.actT >= d.actDur) d.act = null; }
   const A = d.act, at = d.actT, ap = d.act ? at / d.actDur : 0;
   if (A === 'bite' || A === 'tug' || A === 'eat' || A === 'shake' || A === 'scratch' || A === 'pull') { mx = 0; mz = 0; }
-  const run = keys.has('shift');
+  const run = keys.has('shift') || !!input.stickRun;
   let sp = (run ? 3.3 : 1.6) * (1 - co * 0.5) * (d.fear ? 1 - d.fear * 0.3 : 1);
   if (input.sniff) sp *= 0.55;
   fwd.set(-Math.sin(d.yaw), 0, -Math.cos(d.yaw));
@@ -243,7 +244,8 @@ export function updateDog(dt, camera, co, t) {
   const len = Math.hypot(mx, mz);
   d.moving = len > 0;
   if (len > 0) {
-    const vx = (fwd.x * mz + right.x * mx) / len * sp, vz = (fwd.z * mz + right.z * mx) / len * sp;
+    const an = input.stickX || input.stickY ? Math.min(1, len) : 1; // a gentle push walks slowly
+    const vx = (fwd.x * mz + right.x * mx) / len * sp * an, vz = (fwd.z * mz + right.z * mx) / len * sp * an;
     d.pos.x += vx * dt; d.pos.z += vz * dt;
     d.bob += dt * sp * 4.2;
     d.stepT -= dt;

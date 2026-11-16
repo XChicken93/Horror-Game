@@ -11,10 +11,16 @@ import * as AU from './audio.js';
 import { S, initStory, updateStory, onBark, onWhine, onInteract, onTrack, onSit, onWag, closeInspect, skipMontage, DBG } from './story.js';
 import { buildLore, PHOTOS, puzzle, inspect } from './lore.js';
 import { TRACK } from './scent.js';
+import { isTouch, initTouch, goFullscreen } from './touch.js';
 import { T } from './textures.js';
 import { refs } from './house.js';
 
 const $ = (id) => document.getElementById(id);
+// on a phone, name the on-screen buttons instead of keyboard keys
+function touchWords(t) {
+  return t.replace(/\(Space\)/g, '(⤒ jump)').replace(/\(Shift\)/g, '(» run)').replace(/Press X/g, 'Tap X').replace(/press E/g, 'tap E').replace(/Press B/g, 'Tap B')
+    .replace(/hold F/gi, 'hold F (sniff)').replace(/<b>SPACE<\/b>/g, '<b>⤒</b>');
+}
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(1);
@@ -58,6 +64,11 @@ const family = makeFamily(scene);
 makeSnout(camera);
 makeBody(scene);
 setSubtitleEl($('subs'));
+initTouch();
+if (isTouch) {
+  $('title').querySelector('.ctl').innerHTML = 'left thumb: <b>walk</b> (push all the way to run) &nbsp; right thumb: <b>look</b><br><b>E</b> use / take / drop (hold to bite) &nbsp; <b>⤒</b> jump &nbsp; <b>B</b> bark &nbsp; hold <b>F</b> sniff<br><b>R</b> dig &nbsp; <b>C</b> lie down &nbsp; <b>T</b> follow a smell &nbsp; <b>X</b> sit &nbsp; <b>G</b> wag &nbsp; <b>Q</b> whine &nbsp; <b>»</b> run';
+  $('title').querySelector('.start').textContent = 'TAP TO BEGIN';
+}
 
 let cardTimer = null;
 const ui = {
@@ -108,6 +119,7 @@ const ui = {
     if (txt !== this._tTxt) { this._tTxt = txt; $('tVal').textContent = txt; el.classList.toggle('low', secs < 300); }
   },
   guide(text, at, where, d) {
+    if (isTouch) text = touchWords(text);
     if (text !== this._gText) { this._gText = text; $('next').innerHTML = text ? `<span>NEXT</span> ${text}` : ''; $('next').style.opacity = text ? 1 : 0; }
     this._gAt = at; this._gWhere = where; this._gD = d;
   },
@@ -186,6 +198,7 @@ const INTRO = [
 function startGame() {
   if (started) return;
   started = true;
+  goFullscreen();
   AU.initAudio();
   AU.startAmbience({ furnace: spots.furnace });
   AU.startDrone();
@@ -210,6 +223,7 @@ function endIntro() {
   $('intro').style.display = 'none';
   $('hud').style.display = 'block';
   input.enabled = true;
+  document.body.classList.add('playing');
   S.fadeV = 1; S.fade = 0; S.fadeSpeed = 0.35;
   dog.pos.set(1.5, 0, 9.05); dog.yaw = 0.05; dog.pitch = 0.05; // waiting at the door
   if (canvas.requestPointerLock) { try { canvas.requestPointerLock(); } catch (e) { /* not allowed here */ } }
@@ -253,7 +267,7 @@ function frame() {
   G.uTime.value += dt; P.uTime.value += dt;
   G.uCamPos.value.copy(camera.position);
   if (AU.A.ready) { camera.getWorldDirection(fwdV); AU.setListener(camera.position, fwdV); }
-  if (S.prompt !== lastPrompt) { lastPrompt = S.prompt; $('prompt').innerHTML = S.prompt; }
+  if (S.prompt !== lastPrompt) { lastPrompt = S.prompt; $('prompt').innerHTML = isTouch ? touchWords(S.prompt) : S.prompt; }
   if (S.label !== lastLabel) { lastLabel = S.label; $('label').innerHTML = S.label; $('label').style.opacity = S.label ? 1 : 0; }
   // the marker: which way to go, how far, and which room
   if (introDone && ui._gAt && !S.ended && !S.inspectOpen) {
