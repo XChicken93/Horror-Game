@@ -13,7 +13,7 @@
     font-family: 'VT323', 'Courier New', monospace; user-select: none; }
   #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; cursor: crosshair; }
   .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; }
-  #title { background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.05) 0%, rgba(14,0,0,0.5) 50%, rgba(0,0,0,0.96) 100%); cursor: pointer; z-index: 10; }
+  #title { overflow-y: auto; justify-content: safe center; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0.05) 0%, rgba(14,0,0,0.5) 50%, rgba(0,0,0,0.96) 100%); cursor: pointer; z-index: 10; }
   #titleVig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(110,0,0,0.45) 100%); animation: beat 1.3s infinite; }
   #title h1 { position: relative; font-size: clamp(64px, 14vw, 150px); margin: 0; letter-spacing: 0.08em; color: #d8cfbf;
     text-shadow: 0 0 2px #fff, 4px 4px 0 #2a0000, 0 6px 14px rgba(150,0,0,0.75), 0 0 40px rgba(170,0,0,0.5);

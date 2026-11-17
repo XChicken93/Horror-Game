@@ -378,8 +378,10 @@ function via(from, to) {
   const inF = from.z > HALE.z0 && from.x > HALE.x0 && from.x < HALE.x1, inT = to.z > HALE.z0 && to.x > HALE.x0 && to.x < HALE.x1;
   if (inF === inT) return [to.clone()];
   const IN = v3(OX, 0, 9.0), OUT = v3(OX, 0, 6.8);
-  if (inF) return d2(from, IN) < 0.35 ? [OUT, to.clone()] : [IN, OUT, to.clone()];
-  return d2(from, OUT) < 0.35 ? [IN, to.clone()] : [OUT, IN, to.clone()];
+  // already in the doorway column: just keep going through it (no flipping back and forth)
+  const inDoor = Math.abs(from.x - OX) < 0.75;
+  if (inF) return inDoor && from.z < 9.3 ? [OUT, to.clone()] : [IN, OUT, to.clone()];
+  return inDoor && from.z > 6.5 ? [IN, to.clone()] : [OUT, IN, to.clone()];
 }
 function burst(x, y, z, n = 50) {
   for (let i = 0; i < n; i++) puff(x, y + Math.random() * 1.2, z, { col: Math.random() < 0.5 ? [0.05, 0.03, 0.03] : [0.5, 0.06, 0.04], vx: (Math.random() - 0.5) * 3, vy: Math.random() * 2.5, vz: (Math.random() - 0.5) * 3, grav: 3, life: 1.4, size: 0.04, spread: 0.4 });
@@ -500,6 +502,7 @@ export function updateOther(dt) {
       C.later(1, () => C.ui.card('Safe', 'It slams against the door, again and again, and then it stops. You can hear it breathing on the other side. In here it is warm. There is a hot box against the back wall, and taped to the wall beside it, in Danny\'s handwriting, his checklist: 1. CLEAR THE VENT PIPE. 2. GAS OFF: RED HANDLE.'));
       return;
     }
+    if (S.oT < 1.2) { showMon('scare', dt); return; } // it rears up first: your head start
     if (!dog.frozen) {
       const sp = d2(p.pos, dog.pos) > 12 ? 4.2 : 2.75;
       moveMon(dog.pos, sp, dt);
