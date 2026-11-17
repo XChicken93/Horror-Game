@@ -892,6 +892,7 @@ function comeHomeReal() {
   put(mother, { spot: spots.parentBedM.clone(), pose: 'sleep', face: 0 });
   put(lily, { spot: spots.lilyBed.clone(), pose: 'sleep', face: 0 });
   F.danny.visible = false; F.danny.path = [];
+  puzzle.latched = false; refs.hook.rotation.z = 1.2; doors.basement.target = 0.95;
   dog.human = false; S.hideDog = false;
   dog.pos.set(11.4, BASE_Y, -1.5); dog.y = BASE_Y; dog.yaw = 1.48; dog.pitch = 0;
   dog.frozen = true; later(2.5, () => { dog.frozen = false; });
