@@ -425,7 +425,7 @@ function lilyUnhooks() {
   later(1.6, () => {
     puzzle.latched = false; refs.hook.rotation.z = 1.2;
     AU.knock(13.72, 1.95, 3.55, 1, 0.5);
-    doors.basement.target = 0.95; doors.basement.speed = 0.5; AU.creak(13.4, 1, 3.5, 2.8, 1.2);
+    doors.basement.target = 1.45; doors.basement.speed = 0.5; AU.creak(13.4, 1, 3.5, 2.8, 1.2);
     l.pos.y = 0;
     say(l, 'Danny? Danny, are you down there?', 'whisper');
   });
@@ -892,7 +892,7 @@ function comeHomeReal() {
   put(mother, { spot: spots.parentBedM.clone(), pose: 'sleep', face: 0 });
   put(lily, { spot: spots.lilyBed.clone(), pose: 'sleep', face: 0 });
   F.danny.visible = false; F.danny.path = [];
-  puzzle.latched = false; refs.hook.rotation.z = 1.2; doors.basement.target = 0.95;
+  puzzle.latched = false; refs.hook.rotation.z = 1.2; doors.basement.target = 1.45;
   dog.human = false; S.hideDog = false;
   dog.pos.set(11.4, BASE_Y, -1.5); dog.y = BASE_Y; dog.yaw = 1.48; dog.pitch = 0;
   dog.frozen = true; later(2.5, () => { dog.frozen = false; });
@@ -1001,7 +1001,7 @@ function phaseUpdate(dt) {
 
 // ---------------------------------------------------------------------------
 // Doors you can push open just by walking into them (and that open for the family too)
-const PUSH_OPEN = { parents: 1.4, lily: 1.2, laundry: 1.5, basement: 0.95, danny: 1.35 };
+const PUSH_OPEN = { parents: 1.4, lily: 1.2, laundry: 1.5, basement: 1.45, danny: 1.35 };
 function updatePushDoors() {
   for (const [name, open] of Object.entries(PUSH_OPEN)) {
     const d = doors[name];
@@ -1201,7 +1201,7 @@ function barkRepel() {
 // straight to the basement, with it: for meeting the thing (title screen button)
 function monsterRoom() {
   S.monsterTest = true;
-  puzzle.latched = false; refs.hook.rotation.z = 1.2; doors.basement.target = 0.95;
+  puzzle.latched = false; refs.hook.rotation.z = 1.2; doors.basement.target = 1.45;
   dog.pos.set(11.6, BASE_Y, -2.4); dog.y = BASE_Y; dog.yaw = Math.atan2(4, -1.3); dog.pitch = 0.12;
   S.fade = 0; S.fadeV = 0.6;
   setObj('It is down here with you. Run up the stairs, hide (hold C), or bark it apart (B).');
