@@ -94,6 +94,7 @@
   #track { position: fixed; right: 18px; bottom: 16px; font-size: 20px; color: #c8c0a8; text-shadow: 2px 2px 0 #000; letter-spacing: 0.08em; opacity: 0; transition: opacity 0.4s; z-index: 5; text-align: right; }
   #track small { display: block; font-size: 14px; color: #6a645a; letter-spacing: 0.1em; }
   #label .tk { color: #8a8270; font-size: 0.8em; letter-spacing: 0.08em; margin-left: 6px; }
+  body:not(.hint) #goalBox, body:not(.hint) #compass { opacity: 0 !important; transition: opacity 0.3s; }
   #goalBox { position: fixed; right: 18px; top: 14px; max-width: min(430px, 46vw); z-index: 5; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
   #objective { position: static; max-width: 100%; text-align: right; font-size: 20px; line-height: 1.2; color: #e8dfc8; text-shadow: 2px 2px 0 #000; z-index: 5; opacity: 0; transition: opacity 0.8s; }
   #objective.show { opacity: 1; }
@@ -182,7 +183,8 @@
   <div class="ctl">
     <b>WASD</b> move &nbsp; <b>MOUSE</b> look &nbsp; <b>SHIFT</b> run &nbsp; <b>SPACE</b> jump<br>
     <b>B</b> or <b>CLICK</b> bark &nbsp; <b>X</b> sit &nbsp; <b>G</b> wag your tail &nbsp; <b>Q</b> whine &nbsp; <b>E</b> look / take / drop / push / tug &nbsp; hold <b>E</b> bite<br>
-    hold <b>F</b> or <b>RIGHT MOUSE</b> sniff &nbsp; <b>T</b> follow one smell &nbsp; hold <b>R</b> dig &nbsp; hold <b>C</b> lie down
+    hold <b>F</b> or <b>RIGHT MOUSE</b> sniff &nbsp; <b>T</b> follow one smell &nbsp; hold <b>R</b> dig &nbsp; hold <b>C</b> lie down<br>
+    nothing tells you what to do. Watch, listen, sniff. If you are truly lost, hold <b>H</b> to remember
   </div>
   <div class="warn">Contains grief, the death of a child (off-screen), a family in danger, flashing lights and loud sounds. Headphones recommended. Play in the dark.</div>
   <div id="titleFound"></div>
@@ -205,6 +207,7 @@
     <b>E</b> look / take / push / tug<br>
     hold <b>F</b> / <b>RMB</b> sniff<br>
     <b>T</b> follow one smell<br>
+    hold <b>H</b> remember what you were doing<br>
     hold <b>R</b> dig · hold <b>C</b> lie down
   </div>
   <div id="timer"><div class="tl">TIME LIMIT</div><div id="tVal"></div></div>

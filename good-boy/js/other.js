@@ -8,7 +8,7 @@ import * as THREE from '../vendor/three.module.js';
 import { ps1Mat, G, P, planarUV } from './ps1.js';
 import { T } from './textures.js';
 import * as AU from './audio.js';
-import { colliders, lights, collide } from './house.js';
+import { colliders, lights, collide, SURFACES } from './house.js';
 import { dog, input, act, lookAtPoint } from './player.js';
 import { puff, FXCFG } from './fx.js';
 import { showSubtitle } from './humans.js';
@@ -150,12 +150,16 @@ function makeArms(camera) {
   const g = new THREE.Group(); camera.add(g); g.visible = false;
   const fur = mat({ map: T.fur, color: 0xc89a60, emissive: 0x1c140c }), dark = mat({ map: T.fur, color: 0x8a6036 });
   const hood = mat({ map: T.hoodie, color: 0x9aa0aa }), skin = mat({ map: T.skin, color: 0xe0c0a8 });
-  put(new THREE.BoxGeometry(0.3, 0.2, 0.36), fur, 0, -0.38, -0.46, { parent: g });
-  const head = new THREE.Group(); head.position.set(0.03, -0.24, -0.6); g.add(head);
-  put(new THREE.BoxGeometry(0.16, 0.15, 0.17), fur, 0, 0, 0, { parent: head });
-  put(new THREE.BoxGeometry(0.08, 0.065, 0.11), dark, 0, -0.03, -0.12, { parent: head });
-  put(new THREE.BoxGeometry(0.035, 0.025, 0.02), M.black, 0, -0.01, -0.18, { parent: head });
-  for (const s of [-1, 1]) { put(new THREE.BoxGeometry(0.03, 0.11, 0.06), dark, s * 0.085, -0.03, 0.01, { parent: head, rz: s * 0.25 }); put(new THREE.BoxGeometry(0.018, 0.018, 0.01), M.black, s * 0.045, 0.025, -0.087, { parent: head }); }
+  // his back and shoulders, low in your arms; his head up, looking where you look
+  const back = put(new THREE.SphereGeometry(0.2, 8, 6), fur, 0, -0.5, -0.5, { parent: g }); back.scale.set(1.05, 0.7, 1.2);
+  const head = new THREE.Group(); head.position.set(0.04, -0.27, -0.66); g.add(head);
+  const skull = put(new THREE.SphereGeometry(0.1, 8, 6), fur, 0, 0, 0, { parent: head }); skull.scale.set(1, 0.95, 1.05);
+  put(new THREE.BoxGeometry(0.08, 0.07, 0.13), fur, 0, -0.035, -0.12, { parent: head });
+  put(new THREE.BoxGeometry(0.04, 0.03, 0.03), M.black, 0, -0.012, -0.19, { parent: head });
+  for (const s of [-1, 1]) {
+    const ear = put(new THREE.BoxGeometry(0.035, 0.13, 0.08), dark, s * 0.095, -0.045, 0.01, { parent: head, rz: s * (s > 0 ? 0.15 : 0.45) }); void ear; // one ear never stood up
+    put(new THREE.BoxGeometry(0.06, 0.12, 0.06), fur, s * 0.12, -0.55, -0.62, { parent: g });
+  }
   for (const s of [-1, 1]) {
     put(new THREE.BoxGeometry(0.11, 0.11, 0.42), hood, s * 0.21, -0.42, -0.32, { parent: g, ry: -s * 0.35 });
     put(new THREE.BoxGeometry(0.08, 0.05, 0.12), skin, s * 0.1, -0.44, -0.55, { parent: g, ry: -s * 0.9 });
@@ -186,8 +190,14 @@ export function buildOther(ctx) {
   // ---- north side: houses and fences, with the two that matter
   const north = [[OX - 58, OX - 46], [OX - 42, OX - 30], [OX - 26, OX - 12], [OX + 10, OX + 22], [OX + 26, OX + 36], [OX + 54, OX + 66], [OX + 70, OX + 82], [OX + 86, OX + 99]];
   for (const [a, b] of north) house(a, b, 1);
-  const nGaps = [[OX - 62, OX - 58], [OX - 46, OX - 42], [OX - 30, OX - 26], [OX - 12, HALE.x0], [HALE.x1, OX + 10], [OX + 22, OX + 26], [OX + 36, SAFE.x0], [SAFE.x1, OX + 54], [OX + 66, OX + 70], [OX + 82, OX + 86]];
+  const nGaps = [[OX - 62, OX - 58], [OX - 46, OX - 42], [OX - 30, OX - 26], [OX - 12, OX - 9.6], [OX - 8.4, HALE.x0], [HALE.x1, OX + 10], [OX + 22, OX + 26], [OX + 36, SAFE.x0], [SAFE.x1, OX + 51.4], [OX + 52.6, OX + 54], [OX + 66, OX + 70], [OX + 82, OX + 86]];
   for (const [a, b] of nGaps) fence(a, b, 8);
+  // behind everything: you cannot wander off the back of the world
+  seg(OX - 62, 15.3, OX + 100, 15.3);
+  for (const [a, b] of [[OX - 12, HALE.x0], [SAFE.x1, OX + 54]]) fence(a, b, 15.3);
+  // a broken gate leaning in each side-yard gap
+  put(new THREE.BoxGeometry(1.1, 1.2, 0.06), M.fence, OX - 9.0, 0.5, 8.6, { ry: 1.2, rz: 0.25 });
+  put(new THREE.BoxGeometry(1.1, 1.2, 0.06), M.fence, OX + 52.0, 0.5, 8.7, { ry: -1.1, rz: -0.3 });
   const south = [[OX - 60, OX - 48], [OX - 44, OX - 32], [OX - 28, OX - 14], [OX - 10, OX + 4], [OX + 8, OX + 20], [OX + 24, OX + 36], [OX + 56, OX + 68], [OX + 72, OX + 84], [OX + 88, OX + 99]];
   for (const [a, b] of south) house(a, b, -1);
   for (const [a, b] of [[OX - 62, OX - 60], [OX - 48, OX - 44], [OX - 32, OX - 28], [OX - 14, OX - 10], [OX + 4, OX + 8], [OX + 20, OX + 24], [OX + 36, OX + 56], [OX + 68, OX + 72], [OX + 84, OX + 88]]) fence(a, b, -8);
@@ -203,7 +213,20 @@ export function buildOther(ctx) {
     blk(OX + 0.6, 0, z0 - 0.06, x1, 2.6, z0 + 0.06, M.ext, { wall: true, uv: 2 });
     blk(OX - 0.6, 2.1, z0 - 0.06, OX + 0.6, 2.6, z0 + 0.06, M.ext, { wall: true });
     blk(x0, 0, z1 - 0.06, x1, 2.6, z1 + 0.06, M.wallIn, { wall: true, uv: 2 });
-    for (const x of [x0, x1]) blk(x - 0.06, 0, z0, x + 0.06, 2.6, z1, M.wallIn, { wall: true, uv: 2 });
+    blk(x1 - 0.06, 0, z0, x1 + 0.06, 2.6, z1, M.wallIn, { wall: true, uv: 2 });
+    // the west wall has a dog flap in it, like yours at home. Ash blows in through it.
+    blk(x0 - 0.06, 0, z0, x0 + 0.06, 2.6, 12.9, M.wallIn, { wall: true, uv: 2 });
+    blk(x0 - 0.06, 0, 13.5, x0 + 0.06, 2.6, z1, M.wallIn, { wall: true, uv: 2 });
+    blk(x0 - 0.06, 0.56, 12.9, x0 + 0.06, 2.6, 13.5, M.wallIn, { wall: true });
+    H.haleFlap = new THREE.Group(); H.haleFlap.position.set(x0, 0.55, 13.2); W.add(H.haleFlap);
+    put(new THREE.BoxGeometry(0.02, 0.5, 0.56), mat({ color: 0x4a3a2a, opacity: 0.6, unique: true }), 0, -0.26, 0, { parent: H.haleFlap });
+    src(x0 - 0.8, 0.5, 13.2, 0x8090c8, 3.2, [x0 - 3, -1, 12, x0 + 2.5, 2, 14.5], { flicker: 0.3, k: 1.3 });
+    // the front door: open, until they get up
+    H.haleDoor = new THREE.Group(); H.haleDoor.position.set(OX - 0.6, 0, z0); W.add(H.haleDoor);
+    put(new THREE.BoxGeometry(1.2, 2.08, 0.06), mat({ map: T.frontDoor, color: 0x8a6a5a }), 0.6, 1.04, 0, { parent: H.haleDoor });
+    H.haleDoor.rotation.y = -1.45;
+    H.haleDoorCol = { minX: OX - 0.6, maxX: OX + 0.6, minZ: z0 - 0.06, maxZ: z0 + 0.06, minY: 0, maxY: 2.1, tag: 'wall', other: true, disabled: true };
+    colliders.push(H.haleDoorCol);
     blk(x0, 0.001, z0, x1, 0.006, z1, M.floorIn, { uv: 1.5 });
     blk(x0, 2.6, z0 - 0.3, x1, 2.8, z1 + 0.3, M.ceil, { uv: 2 });
     const roof = put(new THREE.CylinderGeometry(0.01, 5.2, x1 - x0 + 0.6, 4, 1), M.roof, OX, 3.9, (z0 + z1) / 2, { rz: Math.PI / 2 }); roof.rotation.x = Math.PI / 4; roof.scale.set(1, 1, 0.55);
@@ -240,16 +263,38 @@ export function buildOther(ctx) {
     blk(fx - 0.6, 0, fz - 0.4, fx + 0.6, 1.6, fz + 0.4, mat({ map: T.furnace, color: 0x8a7a6a }), { solid: true });
     H.grille = blk(fx - 0.35, 0.25, fz - 0.42, fx + 0.35, 0.75, fz - 0.4, mat({ map: T.grille, color: 0xffaa60, unlit: true, unique: true }));
     put(new THREE.CylinderGeometry(0.12, 0.12, 1.0, 8), M.metal, fx, 2.1, fz, {});
-    // the exhaust pipe along the floor to the side wall, with its cap off and something stuffed in it
-    put(new THREE.CylinderGeometry(0.1, 0.1, 3.0, 8), M.metal, fx + 2.1, 0.35, fz - 0.1, { rz: Math.PI / 2 });
-    H.wad = put(new THREE.IcosahedronGeometry(0.17, 1), mat({ color: 0x0a0808, emissive: 0x100404, unique: true }), fx + 0.9, 0.35, fz - 0.1);
-    H.wad.scale.set(1.2, 1, 1);
-    // the gas line and its red handle
+    // the exhaust pipe runs along the floor and out through the east wall. It is blocked
+    // somewhere outside: smoke coughs back out of a cracked joint into the room.
+    put(new THREE.CylinderGeometry(0.1, 0.1, x1 - fx - 0.55, 8), M.metal, (fx + 0.6 + x1) / 2, 0.35, fz - 0.1, { rz: Math.PI / 2 });
+    H.joint = v3(fx + 2.4, 0.42, fz - 0.1);
+    put(new THREE.TorusGeometry(0.115, 0.025, 4, 10), M.black, H.joint.x, 0.35, H.joint.z, { ry: Math.PI / 2 });
+    // outside, in the side yard, the pipe end is stuffed with something wet and black
+    put(new THREE.CylinderGeometry(0.1, 0.1, 0.7, 8), M.metal, x1 + 0.35, 0.35, fz - 0.1, { rz: Math.PI / 2 });
+    H.clog = put(new THREE.IcosahedronGeometry(0.2, 1), mat({ color: 0x0a0808, emissive: 0x100404, unique: true }), x1 + 0.78, 0.35, fz - 0.1);
+    H.clog.scale.set(1.3, 1, 1.1);
+    H.clogPos = v3(x1 + 0.78, 0, fz - 0.1);
+    // the gas line: its red handle is gone. Just the bare stem.
     put(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 6), mat({ color: 0xa08020 }), fx - 1.3, 0.45, fz, {});
     H.valve = new THREE.Group(); H.valve.position.set(fx - 1.3, 0.62, fz - 0.06); W.add(H.valve);
-    put(new THREE.BoxGeometry(0.34, 0.05, 0.05), M.red, 0.15, 0, 0, { parent: H.valve });
-    // Danny's checklist on the wall
-    blk(fx - 2.8, 1.0, z1 - 0.08, fx - 2.2, 1.6, z1 - 0.06, mat({ color: 0xe0d8c0 }));
+    put(new THREE.CylinderGeometry(0.018, 0.018, 0.07, 6), M.metal, 0, 0, -0.03, { parent: H.valve, rx: Math.PI / 2 });
+    // ...because it is up on top of the tall shelf in the corner, with the paint cans
+    const shelfM = mat({ color: 0x5a5a58 });
+    for (const [px, pz] of [[OX + 48.45, 8.45], [OX + 49.75, 8.45], [OX + 48.45, 9.55], [OX + 49.75, 9.55]]) put(new THREE.BoxGeometry(0.04, 1.45, 0.04), shelfM, px, 0.725, pz);
+    for (const y of [0.35, 0.8, 1.43]) blk(OX + 48.4, y - 0.02, 8.4, OX + 49.8, y + 0.02, 9.6, shelfM);
+    for (let i = 0; i < 5; i++) put(new THREE.CylinderGeometry(0.09, 0.09, 0.2, 8), mat({ color: [0x8a2a20, 0x2a4a6a, 0xc0b080, 0x3a5a3a, 0x6a6a6a][i] }), OX + 48.6 + i * 0.27, i % 2 ? 0.48 : 0.93, 9.0);
+    colliders.push({ minX: OX + 48.4, maxX: OX + 49.8, minZ: 8.4, maxZ: 9.6, minY: 0, maxY: 1.45, other: true });
+    SURFACES.push({ name: 'the top of the shelf', x0: OX + 48.4, x1: OX + 49.8, z0: 8.4, z1: 9.6, top: 1.45 });
+    H.handle = new THREE.Group(); H.handle.position.set(OX + 49.2, 1.47, 9.05); W.add(H.handle);
+    put(new THREE.BoxGeometry(0.34, 0.05, 0.05), M.red, 0.12, 0.02, 0, { parent: H.handle });
+    put(new THREE.CylinderGeometry(0.035, 0.035, 0.04, 8), M.red, 0, 0.02, 0, { parent: H.handle });
+    // a workbench and an old crate: the way up
+    blk(OX + 46.5, 0, 8.25, OX + 48.3, 0.9, 9.15, M.wood, { solid: true });
+    blk(OX + 46.5, 0.9, 8.25, OX + 48.3, 0.94, 9.15, mat({ map: T.wood, color: 0x6a5040 }));
+    put(new THREE.BoxGeometry(0.4, 0.06, 0.1), M.metal, OX + 47.2, 0.97, 8.7, { ry: 0.4 });
+    blk(OX + 45.3, 0, 9.4, OX + 46.0, 0.48, 10.1, mat({ map: T.wood, color: 0x8a7050 }), { solid: true });
+    // Danny's checklist on the wall: torn in half
+    blk(fx - 2.8, 1.0, z1 - 0.08, fx - 2.2, 1.35, z1 - 0.06, mat({ color: 0xe0d8c0 }));
+    src(FLAP_X, 2.2, 7.2, 0xffd080, 7, OUT_BOX, { k: 1.8, flicker: 0.05 });
     H.safeLight = src(OX + 45, 2.3, 11, 0xffd090, 7, [x0, -1, z0, x1, 3, z1], { flicker: 0.05 });
     H.fireLight = src(fx, 0.5, fz - 0.8, 0xff6a18, 3.5, [x0, -1, z0, x1, 3, z1], { flicker: 0.4 });
   }
@@ -271,7 +316,9 @@ export function buildOther(ctx) {
   // hazards along the chase
   for (const [x, s] of [[108, 1], [132, -1], [150, 1], [176, -1], [198, 1], [214, -1]]) { const p = streetlight(OX + x, s * (roadW(OX + x) - 0.35), s); p.trig = OX + x - 11; H.poles.push(p); }
   for (const [x, s] of [[142, -1], [186, 1]]) { const t = deadTree(OX + x, s * (roadW(OX + x) - 0.4)); H.trees.push({ g: t, side: s, trig: OX + x - 12, x: OX + x }); }
-  for (const [x, lane] of [[118, 1.3], [162, -1.2], [203, 1.0]]) { const c = car(OX + x + 30, lane, Math.PI, [0x6a1a10, 0x1a2a4a, 0x4a4a4a][H.cars.length]); c.visible = false; H.cars.push({ g: c, trig: OX + x, lane, state: 'wait' }); }
+  for (const [x, lane] of [[112, -1.3], [124, 1.3], [146, 1.1], [162, -1.2], [184, -1.0], [203, 1.0]]) { const c = car(OX + x + 30, lane, Math.PI, [0x6a1a10, 0x1a2a4a, 0x4a4a4a, 0x3a3a20, 0x5a1a3a, 0x2a2a2a][H.cars.length]); c.visible = false; H.cars.push({ g: c, trig: OX + x, lane, state: 'wait' }); }
+  buildChaseExtras();
+  buildClutter();
 
   tear = makeTear();
   arms = makeArms(C.camera);
@@ -428,40 +475,79 @@ export function updateOther(dt) {
   const inHale = dog.pos.z > HALE.z0 && dog.pos.x > HALE.x0 && dog.pos.x < HALE.x1;
   const inSafe = dog.pos.z > SAFE.z0 && dog.pos.x > SAFE.x0 && dog.pos.x < SAFE.x1;
 
+  // the flap in the west wall of their house moves in the wind, and ash blows in through it
+  if (H.haleFlap) {
+    H.haleFlap.rotation.z = Math.sin(S.t * 2.3) * 0.18 + (Math.random() < 0.01 ? 0.4 : 0);
+    if ((st === 'house' || st === 'risen') && Math.random() < dt * 14) puff(HALE.x0 - 0.1, 0.1 + Math.random() * 0.45, 13.2 + (Math.random() - 0.5) * 0.5, { col: [0.45, 0.4, 0.38], vx: 0.8 + Math.random() * 0.6, vy: 0.1, vz: (Math.random() - 0.5) * 0.3, life: 2.5, size: 0.025 });
+  }
+  // the front door of their house: open; then it slams; then it bursts open
+  if (S.oDoorT !== undefined) {
+    S.oDoorT += dt;
+    const k = Math.min(1, S.oDoorT / (S.oDoorTo === 0 ? 0.22 : 0.35));
+    H.haleDoor.rotation.y = S.oDoorFrom + (S.oDoorTo - S.oDoorFrom) * k * k;
+    if (k >= 1) S.oDoorT = undefined;
+  }
   if (st === 'street') {
     if (inHale && dog.pos.z > 9.3) {
       S.oStage = 'house'; S.oT = 0;
       AU.stinger(0.35);
       C.setObj('They are lying on the floor. They are not breathing.');
-      C.later(0.8, () => showSubtitle('note', '<span class="note">(They are on the floor. All three of them. They are cold, and they smell of the hot box.)</span>', 4));
     }
   } else if (st === 'house') {
-    // they get up, one by one, and turn to look at you
-    if (S.oT > 4.5 && !S.oRisen) {
+    // they get up, one by one, and turn to look at you. Behind you, the door slams.
+    if (S.oT > 5 && !S.oRisen) {
       S.oRisen = true;
       fam.forEach((h, i) => C.later(i * 1.6, () => {
-        h.pose = 'stand'; h.speed = 0.45; h.override = { type: 'zombie' };
-        h.look(C.dogHead(), 99, S.t);
-        AU.groan(h.pos.x, 1, h.pos.z, 0.5);
-        C.say(h, 'Biscuit.', 'whisper', { force: true });
+        h.pose = 'stand'; h.speed = 0.42; h.override = { type: 'zombie' };
+        h.look(C.dogHead(), 999, S.t);
+        AU.groan(h.pos.x, 1, h.pos.z, 0.6);
+        C.say(h, 'Biscuit.', 'whisper', { force: true, clear: true });
       }));
-      C.later(2.5, () => C.setObj('They are up. They are coming for you, slowly, with their arms out. Get out of the house.'));
-      C.later(3.4, () => { S.oStage = 'risen'; S.oT = 0; });
+      C.later(3.8, () => {
+        S.oDoorFrom = H.haleDoor.rotation.y; S.oDoorTo = 0; S.oDoorT = 0; H.haleDoorCol.disabled = false;
+        AU.crash(OX, 1, 8); AU.thunk(OX, 1, 8, 1); S.oShake = 0.9; AU.stinger(0.9);
+        // the house goes dark, but for the cold blue coming in at the flap
+        for (const L of OL) if (L.box[1] === -1 && L.box[0] === HALE.x0) L.k0 = 0.35;
+      });
+      C.later(4.4, () => { S.oStage = 'risen'; S.oT = 0; C.setObj('The door slammed. They are coming, slowly, with their arms out.'); });
     }
   } else if (st === 'risen' || st === 'feast') {
-    // the dead family follow you out of the door, very slowly
+    // the dead family come after you, slowly, and they talk to you
     S.oFollowT = (S.oFollowT || 0) - dt;
     if (S.oFollowT <= 0) {
       S.oFollowT = 0.7;
-      for (const h of fam) if (h.visible && !h.eaten && h !== S.oVictim) { const r = via(h.pos, dog.pos); if (d2(h.pos, dog.pos) > 1.0) h.path = r; else h.path = []; }
+      for (const h of fam) {
+        if (!h.visible || h.eaten || h === S.oVictim) continue;
+        h.speed = Math.min(0.85, 0.42 + S.oT * 0.012);
+        if (!S.oDoorOpen && !inHale) { const fl = v3(HALE.x0 + 0.5, 0, 13.2); h.path = d2(h.pos, fl) > 0.4 ? [fl] : []; continue; } // pressed against the wall by the flap
+        const r = S.oDoorOpen ? via(h.pos, dog.pos) : [dog.pos.clone()];
+        h.path = d2(h.pos, dog.pos) > 0.45 ? r : [];
+      }
     }
-    for (const h of fam) if (!h.eaten && h.visible && d2(h.pos, dog.pos) < 0.5) { const dx = dog.pos.x - h.pos.x, dz = dog.pos.z - h.pos.z, d = Math.hypot(dx, dz) || 1; dog.pos.x += dx / d * (0.5 - d); dog.pos.z += dz / d * (0.5 - d); }
+    if (st === 'risen' && inHale) {
+      const W2 = [['mother', 'Biscuit. Why didn\'t you wake us up?'], ['father', 'We were so tired, bud. So tired.'], ['lily', 'Come lie down with us, Biscuit. It is warm down here.'], ['mother', 'Danny is here with us. Stay. Stay with us.'], ['lily', 'Don\'t go. Please don\'t go. Not you too.'], ['father', 'Good boy. Lie down. Lie down now.']];
+      if (S.oT > (S.oWhisperT || 2)) { S.oWhisperT = S.oT + 5.5; const [k, line] = W2[(S.oWhisperI = (S.oWhisperI || 0) + 1) % W2.length]; const h = F[k]; if (h.visible) C.say(h, line, 'whisper', { force: true, clear: true }); }
+      // if they reach you, cold hands on you
+      for (const h of fam) if (!h.eaten && h.visible && d2(h.pos, dog.pos) < 0.6 && S.t > (S.oGrabCD || 0)) {
+        S.oGrabCD = S.t + 2.2; S.redFlash = 0.5; AU.stinger(0.7); AU.groan(h.pos.x, 1, h.pos.z, 0.8);
+        const dx = dog.pos.x - h.pos.x, dz = dog.pos.z - h.pos.z, d = Math.hypot(dx, dz) || 1;
+        dog.pos.x += dx / d * 0.9; dog.pos.z += dz / d * 0.9; collide(dog.pos, dog.radius, 0, 0.5);
+        lookAtPoint(h.pos.x, 1.5, h.pos.z, 0.25); S.oShake = 0.6;
+        showSubtitle('note', '<span class="note">(Its hands are so cold.)</span>', 1.8);
+      }
+    }
+    // out through the flap; once you are out in the street, the front door bursts open behind you
+    if (st === 'risen' && !inHale && !S.oDoorOpen && (dog.pos.z < 7.4 || S.oT > 40)) {
+      S.oDoorOpen = true;
+      S.oDoorFrom = H.haleDoor.rotation.y; S.oDoorTo = -1.6; S.oDoorT = 0; H.haleDoorCol.disabled = true;
+      AU.crash(OX, 1, 8); AU.thunk(OX, 1, 8, 1); S.oShake = 0.7; S.oDoorAt = S.oT;
+      for (const h of fam) h.path = [];
+    }
     const outside = fam.filter((h) => h.pos.z < 7.6).length;
-    if (st === 'risen' && dog.pos.z < 6 && (outside >= 2 || S.oT > 16)) {
+    if (st === 'risen' && S.oDoorOpen && dog.pos.z < 7 && (outside >= 1 || S.oT - S.oDoorAt > 9)) {
       S.oStage = 'feast'; S.oT = 0;
       const p = S.presence; p.setPos(OX - 26, -1.5); p.yaw = Math.PI / 2;
       AU.stinger(1); AU.whoomp(OX - 20, 1, -1);
-      C.setObj('Something is coming down the street, fast.');
     }
     if (st === 'feast') {
       const p = S.presence;
@@ -475,12 +561,10 @@ export function updateOther(dt) {
           if (d2(p.pos, v.pos) < 0.7 || (route.length === 1 && dist < 0.7)) {
             S.oVictim = v; v.path = []; v.eatT = 0;
             AU.scream(); S.oShake = 0.8;
+            // in the last second, the right face comes back: they know you
+            v.setFace(false); C.say(v, v === F.lily ? 'BISCUIT! RUN!' : v === F.mother ? 'Run, baby. Run!' : 'GO, Biscuit! GO!', 'sharp', { force: true, clear: true });
           }
-        } else if (!S.oFed) {
-          S.oFed = true; S.oT = 0;
-          C.setObj('RUN. Down the road, that way. A yellow house, with a dog flap.');
-          C.later(0.4, () => showSubtitle('note', '<span class="note">(Down the road there is a yellow house with a dog flap, like yours. It is too small for that thing.)</span>', 4));
-        }
+        } else if (!S.oFed) { S.oFed = true; S.oT = 0; }
       } else {
         const v = S.oVictim;
         v.eatT += dt;
@@ -493,13 +577,14 @@ export function updateOther(dt) {
       if (S.oFed && S.oT > 1.4) { S.oStage = 'run1'; S.oT = 0; AU.stinger(0.8); }
     }
   } else if (st === 'run1') {
-    // it comes after you. Get to the flap.
+    // it comes after you. Only one house on the street has a light on.
     const p = S.presence;
+    if (Math.random() < dt * 0.3) AU.creak(FLAP_X, 0.3, 8, 0.5);
     if (inSafe) {
       S.oStage = 'safe'; S.oT = 0; hideMon();
       AU.knock(FLAP_X, 0.3, 7.9, 4, 0.8);
-      C.setObj('It cannot fit through the flap. You are safe in here, for now. The hot box in this house is sick, the same as yours. Fix it, the way Danny did.');
-      C.later(1, () => C.ui.card('Safe', 'It slams against the door, again and again, and then it stops. You can hear it breathing on the other side. In here it is warm. There is a hot box against the back wall, and taped to the wall beside it, in Danny\'s handwriting, his checklist: 1. CLEAR THE VENT PIPE. 2. GAS OFF: RED HANDLE.'));
+      C.setObj('Safe, for now. This house\'s hot box is sick, like yours.');
+      C.later(1, () => C.ui.card('Safe', 'It slams against the door, again and again, and then it stops. You can hear it breathing on the other side. In here it is warm, and the air is wrong: the hot box against the back wall is coughing its bad air back out into the room through a crack in its pipe. On the wall, a page in Danny\'s handwriting, torn in half: "1. CLEAR THE VE..." The rest is gone.'));
       return;
     }
     if (S.oT < 1.2) { showMon('scare', dt); return; } // it rears up first: your head start
@@ -514,17 +599,7 @@ export function updateOther(dt) {
       p.setPos(OX - 6, 2);
     });
   } else if (st === 'safe') {
-    // scratching at the flap, then quiet
-    if (S.oT > 2 && S.oT < 9 && Math.random() < dt * 1.2) AU.scratch(FLAP_X, 0.3, 7.8);
-    H.grille.material.uniforms.uColor.value.set(1, 0.55 + Math.sin(S.t * 9) * 0.2, 0.3);
-    if (!S.oWad) H.wad.scale.setScalar(1 + Math.sin(S.t * 3) * 0.06);
-    if (!(S.oValve >= 1) && input.eDown && d2(dog.pos, H.valve.position) < 0.95 && S.oWad) {
-      input.eUsedHold = true;
-      S.oValve = Math.min(1, (S.oValve || 0) + dt / 2.4);
-      H.valve.rotation.y = -S.oValve * Math.PI / 2;
-      if (Math.random() < dt * 5) AU.rattle(H.valve.position.x, 0.6, H.valve.position.z, 0.3);
-      if (S.oValve >= 1) fixed();
-    }
+    safeHouse(dt, inSafe);
   } else if (st === 'torn') {
     tearPulse(dt);
     // it waits out there, between you and the tear
@@ -546,7 +621,10 @@ export function updateOther(dt) {
       C.later(1.0, () => showSubtitle('note', '<span class="note">(The tear rips away down the road, further and further, and the road goes on, and on.)</span>', 4));
       C.setObj('The tear moved. Carry Biscuit down the road to it. (You are Danny. SHIFT to run.)');
     }
+    if (st === 'walk' && dog.pos.x > OX + 55 && C.once('dWalk1')) C.say(F.danny, 'Does Lily still draw me? With the blue crayon? She always made my hair blue.', 'calm', { force: true });
+    if (st === 'walk' && dog.pos.x > OX + 68 && C.once('dWalk2')) C.say(F.danny, 'Tell Mom it was not her fault. Tell Dad. It was nobody\'s fault.', 'sad', { force: true });
     if (st === 'walk' && dog.pos.x > OX + 80) {
+      if (S.oHum) { S.oHum.stop(); S.oHum = null; }
       // something is behind the parked car you just passed
       S.oStage = 'peek'; S.oT = 0;
       const p = S.presence; p.setPos(OX + 73.6, -6.0); p.yaw = Math.atan2(dog.pos.x - p.pos.x, dog.pos.z - p.pos.z);
@@ -577,6 +655,170 @@ export function updateOther(dt) {
   for (const c of H.cars) if (c.state === 'drive') H.headlight = v3(c.g.position.x - 2.4, 0.8, c.g.position.z);
 }
 
+// ---------------------------------------------------------------------------
+// the yellow house: the handle is up on the shelf, the clog is outside, and it is out there
+const PATROL = [v3(OX + 38, 0, 1.5), v3(OX + 57, 0, 2.5)];
+function safeHouse(dt, inSafe) {
+  const { S } = C;
+  const p = S.presence;
+  if (!(S.oValve >= 1)) H.grille.material.uniforms.uColor.value.set(1, 0.55 + Math.sin(S.t * 9) * 0.2, 0.3);
+  // the blocked pipe coughs its bad air back into the room
+  if (!S.oClogOut && Math.random() < dt * 6) puff(H.joint.x, H.joint.y, H.joint.z, { col: [0.08, 0.07, 0.07], vy: 0.5 + Math.random() * 0.4, vx: (Math.random() - 0.5) * 0.4, vz: -0.3, life: 2.5, size: 0.05 });
+  if (!S.oClogOut && S.t > (S.oCough || 0)) { S.oCough = S.t + 3 + Math.random() * 3; AU.whoomp(H.joint.x, 0.4, H.joint.z); }
+  if (!S.oClogOut) H.clog.scale.set(1.3 + Math.sin(S.t * 3) * 0.08, 1, 1.1);
+  else if (Math.random() < dt * 12) puff(H.clogPos.x + 0.1, 0.4, H.clogPos.z, { col: [0.5, 0.48, 0.46], vx: 0.6, vy: 0.4 + Math.random() * 0.3, life: 2, size: 0.05 });
+  // the handle falling off the shelf
+  if (S.oHandle === 'falling') {
+    S.oHandleT += dt; const k = Math.min(1, S.oHandleT / 0.45);
+    H.handle.position.set(OX + 49.2 + k * 0.3, 1.47 - k * k * 1.44, 9.05 + k * 1.0); H.handle.rotation.z = k * 4;
+    if (k >= 1) { S.oHandle = 'floor'; H.handle.rotation.set(0, 0.6, 0); AU.knock(H.handle.position.x, 0.05, H.handle.position.z, 2, 0.9); AU.thunk(H.handle.position.x, 0.05, H.handle.position.z, 0.5); if (!S.oAlert) { S.oAlert = v3(FLAP_X, 0, 7.6); S.oAlertT = 0; } }
+  }
+  // turning the gas off with your teeth, once the handle is back on its stem
+  if (S.oHandle === 'fitted' && !(S.oValve >= 1) && input.eDown && d2(dog.pos, H.valve.position) < 0.95) {
+    input.eUsedHold = true;
+    S.oValve = Math.min(1, (S.oValve || 0) + dt / 2.6);
+    H.valve.rotation.y = -S.oValve * Math.PI / 2;
+    if (Math.random() < dt * 5) AU.rattle(H.valve.position.x, 0.6, H.valve.position.z, 0.3);
+    if (S.oValve >= 1) {
+      H.fireLight.on = false; H.grille.material.uniforms.uColor.value.set(0.2, 0.15, 0.1); AU.whoomp(OX + 45, 0.5, 13);
+      if (S.oClogOut) fixed(); else showSubtitle('note', '<span class="note">(The fire goes out. But the pipe is still coughing.)</span>', 3);
+    }
+  }
+  if (S.oFixed) return;
+  // it scratches at the flap for a while; then it walks the street, up and down
+  if (S.oT < 9) { if (S.oT > 2 && Math.random() < dt * 1.2) AU.scratch(FLAP_X, 0.3, 7.8); hideMon(); return; }
+  if (!S.oPatrol) { S.oPatrol = { i: 0 }; p.setPos(OX + 44, 1); }
+  const P2 = S.oPatrol;
+  const out = !inSafe;
+  const dd = d2(p.pos, dog.pos);
+  const fx = Math.sin(p.yaw), fz = Math.cos(p.yaw);
+  const seen = out && dog.y < 1 && (dd < 5 || (dd < 12 && ((dog.pos.x - p.pos.x) * fx + (dog.pos.z - p.pos.z) * fz) / dd > 0.5));
+  if (seen && !P2.hunt) { P2.hunt = true; AU.stinger(0.9); AU.growl(1, 1); }
+  if (P2.hunt) {
+    if (!out) { P2.hunt = false; P2.scratch = S.t + 4; AU.knock(FLAP_X, 0.3, 7.9, 4, 0.8); }
+    else {
+      moveMon(dog.pos, dd > 10 ? 4 : 3.1, dt); collide(p.pos, 0.38, 0, 1); showMon('hunt', dt);
+      S.stalkNear = dd < 8 ? 1 - dd / 8 : 0;
+      if (dd < 0.75 && !dog.frozen) caught(() => { dog.pos.set(OX + 45, 0, 10.2); dog.y = 0; dog.yaw = 0; p.setPos(PATROL[0].x, PATROL[0].z); P2.hunt = false; S.oAlert = null; });
+      return;
+    }
+  }
+  if (P2.scratch && S.t < P2.scratch) { moveMon(v3(FLAP_X, 0, 7.4), 2, dt); showMon('idle', dt); if (Math.random() < dt * 2) AU.scratch(FLAP_X, 0.3, 7.8); return; }
+  // a noise brings it: round through the broken gate into the side yard, or to the flap
+  if (S.oAlert) {
+    const intoYard = S.oAlert.z > 8;
+    const route = intoYard && p.pos.z < 7.6 && Math.abs(p.pos.x - (OX + 52)) > 0.6 ? v3(OX + 52, 0, 7.2) : S.oAlert;
+    const d = moveMon(route, 2.4, dt); collide(p.pos, 0.38, 0, 1); showMon('walk', dt);
+    if (route === S.oAlert && d < 1.3) { S.oAlertT = (S.oAlertT || 0) + dt; if (S.oAlertT > 4) { S.oAlert = null; S.oAlertT = 0; } }
+    return;
+  }
+  if (p.pos.z > 7.8) { moveMon(v3(OX + 52, 0, 7.2), 1.6, dt); collide(p.pos, 0.38, 0, 1); showMon('walk', dt); return; }
+  if (moveMon(PATROL[P2.i], 1.3, dt) < 0.5) P2.i = 1 - P2.i;
+  collide(p.pos, 0.38, 0, 1);
+  showMon('walk', dt);
+  if (Math.random() < dt * 0.4) AU.breathing(p.pos.x, 0.8, p.pos.z, 0.5);
+}
+
+// ---------------------------------------------------------------------------
+// the chase gets worse: the sky comes down, the houses lean in and fall
+const DEBRIS = [], SLABS = [];
+function buildChaseExtras() {
+  const roofM = mat({ color: 0x3a2a22 }), brickM = mat({ map: T.exterior, color: 0x8a5a48 });
+  for (let i = 0; i < 16; i++) {
+    const big = i % 3 === 0, sz = big ? 1.1 : 0.5;
+    const m = put(new THREE.BoxGeometry(sz * 1.3, sz, sz), i % 2 ? roofM : brickM, 0, -20, 0);
+    const shadow = put(new THREE.CircleGeometry(sz * 0.9, 10), mat({ color: 0x000000, opacity: 0.6, unique: true }), 0, 0.012, 0, { rx: -Math.PI / 2 });
+    shadow.visible = false;
+    DEBRIS.push({ m, shadow, sz, state: 'idle' });
+  }
+  for (const [x, side] of [[128, -1], [166, 1], [206, -1]]) {
+    const z = side * roadW(OX + x);
+    const g = new THREE.Group(); g.position.set(OX + x, 0, z); W.add(g);
+    put(new THREE.BoxGeometry(6, 4.2, 0.4), M.ext, 0, 2.1, 0, { parent: g });
+    for (const wx of [-1.6, 1.6]) put(new THREE.BoxGeometry(1.2, 1, 0.05), Math.random() < 0.5 ? M.winLit : M.winDark, wx, 2.6, -side * 0.23, { parent: g });
+    put(new THREE.BoxGeometry(1, 2, 0.05), M.wood, 0, 1, -side * 0.23, { parent: g });
+    SLABS.push({ g, x: OX + x, side, z, trig: OX + x - 14, state: 'stand' });
+  }
+}
+function chaseExtras(dt) {
+  const { S } = C;
+  // embers on the wind
+  if (Math.random() < dt * 30) puff(dog.pos.x + 2 + Math.random() * 12, 3 + Math.random() * 3, (Math.random() - 0.5) * 8, { col: [1, 0.5, 0.15], vx: -1.5 - Math.random(), vy: -0.4, life: 2, size: 0.02 });
+  // the sky comes down in pieces: watch for their shadows
+  if (dog.pos.x > OX + 95 && dog.pos.x < EDGE_X - 8) {
+    S.oDebrisT = (S.oDebrisT ?? 1.5) - dt;
+    if (S.oDebrisT <= 0) {
+      S.oDebrisT = 0.9 + Math.random() * 1.4;
+      const d = DEBRIS.find((q) => q.state === 'idle');
+      if (d) {
+        const x = dog.pos.x + 6 + Math.random() * 11, w = roadW(x) - 0.7;
+        const z = Math.random() < 0.45 ? dog.pos.z + (Math.random() - 0.5) * 1.5 : (Math.random() * 2 - 1) * w;
+        d.state = 'fall'; d.x = x; d.z = Math.max(-w, Math.min(w, z)); d.y = 16; d.vy = 0;
+        d.m.position.set(d.x, d.y, d.z); d.m.rotation.set(Math.random(), Math.random(), Math.random());
+        d.shadow.visible = true; d.shadow.position.set(d.x, 0.012, d.z); d.shadow.scale.setScalar(0.2);
+        AU.whoomp(d.x, 6, d.z);
+      }
+    }
+  }
+  for (const d of DEBRIS) {
+    if (d.state !== 'fall') continue;
+    d.vy -= 16 * dt; d.y += d.vy * dt; d.m.position.y = d.y; d.m.rotation.x += dt * 3;
+    d.shadow.scale.setScalar(Math.max(0.2, 1 - d.y / 16));
+    if (d.y <= d.sz / 2) {
+      d.state = 'down'; d.m.position.y = d.sz / 2; d.m.rotation.set(0, Math.random() * 3, 0); d.shadow.visible = false;
+      AU.crash(d.x, 0.3, d.z); AU.thunk(d.x, 0.2, d.z, 1); S.oShake = Math.max(S.oShake || 0, d.sz > 1 ? 0.9 : 0.4);
+      for (let i = 0; i < (d.sz > 1 ? 30 : 14); i++) puff(d.x, 0.3, d.z, { col: [0.35, 0.3, 0.27], vx: (Math.random() - 0.5) * 3, vy: Math.random() * 2, vz: (Math.random() - 0.5) * 3, grav: 3, life: 1.2, size: 0.05 });
+      colliders.push({ minX: d.x - d.sz * 0.65, maxX: d.x + d.sz * 0.65, minZ: d.z - d.sz / 2, maxZ: d.z + d.sz / 2, minY: 0, maxY: d.sz * 0.9, other: true });
+      if (Math.hypot(dog.pos.x - d.x, dog.pos.z - d.z) < d.sz * 0.7 + 0.35 && dog.y < d.sz) knock(d.x, d.z);
+    }
+  }
+  // whole house fronts lean out and fall across the road
+  for (const q of SLABS) {
+    if (q.state === 'stand' && dog.pos.x > q.trig) { q.state = 'fall'; q.t = 0; AU.creak(q.x, 3, q.z, 3); AU.thunder(0.5); S.oShake = 0.5; }
+    if (q.state === 'fall') {
+      q.t += dt; const k = Math.min(1, q.t / 1.3);
+      q.g.rotation.x = q.side * k * k * (Math.PI / 2 - 0.06);
+      if (k >= 1) {
+        q.state = 'down'; AU.crash(q.x, 0.5, q.z); AU.crash(q.x + 2, 0.5, q.z); AU.thunk(q.x, 0.3, q.z, 1); S.oShake = 1.6;
+        const z1 = q.z - q.side * 4.2;
+        for (let i = 0; i < 70; i++) puff(q.x + (Math.random() - 0.5) * 6, 0.4, q.z - q.side * Math.random() * 4.2, { col: [0.4, 0.35, 0.3], vx: (Math.random() - 0.5) * 4, vy: Math.random() * 3, vz: (Math.random() - 0.5) * 4, grav: 2, life: 2, size: 0.07 });
+        colliders.push({ minX: q.x - 3, maxX: q.x + 3, minZ: Math.min(q.z, z1), maxZ: Math.max(q.z, z1), minY: 0, maxY: 0.42, other: true });
+        if (Math.abs(dog.pos.x - q.x) < 3.2 && (dog.pos.z - q.z) * -q.side > 0 && (dog.pos.z - q.z) * -q.side < 4.4) knock(q.x, q.z);
+      }
+    }
+  }
+}
+// ---------------------------------------------------------------------------
+// the street: mailboxes, bins, power lines, hydrants, a bike in the yard
+function buildClutter() {
+  const postM = mat({ map: T.wood, color: 0x5a4a3a }), boxM = mat({ color: 0x3a3a38 }), binM = mat({ color: 0x2a3a2a }), redM = mat({ color: 0x8a2018 });
+  for (let x = OX - 56; x < OX + 98; x += 14) for (const sd of [-1, 1]) {
+    const z = sd * 8.4 * -1 + sd * 0; void z;
+    const mz = sd * 7.7;
+    if (Math.abs(x - OX) < 3 || Math.abs(x - FLAP_X) < 3) continue;
+    put(new THREE.BoxGeometry(0.08, 1.0, 0.08), postM, x + 2, 0.5, mz);
+    put(new THREE.BoxGeometry(0.22, 0.24, 0.45), boxM, x + 2, 1.1, mz);
+    put(new THREE.BoxGeometry(0.03, 0.12, 0.04), redM, x + 2.12, 1.25, mz);
+    put(new THREE.CylinderGeometry(0.28, 0.25, 0.9, 8), binM, x + 4.5, 0.45, sd * 7.5);
+    put(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 8), binM, x + 4.5, 0.93, sd * 7.5, { rz: 0.3 });
+  }
+  // wooden power poles along the north side, with sagging lines between them
+  let last = null;
+  for (let x = OX - 56; x < OX + 100; x += 22) {
+    put(new THREE.CylinderGeometry(0.12, 0.15, 7.5, 6), postM, x, 3.75, 7.0);
+    put(new THREE.BoxGeometry(0.1, 0.1, 1.8), postM, x, 7.0, 7.0);
+    if (last !== null) for (const dz of [-0.75, 0, 0.75]) { const ln = put(new THREE.BoxGeometry(22, 0.025, 0.025), M.black, (last + x) / 2, 6.7, 7.0 + dz); ln.rotation.z = 0; }
+    last = x;
+  }
+  for (const x of [OX - 30, OX + 15, OX + 70]) { put(new THREE.CylinderGeometry(0.12, 0.14, 0.6, 8), redM, x, 0.3, -7.6); put(new THREE.SphereGeometry(0.12, 8, 4), redM, x, 0.62, -7.6); }
+  // Lily's bike, on its side in the yard of the house that is almost theirs
+  const bikeM = mat({ color: 0xc04a8a });
+  for (const dx of [-0.5, 0.5]) put(new THREE.TorusGeometry(0.3, 0.03, 4, 12), M.black, OX + 3.2 + dx, 0.05, 6.4, { rx: Math.PI / 2 });
+  put(new THREE.BoxGeometry(1.0, 0.05, 0.05), bikeM, OX + 3.2, 0.08, 6.4);
+  // porch steps and railings at the two houses that matter
+  for (const [cx] of [[OX], [FLAP_X - 2.7]]) { blk(cx - 0.8, 0, 7.4, cx + 0.8, 0.12, 7.95, mat({ map: T.concrete, color: 0x8a8070 })); }
+}
+
 function tearPulse(dt) {
   const { S } = C;
   if (!tear.visible) return;
@@ -593,7 +835,9 @@ function fixed() {
   AU.whoomp(OX + 45, 0.5, 13); AU.chime();
   H.grille.material.uniforms.uColor.value.set(0.15, 0.12, 0.1);
   H.fireLight.on = false;
-  C.setObj('The hot box is quiet. Something outside just tore open.');
+  hideMon(); S.oPatrol = null; S.oAlert = null;
+  lookAtPoint(FLAP_X, 0.3, 7.5, 0.8);
+  C.setObj('The hot box is quiet.');
   C.later(1.2, () => {
     S.oStage = 'torn'; S.oT = 0;
     tear.visible = true; tear.position.set(OX + 45, 1.9, -10.5); tear.rotation.y = 0;
@@ -601,29 +845,54 @@ function fixed() {
     AU.thunder(0.3); AU.stinger(0.6); S.oShake = 1.2;
     const p = C.S.presence; p.setPos(OX + 45.5, -5.5);
     C.ui.card('Torn', 'Across the road, the air rips open, top to bottom, like paper. It burns orange. Through it you can smell home: woodsmoke, snow, Lily\'s shampoo. The thing is out there, between you and it, sitting in the road, watching the flap.');
-    C.later(2, () => C.setObj('Get to the tear. The thing is waiting in the road. Go out through the flap when you are ready.'));
+    C.later(2, () => C.setObj('Home is on the other side of that.'));
   });
 }
 export function otherInteract() {
   const { S } = C;
-  if (S.oStage === 'safe' && !S.oWad && d2(dog.pos, H.wad.position) < 0.95) {
-    S.oWad = true; act('pull');
-    AU.rattle(H.wad.position.x, 0.35, H.wad.position.z, 0.8);
-    C.later(0.4, () => { H.wad.visible = false; for (let i = 0; i < 30; i++) puff(H.wad.position.x + 0.3, 0.35, H.wad.position.z, { col: [0.05, 0.04, 0.04], vx: 1 + Math.random(), vy: Math.random() * 0.5, vz: (Math.random() - 0.5) * 0.5, life: 1.5, size: 0.04 }); });
-    showSubtitle('note', '<span class="note">(It comes out wet and black and it smells like the bad air. The pipe can breathe.)</span>', 3);
-    C.setObj('The vent pipe is clear. Now the gas: hold E on the red handle by the hot box.');
+  if (S.oStage !== 'safe') return S.other;
+  if (!S.oHandle && dog.y > 1.3 && d2(dog.pos, H.handle.position) < 0.9) { S.oHandle = 'falling'; S.oHandleT = 0; act('nudge'); return true; }
+  if (S.oHandle === 'floor' && dog.y < 0.4 && d2(dog.pos, H.handle.position) < 0.75) {
+    S.oHandle = 'carried'; act('pickup'); AU.pickup();
+    dog.mouth.add(H.handle); H.handle.position.set(0, 0, 0); H.handle.rotation.set(0, 0.4, 0.2); H.handle.scale.setScalar(0.75);
     return true;
   }
-  return S.other;
+  if (S.oHandle === 'carried') {
+    if (d2(dog.pos, H.valve.position) < 0.95) {
+      S.oHandle = 'fitted'; act('drop'); AU.knock(H.valve.position.x, 0.6, H.valve.position.z, 1, 0.5);
+      H.valve.add(H.handle); H.handle.position.set(0, 0, -0.06); H.handle.rotation.set(0, 0, 0); H.handle.scale.setScalar(1);
+      showSubtitle('note', '<span class="note">(It goes back on with a click.)</span>', 2);
+    } else {
+      S.oHandle = 'floor'; act('drop');
+      const fx = -Math.sin(dog.yaw), fz = -Math.cos(dog.yaw);
+      W.add(H.handle); H.handle.scale.setScalar(1); H.handle.position.set(dog.pos.x + fx * 0.35, 0.03, dog.pos.z + fz * 0.35); H.handle.rotation.set(0, dog.yaw, 0);
+    }
+    return true;
+  }
+  if (!S.oClogOut && d2(dog.pos, H.clogPos) < 0.85) {
+    S.oClogTugs = (S.oClogTugs || 0) + 1; act('pull');
+    AU.rattle(H.clogPos.x, 0.35, H.clogPos.z, 1); AU.thunk(H.clogPos.x, 0.35, H.clogPos.z, 0.6);
+    S.oAlert = H.clogPos.clone(); S.oAlertT = 0; // that was loud. It heard.
+    for (let i = 0; i < 12; i++) puff(H.clogPos.x, 0.35, H.clogPos.z, { col: [0.05, 0.04, 0.04], vx: (Math.random() - 0.3) * 1.5, vy: Math.random() * 0.8, vz: (Math.random() - 0.5), grav: 3, life: 1, size: 0.035 });
+    if (S.oClogTugs >= 3) {
+      S.oClogOut = true; H.clog.position.set(H.clogPos.x + 0.6, 0.08, H.clogPos.z + 0.3); H.clog.scale.set(1.5, 0.4, 1.2);
+      AU.whoomp(H.clogPos.x, 0.4, H.clogPos.z);
+      if (S.oValve >= 1) fixed();
+    } else showSubtitle('note', `<span class="note">(${S.oClogTugs === 1 ? 'It is stuck fast. It gives, a little.' : 'It is coming. Once more.'})</span>`, 1.8);
+    return true;
+  }
+  return true;
 }
 export function otherPrompt() {
   const { S } = C;
   if (dog.frozen) return '';
   if (S.oStage === 'safe') {
-    if (!S.oWad && d2(dog.pos, H.wad.position) < 0.95) return '<b>E</b> pull out what is stuffed in the pipe';
-    if (S.oWad && !(S.oValve >= 1) && d2(dog.pos, H.valve.position) < 0.95) return 'hold <b>E</b> turn the red handle with your teeth';
+    if (!S.oHandle && dog.y > 1.3 && d2(dog.pos, H.handle.position) < 0.9) return '<b>E</b> knock it down';
+    if (S.oHandle === 'floor' && dog.y < 0.4 && d2(dog.pos, H.handle.position) < 0.75) return '<b>E</b> take the red handle';
+    if (S.oHandle === 'carried') return d2(dog.pos, H.valve.position) < 0.95 ? '<b>E</b> put it on the stem' : '<b>E</b> drop it';
+    if (S.oHandle === 'fitted' && !(S.oValve >= 1) && d2(dog.pos, H.valve.position) < 0.95) return 'hold <b>E</b> turn it with your teeth';
+    if (!S.oClogOut && d2(dog.pos, H.clogPos) < 0.85) return '<b>E</b> pull';
   }
-  if (dog.human) return '<b>SHIFT</b> run · <b>SPACE</b> jump';
   return '';
 }
 export function otherNext() {
@@ -631,10 +900,15 @@ export function otherNext() {
   const st = S.oStage;
   if (st === 'street') return ['Go into the house. The door is open.', v3(OX, 0, 9.6)];
   if (st === 'house') return ['They are not breathing.', null];
-  if (st === 'risen') return ['Get out of the house, back into the street.', v3(OX + 1, 0, 3)];
-  if (st === 'feast') return [S.oFed ? 'RUN. Down the road to the yellow house with the dog flap.' : 'Something is coming down the street.', S.oFed ? v3(FLAP_X, 0, 7.4) : null];
-  if (st === 'run1') return ['RUN. The yellow house down the road: in through the dog flap.', v3(FLAP_X, 0, 7.4)];
-  if (st === 'safe') return !S.oWad ? ['Pull the black thing out of the vent pipe on the floor (E).', H.wad.position] : ['Hold E on the red gas handle by the hot box.', H.valve.position];
+  if (st === 'risen') return [S.oDoorOpen ? 'Back out to the street.' : 'The door is shut. How do dogs get out of houses?', S.oDoorOpen ? v3(OX + 1, 0, 3) : v3(HALE.x0, 0, 13.2)];
+  if (st === 'feast') return ['Something is coming down the street.', null];
+  if (st === 'run1') return ['RUN. One house has a light on, and a dog flap.', v3(FLAP_X, 0, 7.4)];
+  if (st === 'safe') {
+    if (!S.oHandle) return ['The gas stem has no handle. Something red, up high in the corner.', H.handle.position];
+    if (S.oHandle !== 'fitted') return ['Put the red handle back on the gas stem.', S.oHandle === 'carried' ? H.valve.position : H.handle.position];
+    if (!(S.oValve >= 1)) return ['Turn the gas off: hold E on the handle.', H.valve.position];
+    return ['The pipe still coughs. Where does it go, outside?', H.clogPos];
+  }
   if (st === 'torn') return ['Go out through the dog flap.', v3(FLAP_X, 0, 8.4)];
   if (st === 'walk') return [S.oTearMove ? 'Carry Biscuit down the road to the tear.' : 'Walk out to the road. Toward the tear.', S.oTearMove ? TEAR_END : tear.position];
   if (st === 'peek') return ['Something is behind you. Look.', null];
@@ -656,10 +930,13 @@ function dannyAppears() {
   lookAtPoint(d.pos.x, 1.05, d.pos.z, 0.3);
   dog.pitch = 0.6;
   C.later(0.25, () => C.say(d, 'WHOA! Hey! Hey, hey, hey. It is me. Biscuit, it is me.', 'calm', { force: true }));
-  C.later(1.2, () => { AU.chime(); d.look(C.dogHead(), 99, S.t); });
-  C.later(5.2, () => C.say(d, 'I know. I know, buddy. I missed you too. I have got you. Come here.', 'calm', { force: true }));
-  C.later(7.5, () => { d.override = { type: 'carry2' }; S.fade = 1; S.fadeSpeed = 4; });
-  C.later(8.3, () => {
+  C.later(1.2, () => { AU.chime(); d.look(C.dogHead(), 99, S.t); d.override = { type: 'pat' }; });
+  C.later(4.6, () => { C.say(d, 'Look at you. You got so grey, around your nose.', 'calm', { force: true }); AU.whine(); });
+  C.later(8.6, () => C.say(d, 'I know. I know, buddy. I missed you too. Every single day.', 'sad', { force: true }));
+  C.later(13.0, () => C.say(d, 'I kept waiting for you to come and find me. And you did. You always come.', 'sad', { force: true }));
+  C.later(17.6, () => { C.say(d, 'Come here. I have got you.', 'calm', { force: true }); AU.tailThump && AU.tailThump(dog.pos.x, 0, dog.pos.z); });
+  C.later(19.5, () => { d.override = { type: 'carry2' }; S.fade = 1; S.fadeSpeed = 4; });
+  C.later(20.3, () => {
     // you are Danny now, carrying him
     dog.human = true; dog.radius = 0.28; dog.frozen = false;
     dog.pos.set(d.pos.x, 0, d.pos.z); dog.yaw = Math.PI * 0.85; dog.pitch = 0.05;
@@ -668,6 +945,8 @@ function dannyAppears() {
     S.oStage = 'walk'; S.oT = 0;
     C.ui.card('Danny', 'He picks you up like you weigh nothing, the way he always did, and tucks you against his chest. He smells like snow and pencils. You are looking out through his eyes now, and he is looking at the tear.');
     C.later(1.5, () => C.say(d, 'See that? That is the way home. I will get you there. I promise.', 'calm', { force: true }));
+    // he hums while he walks: the song your mother sings to Lily
+    C.later(4, () => { S.oHum = AU.lullaby(() => [C.camera.position.x, C.camera.position.y - 0.2, C.camera.position.z], 0, 0.62); });
     C.setObj('You are Danny. Carry Biscuit to the tear.');
     C.ach('carried');
   });
@@ -681,7 +960,10 @@ function chase(dt) {
   for (const c of CHECKPOINTS) if (dog.pos.x > c + 2 && c > S.oChk) S.oChk = c;
   // it comes, faster when it is far, a little slower when it is right on you
   const dd = d2(p.pos, dog.pos);
-  const sp = dog.frozen ? 2.5 : dd > 16 ? 6 : dd < 4 ? 3.85 : 4.15;
+  S.oLungeCD = (S.oLungeCD ?? 6) - dt;
+  if (S.oLungeCD <= 0 && dd < 10 && dd > 2.5 && !dog.frozen) { S.oLungeCD = 5 + Math.random() * 4; S.oLunge = 0.5; AU.growl(0.8, 1); AU.stinger(0.5); S.oShake = 0.4; }
+  S.oLunge = Math.max(0, (S.oLunge || 0) - dt);
+  const sp = dog.frozen ? 2.5 : S.oLunge > 0 ? 8.2 : dd > 16 ? 6 : dd < 4 ? 3.85 : 4.15;
   if (!(S.jumpscare > 0)) moveMon(v3(dog.pos.x, 0, dog.pos.z), sp, dt);
   showMon('hunt', dt);
   S.stalkNear = dd < 8 ? 1 - dd / 8 : 0;
@@ -695,6 +977,7 @@ function chase(dt) {
   // lines as you go
   if (dog.pos.x > OX + 140 && C.once('dannyRun1')) C.say(F.danny, 'Do not look back, Biscuit. Do not look back.', 'sharp', { force: true });
   if (dog.pos.x > OX + 190 && C.once('dannyRun2')) C.say(F.danny, 'It is getting smaller. Come on. Come on!', 'sharp', { force: true });
+  chaseExtras(dt);
   // poles fall across the road in front of you
   for (const q of H.poles) {
     if (!q.fall && dog.pos.x > q.trig) { q.fall = 0.001; AU.creak(q.g.position.x, 3, q.g.position.z, 1.5); }
@@ -712,6 +995,7 @@ function chase(dt) {
       }
     }
   }
+  for (const q of H.poles) if (q.fall >= 1 && Math.random() < dt * 9) { const x = q.g.position.x, z = q.g.position.z - q.side * 5.4; for (let i = 0; i < 4; i++) puff(x, 0.25, z, { col: [1, 0.85, 0.4], vx: (Math.random() - 0.5) * 3, vy: 1 + Math.random() * 2, vz: (Math.random() - 0.5) * 3, grav: 7, life: 0.4, size: 0.015 }); if (Math.random() < 0.15) AU.rattle(x, 0.3, z, 0.2); }
   for (const q of H.trees) {
     if (!q.fall && dog.pos.x > q.trig) { q.fall = 0.001; AU.creak(q.x, 2, q.g.position.z, 2); }
     if (q.fall && q.fall < 1) {
@@ -750,7 +1034,11 @@ function chase(dt) {
         colliders.push({ minX: g.position.x - 1.8, maxX: g.position.x + 1.8, minZ: g.position.z - 1.2, maxZ: g.position.z + 1.2, minY: 0, maxY: 1.4, other: true });
       }
     }
-    if (c.state === 'wreck' && Math.random() < dt * 6) puff(c.g.position.x, 1.2, c.g.position.z, { col: [0.12, 0.1, 0.09], vy: 0.8, vx: 0.2, life: 2, size: 0.05 });
+    if (c.state === 'wreck') {
+      if (Math.random() < dt * 6) puff(c.g.position.x, 1.2, c.g.position.z, { col: [0.12, 0.1, 0.09], vy: 0.8, vx: 0.2, life: 2, size: 0.05 });
+      if (Math.random() < dt * 22) puff(c.g.position.x + (Math.random() - 0.5) * 2, 0.9 + Math.random() * 0.4, c.g.position.z + (Math.random() - 0.5), { col: Math.random() < 0.5 ? [1, 0.55, 0.1] : [1, 0.85, 0.3], vy: 1.2 + Math.random(), life: 0.6, size: 0.04 });
+      if (!c.fire) c.fire = src(c.g.position.x, 1.4, c.g.position.z, 0xff7020, 7, [OX - 90, -1, -40, OX + 270, 14, 40], { k: 1.6, flicker: 0.6 });
+    }
   }
   // the road gives way
   if (dog.pos.x > EDGE_X - 0.5) startEdge();
@@ -769,8 +1057,12 @@ function startEdge() {
   H.edgeLight = H.edgeLight || src(EDGE_X - 1, 2.6, 0, 0xffa050, 9, [OX - 90, -1, -40, OX + 270, 14, 40], { k: 1.6 });
   C.later(0.3, () => { S.oSlabs = 0.001; });
   C.later(1.8, () => C.say(F.danny, 'No. No, no, no. I cannot jump that. Not holding you.', 'sad', { force: true }));
-  C.later(5.4, () => C.say(F.danny, 'But you can. You can fly, right, buddy? You are a good boy. You are the best boy.', 'sad', { force: true }));
-  C.later(10.2, startThrow);
+  C.later(5.0, () => { lookAtPoint(dog.pos.x - 8, 0.6, dog.pos.z, 0.6); AU.growl(1.5, 1); }); // he looks back. It is coming. Slowly. It knows.
+  C.later(6.4, () => lookAtPoint(TEAR_END.x, 1.2, TEAR_END.z, 0.6));
+  C.later(7.0, () => C.say(F.danny, 'Biscuit. Hey. Look at me. That night was not your fault. You hear me? None of it.', 'sad', { force: true }));
+  C.later(12.6, () => C.say(F.danny, 'Tell Lily I am not in the heater. Tell her I am okay now.', 'sad', { force: true }));
+  C.later(17.0, () => { C.say(F.danny, 'You can fly, right, buddy? You are a good boy. You are the best boy there ever was.', 'sad', { force: true }); AU.whine(); });
+  C.later(22.0, startThrow);
 }
 function startThrow() {
   const { S, F } = C;
@@ -780,9 +1072,10 @@ function startThrow() {
   arms.visible = false;
   dog.human = false; S.hideDog = true;
   S.oFrom = v3(dog.pos.x + 0.3, 1.45, dog.pos.z); S.oTo = v3(TEAR_END.x - 0.3, 1.6, TEAR_END.z);
-  C.S.timeScale = 0.32;
-  C.say(d, 'Go home, Biscuit. Wake them up. I am not mad. I was never mad.', 'calm', { force: true });
+  C.S.timeScale = 0.25;
+  C.say(d, 'Go home, Biscuit. Wake them up. I love you. GOOD BOY!', 'sharp', { force: true });
   AU.whine(); AU.stinger(0.4);
+  S.oHum = AU.lullaby(() => [C.camera.position.x, C.camera.position.y, C.camera.position.z], 0, 0.9);
 }
 function edgeScene(dt) {
   const { S, F } = C;
@@ -794,7 +1087,8 @@ function edgeScene(dt) {
     if (Math.random() < dt * 10) puff(EDGE_X + 2 + Math.random() * 7, 0.1, (Math.random() - 0.5) * 5, { col: [0.3, 0.25, 0.2], vy: 1.5, life: 1, size: 0.05 });
   }
   if (S.oStage === 'edge') {
-    moveMon(v3(dog.pos.x - 6, 0, dog.pos.z), 1.0, dt); showMon('hunt', dt);
+    moveMon(v3(dog.pos.x - 2.4, 0, dog.pos.z), 0.42, dt); showMon(S.oT > 5 && S.oT < 7 ? 'scare' : 'walk', dt);
+    if (Math.random() < dt * 0.6) AU.breathing(p.pos.x, 0.8, p.pos.z, 1);
     F.danny.setPos(dog.pos.x, dog.pos.z);
     arms.visible = true; arms.head.rotation.y = 0.4; arms.head.rotation.x = 0.3;
     return;
@@ -839,8 +1133,8 @@ function comeHome() {
 export function jumpToStage(stage) {
   // testing: skip ahead
   const { S } = C;
-  if (stage === 'safe') { S.oStage = 'run1'; hideMon(); for (const k of FAM) { C.F[k].visible = false; C.F[k].eaten = true; } dog.pos.set(FLAP_X, 0, 9.2); dog.yaw = Math.PI; }
-  if (stage === 'chase') { S.oStage = 'safe'; for (const k of FAM) { C.F[k].visible = false; C.F[k].eaten = true; } S.oWad = true; fixed(); C.later(1.5, () => { dog.pos.set(FLAP_X, 0, 7.6); }); }
+  if (stage === 'safe') { S.oDoorOpen = true; S.oStage = 'run1'; hideMon(); for (const k of FAM) { C.F[k].visible = false; C.F[k].eaten = true; } dog.pos.set(FLAP_X, 0, 9.2); dog.yaw = Math.PI; }
+  if (stage === 'chase') { S.oStage = 'safe'; for (const k of FAM) { C.F[k].visible = false; C.F[k].eaten = true; } S.oClogOut = true; S.oValve = 1; fixed(); C.later(1.5, () => { dog.pos.set(FLAP_X, 0, 7.6); }); }
   if (stage === 'run') { dog.human = true; dog.radius = 0.28; arms.visible = true; tear.visible = true; H.endLight.on = true; tear.position.copy(TEAR_END); tear.rotation.y = -Math.PI / 2; H.endLight.pos.copy(TEAR_END); S.oStage = 'chase'; S.oChk = OX + 85; for (const k of FAM) { C.F[k].visible = false; C.F[k].eaten = true; } dog.pos.set(OX + 86, 0, 0); dog.yaw = -Math.PI / 2; S.presence.setPos(OX + 70, 0); }
   if (stage === 'edge') { jumpToStage('run'); dog.pos.set(EDGE_X - 1, 0, 0); S.presence.setPos(EDGE_X - 14, 0); }
 }

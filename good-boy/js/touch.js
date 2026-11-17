@@ -28,6 +28,7 @@ const BUTTONS = [
   ['x', 'X', 'tap', 'sit', 36, 'left', 10, 126],
   ['g', 'G', 'tap', 'wag', 36, 'left', 10, 82],
   ['q', 'Q', 'tap', 'whine', 36, 'left', 10, 38],
+  ['h', '?', 'hold', 'remember', 36, 'left', 10, 258],
 ];
 
 export function initTouch() {

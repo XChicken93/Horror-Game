@@ -253,6 +253,9 @@ function endIntro() {
   setTimeout(() => $('controls').classList.add('fade'), 30000);
 }
 $('title').addEventListener('click', startGame);
+// nothing tells you what to do; hold H to remember what you were doing
+addEventListener('keydown', (e) => { if (e.key === 'h' || e.key === 'H') { document.body.classList.add('hint'); S.hintUsed = (S.hintUsed || 0) + (e.repeat ? 0 : 1); } });
+addEventListener('keyup', (e) => { if (e.key === 'h' || e.key === 'H') document.body.classList.remove('hint'); });
 
 // ---------------------------------------------------------------------------
 const clock = new THREE.Clock();

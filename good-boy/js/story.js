@@ -904,11 +904,22 @@ function comeHomeReal() {
 }
 function wakeFinal(h) {
   if (!h.unconscious || S.wakeList.includes(h)) return;
+  // they are a long way down. It takes more than once. They come up through a dream of him.
+  if (S.t - (h.lastStir || -9) < 1.2) return;
+  h.lastStir = S.t; h.stirs = (h.stirs || 0) + 1;
+  const need = h === F.lily ? 3 : 4;
+  if (h.stirs < need) {
+    AU.groan(h.pos.x, 0.6, h.pos.z, 0.35);
+    const D = h === F.father ? ['Mmh...', 'Danny...? Is that you, kid...?', 'Five more minutes... Danny, it is too early...'] : h === F.mother ? ['Mm...', 'Danny, honey... your coat...', 'Danny. Put your coat on. It is snowing...'] : ['Mm... Biscuit...', 'Danny is... carrying you...'];
+    say(h, D[Math.min(D.length - 1, h.stirs - 1)], 'sleepy', { force: true });
+    h.look(dogHead(), 1.5, S.t);
+    return;
+  }
   h.unconscious = false; h.asleep = false; h.awakeUntil = S.t + 1e6;
   if (h.pose === 'sleep') { h.pos.y = 0; h.pos.x += h === F.lily ? 0.7 : -0.7; }
   h.pose = 'stand'; h.activity = null; h.speed = 1.05;
   h.look(dogHead(), 6, S.t);
-  const line = h === F.father ? 'Biscuit...? What... the air. Oh God. CLAIRE! LILY!' : h === F.mother ? 'Biscuit? My head... Tom? Tom, what is happening?' : 'Biscuit! I dreamed about Danny. He said you were coming to get us.';
+  const line = h === F.father ? 'Biscuit...? I dreamed... Danny was carrying you. What... the air. Oh God. CLAIRE! LILY!' : h === F.mother ? 'Biscuit? Danny was here. He was right here, Tom... My head. Tom? What is happening?' : 'Biscuit! Danny carried you! I saw it! He said to tell me he is not in the heater!';
   say(h, line, h === F.lily ? 'calm' : 'sharp');
   S.wakeList.push(h); AU.chime();
   if (S.wakeList.length >= 3) { ach('awake'); setObj('They are all up. Lead them out: the front door, and the cold, clean air.'); }
@@ -1993,6 +2004,13 @@ function updateGuide(dt) {
   if (S.guideT > 0) return;
   S.guideT = 0.25;
   const [text, at] = S.other ? otherNext() : nextStep();
+  // stuck for a long time? the place you need calls to you: a glimmer of his smell, a small sound
+  if (text !== S.nudgeText) { S.nudgeText = text; S.nudgeSince = S.t; S.nudgeNext = 0; }
+  if (at && !S.cut && S.t - S.nudgeSince > 80 && S.t > (S.nudgeNext || 0)) {
+    S.nudgeNext = S.t + 30;
+    for (let i = 0; i < 26; i++) emit(at.x + (Math.random() - 0.5) * 0.6, (at.y || 0) + 0.2 + Math.random() * 1.2, at.z + (Math.random() - 0.5) * 0.6, 'danny', { spread: 0.3, life: 5, size: 0.05 });
+    AU.knock(at.x, (at.y || 0) + 0.5, at.z, 2, 0.35);
+  }
   let where = '';
   if (S.other) { ui.guide(text, at, at ? 'down the road' : '', at ? Math.hypot(at.x - dog.pos.x, at.z - dog.pos.z) : 0); return; }
   if (at) {

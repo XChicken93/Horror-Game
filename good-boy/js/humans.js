@@ -481,7 +481,8 @@ export class Human {
   }
   say(text, tone, now, co, opts = {}) {
     if (!opts.force && now - this.lastSpoke < (opts.cooldown ?? 3)) return false;
-    const g = garble(text, this.name === 'danny' && !opts.garble ? -1 : co, this.name === 'danny');
+    const clear = (this.name === 'danny' && !opts.garble) || !!opts.clear;
+    const g = garble(text, clear ? -1 : co, clear);
     const head = () => { const p = this.headWorld(); return [p.x, p.y, p.z]; };
     const r = speak(this.spec.voice || this.name, g.syllables, tone, head, clarity());
     const dur = r ? r.total : g.syllables * 0.18;
