@@ -33,7 +33,7 @@ export function knows(word) { return VOCAB_STATE.all || VOCAB.has(norm(word)); }
 export function clarity() { return VOCAB_STATE.all ? 1 : Math.min(1, (VOCAB.size - 25) / 220); }
 const SYL = ['mm', 'hrm', 'wuh', 'bah', 'mwa', 'nnh', 'rrh', 'hm', 'ah', 'muh', 'wha', 'gm', 'uhn', 'rah', 'meh', 'oh'];
 
-export function garble(text, co = 0) {
+export function garble(text, co = 0, clear = false) {
   const words = text.split(/\s+/);
   let html = '', n = 0;
   for (const w of words) {
@@ -42,7 +42,7 @@ export function garble(text, co = 0) {
     const lc = core.toLowerCase();
     let syls = Math.max(1, Math.round(core.length / 3));
     n += syls;
-    if (knows(core) && !(co > 0.88 && Math.random() < 0.35)) {
+    if (clear || (knows(core) && !(co > 0.88 && Math.random() < 0.35))) {
       html += `<b>${core}</b>${punct} `;
     } else {
       const parts = [];
@@ -481,7 +481,7 @@ export class Human {
   }
   say(text, tone, now, co, opts = {}) {
     if (!opts.force && now - this.lastSpoke < (opts.cooldown ?? 3)) return false;
-    const g = garble(text, co);
+    const g = garble(text, this.name === 'danny' && !opts.garble ? -1 : co, this.name === 'danny');
     const head = () => { const p = this.headWorld(); return [p.x, p.y, p.z]; };
     const r = speak(this.spec.voice || this.name, g.syllables, tone, head, clarity());
     const dur = r ? r.total : g.syllables * 0.18;
@@ -549,6 +549,7 @@ export class Human {
     else if (ov === 'wave') { A1.sh.rotation.set(-2.6, 0, -0.3); A1.el.rotation.set(-0.4 - (Math.floor(now * 5) % 2) * 0.5, 0, 0); }
     else if (ov === 'read') { for (const a of Ar) { a.sh.rotation.set(-0.85, 0, a === A1 ? 0.3 : -0.3); a.el.rotation.set(-1.25, 0, 0); } }
     else if (ov === 'scribble') { A1.sh.rotation.set(-1.15, 0, 0.05 + (Math.floor(now * 6) % 3) * 0.06); A1.el.rotation.set(-0.35 - (Math.floor(now * 5) % 2) * 0.12, 0, 0); }
+    else if (ov === 'zombie') { for (const a of Ar) { a.sh.rotation.set(-1.45 + (a === A1 ? 0.05 : -0.05) * Math.sin(now * 3), 0, a === A1 ? -0.12 : 0.12); a.el.rotation.set(-0.12, 0, 0); } this.chest.rotation.x = 0.12; }
     else if (ov === 'hug') { for (const a of Ar) { a.sh.rotation.set(-1.0, 0, a === A1 ? -0.5 : 0.5); a.el.rotation.set(-1.4, 0, 0); } }
     else if (ov === 'stretch') { for (const a of Ar) { a.sh.rotation.set(-2.9, 0, a === A1 ? 0.25 : -0.25); a.el.rotation.set(-0.2, 0, 0); } this.chest.rotation.x = -0.15; }
     else if (ov === 'rubeyes') { A1.sh.rotation.set(-2.3, 0, -0.5); A1.el.rotation.set(-2.0 - (Math.floor(now * 5) % 2) * 0.15, 0, 0); }
@@ -616,7 +617,7 @@ export class Human {
           // stuck against something: find a fresh way round, through the doorways
           const moved = Math.hypot(this.pos.x - ox, this.pos.z - oz);
           this._stuck = moved < mv * 0.3 ? (this._stuck || 0) + dt : 0;
-          if (this._stuck > 0.7) {
+          if (this._stuck > 0.7 && !this.noNav) {
             this._stuck = 0; this._unstick = (this._unstick || 0) + 1;
             const goal = this.path[this.path.length - 1];
             if (this._unstick > 3) { this.pos.x = this.path[0].x; this.pos.z = this.path[0].z; this._unstick = 0; } // last resort

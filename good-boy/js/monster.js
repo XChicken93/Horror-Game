@@ -19,7 +19,7 @@ export const MONSTERS = [
 export function monsterChoice() {
   let n = 0;
   try { n = +new URLSearchParams(location.search).get('monster') || +localStorage.getItem('gb_monster') || 0; } catch (e) { /* storage blocked */ }
-  return n >= 1 && n <= 5 ? n : 1;
+  return n >= 1 && n <= 5 ? n : 4;
 }
 export function setMonsterChoice(n) { try { localStorage.setItem('gb_monster', String(n)); } catch (e) { /* storage blocked */ } }
 

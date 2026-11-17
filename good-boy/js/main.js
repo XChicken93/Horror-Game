@@ -194,6 +194,7 @@ $('monPick').addEventListener('click', (e) => e.stopPropagation());
 const achLabel = () => { $('achBtn').textContent = `achievements: ${achCount()} / ${ACH.length}`; };
 achLabel();
 $('basementBtn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); endIntro(); DBG.monsterRoom(); });
+$('otherBtn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); endIntro(); DBG.startOther(); });
 $('achBtn').addEventListener('click', (e) => { e.stopPropagation(); $('achGrid').innerHTML = achListHTML(); $('achPanel').classList.add('on'); });
 $('achPanel').addEventListener('click', (e) => { e.stopPropagation(); $('achPanel').classList.remove('on'); });
 // wipe the endings you have found, so the game is new again
@@ -286,8 +287,8 @@ function frame() {
   updateLights(S.t || titleT);
   updateScent(dt, S.t);
   updateFx(dt, camera.position, S.outside ? 0.5 : 0.2, true);
-  if (dog.body) dog.body.visible = introDone && !S.montage && !S.hideDog;
-  if (dog.snout) dog.snout.visible = !S.hideDog && !S.montage;
+  if (dog.body) dog.body.visible = introDone && !S.montage && !S.hideDog && !dog.human;
+  if (dog.snout) dog.snout.visible = !S.hideDog && !S.montage && !dog.human;
   G.uTime.value += dt; P.uTime.value += dt;
   G.uCamPos.value.copy(camera.position);
   if (AU.A.ready) { camera.getWorldDirection(fwdV); AU.setListener(camera.position, fwdV); }

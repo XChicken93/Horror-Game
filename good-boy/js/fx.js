@@ -34,6 +34,8 @@ const mat = new THREE.ShaderMaterial({
 
 /** inside(x, y, z) -> true where no snow should fall (under the roof). */
 let insideFn = () => false;
+/** ash: grey-orange flakes instead of snow (the other side). inside2: extra roofed places. */
+export const FXCFG = { ash: false, inside2: null };
 
 export function initFx(scene, inside) {
   insideFn = inside;
@@ -100,14 +102,15 @@ export function updateFx(dt, cam, wind = 0, snowing = true) {
       vel[i * 3 + 1] = -(0.6 + Math.random() * 0.6);
       vel[i * 3] = 0.6 + Math.random() * 0.5; vel[i * 3 + 2] = -0.25 + Math.random() * 0.5;
       const k = 0.75 + Math.random() * 0.25;
-      colA[i * 3] = 0.82 * k; colA[i * 3 + 1] = 0.86 * k; colA[i * 3 + 2] = 0.95 * k;
+      if (FXCFG.ash) { const e = Math.random() < 0.12; colA[i * 3] = e ? 1.0 : 0.42 * k; colA[i * 3 + 1] = e ? 0.45 : 0.38 * k; colA[i * 3 + 2] = e ? 0.12 : 0.36 * k; }
+      else { colA[i * 3] = 0.82 * k; colA[i * 3 + 1] = 0.86 * k; colA[i * 3 + 2] = 0.95 * k; }
       sizeA[i] = 0.012 + Math.random() * 0.014;
       lifeA[i] = 1;
     }
     posA[i * 3] += (vel[i * 3] * (1 + wind * 2) + Math.sin(posA[i * 3 + 1] * 2 + i) * 0.3) * dt;
     posA[i * 3 + 1] += vel[i * 3 + 1] * dt;
     posA[i * 3 + 2] += vel[i * 3 + 2] * dt;
-    lifeA[i] = insideFn(posA[i * 3], posA[i * 3 + 1], posA[i * 3 + 2]) ? 0.001 : 1;
+    lifeA[i] = insideFn(posA[i * 3], posA[i * 3 + 1], posA[i * 3 + 2]) || (FXCFG.inside2 && FXCFG.inside2(posA[i * 3], posA[i * 3 + 1], posA[i * 3 + 2])) ? 0.001 : 1;
   }
   for (let i = FLAKES; i < MAX; i++) {
     if (lifeA[i] <= 0) continue;

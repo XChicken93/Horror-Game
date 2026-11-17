@@ -34,11 +34,12 @@ function crossesWall(x0, z0, x1, z1, y) {
 function jump() {
   const d = dog;
   if (d.frozen || d.lying > 0.3 || d.digging) return;
+  if (d.human && d.air) return;
   // a moment of grace after stepping off an edge; and a press just before landing still counts
   if (d.air && !(d.coyote > 0)) { d.jumpBuffer = 0.18; return; }
   d.coyote = 0;
   d.sitting = false;
-  d.air = true; d.jumped = true; d.vy = 4.55; // about 1.05 m: up onto anything as high as the kitchen counter
+  d.air = true; d.jumped = true; d.vy = d.human ? 4.1 : 4.55; // about 1.05 m: up onto anything as high as the kitchen counter
   thunk(d.pos.x, d.y + 0.1, d.pos.z, 0.25);
 }
 /** Play a visible body action: 'scratch', 'bite', 'tug', 'eat', 'pull', 'pickup', 'drop', 'whine', 'shake', 'nudge'. */
@@ -242,7 +243,7 @@ export function updateDog(dt, camera, co, t) {
     if (keys.has('a')) mx -= 1; if (keys.has('d')) mx += 1;
     if (input.stickX || input.stickY) { mx += input.stickX; mz += input.stickY; } // touch joystick
   }
-  const lyingNow = input.cDown && !d.frozen && !d.digging && !d.air;
+  const lyingNow = input.cDown && !d.frozen && !d.digging && !d.air && !d.human;
   if (lyingNow && !d.wasLying) flop();
   d.wasLying = lyingNow;
   d.lying += ((lyingNow ? 1 : 0) - d.lying) * Math.min(1, dt * 4);
@@ -254,7 +255,8 @@ export function updateDog(dt, camera, co, t) {
   if (A === 'bite' || A === 'tug' || A === 'eat' || A === 'shake' || A === 'scratch' || A === 'pull') { mx = 0; mz = 0; }
   const run = keys.has('shift') || !!input.stickRun;
   let sp = (run ? 3.3 : 1.6) * (1 - co * 0.5) * (d.fear ? 1 - d.fear * 0.3 : 1);
-  if (input.sniff) sp *= 0.55;
+  if (d.human) sp = run ? 4.4 : 1.8;
+  if (input.sniff && !d.human) sp *= 0.55;
   fwd.set(-Math.sin(d.yaw), 0, -Math.cos(d.yaw));
   right.set(Math.cos(d.yaw), 0, -Math.sin(d.yaw));
   const len = Math.hypot(mx, mz);
@@ -268,11 +270,12 @@ export function updateDog(dt, camera, co, t) {
     d.bob += dt * sp * 4.2;
     d.stepT -= dt;
     if (d.stepT <= 0) {
-      d.stepT = run ? 0.26 : 0.4; // one soft pad every other footfall
+      d.stepT = d.human ? (run ? 0.3 : 0.5) : run ? 0.26 : 0.4; // one soft pad every other footfall
       const onStairs = d.pos.x > 12.5 && d.pos.z > 0.4 && d.pos.z < 3.0;
       const carpet = (d.pos.z < 3.5 && d.pos.x < 8) || (Math.abs(d.pos.z - 4.25) < 0.35);
       const out = isOutside(d.pos.x, d.pos.z, d.y);
-      step(out ? 'snow' : onStairs ? 'stair' : carpet ? 'soft' : 'claw', undefined, undefined, undefined, onStairs ? 0.5 : 1);
+      if (d.human) step('heavy', d.pos.x, 0.05, d.pos.z, 0.5);
+      else step(out ? 'snow' : onStairs ? 'stair' : carpet ? 'soft' : 'claw', undefined, undefined, undefined, onStairs ? 0.5 : 1);
       d.stepSide = -(d.stepSide || 1);
       if (out && d.onStep) d.onStep(d.pos.x, d.pos.z, d.yaw, d.stepSide);
     }

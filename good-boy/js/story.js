@@ -14,6 +14,7 @@ import { puff, spray, breath } from './fx.js';
 import { initDread, updateDread, dreadOnce } from './dread.js';
 import { dressPresence, monsterChoice } from './monster.js';
 import { unlock, achSet } from './achievements.js';
+import { buildOther, enterOther, updateOther, otherInteract, otherPrompt, otherNext, jumpToStage } from './other.js';
 import { keys } from './player.js';
 
 export const S = {
@@ -91,8 +92,9 @@ export function initStory(family, sc, uiRefs) {
   for (const m of F.danny.mats) m.uniforms.uEmissive.value.set(0.22, 0.17, 0.06);
   dog.onStep = (x, z, yaw, side) => pawPrint(x, z, yaw, side);
   initDread({ S, F, scene, later, scared: (k) => scared(k), say, ball: items.find((i) => i.name === 'ball') });
-  speechHook.fn = (rec) => { rec.snap = snapshot(); rec.clock = clockStr(S.t); };
+  speechHook.fn = (rec) => { rec.snap = S.other ? null : snapshot(); rec.clock = clockStr(S.t); };
   makeHandProps();
+  buildOther({ S, F, scene, camera: ui.camera, ui, later, say, setObj, once, dogHead: () => dogHead(), ach: (id) => ach(id), home: () => comeHomeReal() });
   setObj('Your bowl is empty. The woman forgot to feed you again.');
 }
 
@@ -854,12 +856,62 @@ function finale() {
     { clue: 'For the first time in a year, he followed Biscuit.', hl: 'Not again' });
   VOCAB_STATE.all = true;
   later(1, () => { ui.vocab('Biscuit understands every word.', ['everything']); AU.chime(); });
-  later(3, () => {
+  later(4.5, () => say(f, 'I can not... the air... Biscuit, I can not get up...', 'sleepy'));
+  later(8, () => {
     S.cut = null;
-    S.finalFollow = true;
-    f.asleep = false; f.awakeUntil = S.t + 99999;
-    setObj('Lead him out. To the front door, and the cold, clean air.');
+    f.unconscious = true; f.asleep = true; f.awakeUntil = 0; f.path = [];
+    if (f.pose === 'sit') f.pose = 'slump';
+    furnaceOpens();
   });
+}
+// Chapter 9: the hot box opens its mouth, and the only way to stop it is from inside
+function furnaceOpens() {
+  S.ch = 9; S.furnaceMaw = true;
+  AU.whoomp(spots.furnace.x, BASE_Y + 1, spots.furnace.z); AU.stinger(0.6); AU.thunder(0.4);
+  lights[5].on = true;
+  ui.card('The hot box is open', 'From down in the basement comes a roar, and the whole house shakes. He has fallen, and he will not get up. The hot box has opened its grille like a mouth, and behind it there is no fire. There is a street. You know, the way dogs know things, that the only way to stop it is from the inside.');
+  setObj('He fell down and will not wake up. The hot box is pouring the bad air into everything. Go down to it, and go INTO it.');
+}
+function intoFurnace() {
+  dog.frozen = true;
+  AU.whoomp(spots.furnace.x, BASE_Y + 1, spots.furnace.z); AU.stinger(0.8);
+  S.fade = 1; S.fadeSpeed = 3;
+  later(1.4, () => { enterOther(); S.fade = 0; S.fadeSpeed = 1; dog.frozen = false; });
+}
+// back from the other side: the furnace is dead quiet, and they are still asleep
+function comeHomeReal() {
+  S.ch = 10; S.otherDone = true;
+  const { father, mother, lily } = F;
+  S.coOn = false; S.furnaceMaw = false; lights[5].on = false;
+  S.power = true; for (const i of [0, 1, 3, 4, 13]) if (lights[i]) lights[i].on = true;
+  S.stalkOn = false; if (S.stalk) { S.stalk.state = 'away'; S.stalk.t = 1e9; }
+  S.presenceActive = false; S.presenceSleep = 0; S.presence.root.visible = false; S.presence.visible = false;
+  S.alarmOn = false; AU.alarm(false); S.finalFollow = false; S.cut = null; S.escort = false; S.lilyDazed = false;
+  const put = (h, a) => { h.path = []; h.arrived = null; h.override = null; h.eaten = false; h.visible = true; h.activity = a; h.settle(); h.unconscious = true; h.asleep = true; h.awakeUntil = 0; };
+  put(father, { spot: spots.armchair.clone(), face: Math.PI, pose: 'slump' });
+  put(mother, { spot: spots.parentBedM.clone(), pose: 'sleep', face: 0 });
+  put(lily, { spot: spots.lilyBed.clone(), pose: 'sleep', face: 0 });
+  F.danny.visible = false; F.danny.path = [];
+  dog.human = false; S.hideDog = false;
+  dog.pos.set(11.4, BASE_Y, -1.5); dog.y = BASE_Y; dog.yaw = 1.48; dog.pitch = 0;
+  dog.frozen = true; later(2.5, () => { dog.frozen = false; });
+  P.uFlash.value = 1;
+  S.wakeList = [];
+  VOCAB_STATE.all = true;
+  later(2, () => ui.card('You understand', 'Danny went out into the snow after you once, and he did not come back. Tonight he went into the dark after you again, and this time he got you home. You understand all of it now: every word they said, and what it meant. The hot box is quiet and cold. The air in the house is still bad. They are still asleep. Wake them up. All of them.'));
+  setObj('Wake them up. All three. Bark at them, nudge them. Then lead them out the front door.');
+}
+function wakeFinal(h) {
+  if (!h.unconscious || S.wakeList.includes(h)) return;
+  h.unconscious = false; h.asleep = false; h.awakeUntil = S.t + 1e6;
+  if (h.pose === 'sleep') { h.pos.y = 0; h.pos.x += h === F.lily ? 0.7 : -0.7; }
+  h.pose = 'stand'; h.activity = null; h.speed = 1.05;
+  h.look(dogHead(), 6, S.t);
+  const line = h === F.father ? 'Biscuit...? What... the air. Oh God. CLAIRE! LILY!' : h === F.mother ? 'Biscuit? My head... Tom? Tom, what is happening?' : 'Biscuit! I dreamed about Danny. He said you were coming to get us.';
+  say(h, line, h === F.lily ? 'calm' : 'sharp');
+  S.wakeList.push(h); AU.chime();
+  if (S.wakeList.length >= 3) { ach('awake'); setObj('They are all up. Lead them out: the front door, and the cold, clean air.'); }
+  else setObj(`Wake them up. ${S.wakeList.length} of 3 awake. Bark at them, nudge them.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -902,10 +954,29 @@ function phaseUpdate(dt) {
   S.wasLying = dog.lying > 0.5;
   // landing on the kitchen counter for the first time: the phone rings, once
   if (dog.surface && dog.surface.name === 'the counter' && S.coOn) dreadOnce('phone');
-  if (co > 0.9) for (const h of [father, mother, lily]) if (!S.alarmOn && !S.finalFollow) h.unconscious = true;
+  if (co > 0.9 && S.ch < 10) for (const h of [father, mother, lily]) if (!S.alarmOn && !S.finalFollow) h.unconscious = true;
   if (co > 0.92 && lily.pose === 'sit' && !S.alarmDone && once('lilyFaints')) { lily.setActivity({ spot: spots.lilyBed.clone(), pose: 'sleep', face: 0 }); }
   if (co >= 1 && !S.ended && !S.cut) endByTime();
 
+  if (S.ch === 9 && S.furnaceMaw && !S.other && inBasement() && dist2d(dog.pos, spots.furnace) < 1.2 && once('intoFurnace')) intoFurnace();
+  if (S.ch === 10 && S.wakeList) {
+    S.wlRepath = (S.wlRepath || 0) - dt;
+    for (const [i, h] of S.wakeList.entries()) {
+      if (S.wlRepath <= 0) {
+        if (S.outside || (inBasement() && h.pos.y > -1)) h.path = [];
+        else if (dist2d(h.pos, dog.pos) > 1.3 + i * 0.5) h.goTo(v3(dog.pos.x, dog.y < -1 ? BASE_Y : 0, dog.pos.z));
+        else h.path = [];
+      }
+      h.look(dogHead(), 1, S.t);
+    }
+    if (S.wlRepath <= 0) S.wlRepath = 1.2;
+    if (S.wakeList.length >= 3 && dist2d(dog.pos, spots.frontDoor) < 1.8 && S.wakeList.every((h) => dist2d(h.pos, spots.frontDoor) < 4) && once('outTogether')) {
+      for (const h of S.wakeList) h.path = [];
+      doors.front.target = 1.6; doors.front.speed = 2; AU.creak(1.5, 1, 10, 1); S.windBoost = 0.7;
+      say(F.father, 'Out. Everybody out. Cold air. Breathe. Good boy, Biscuit. Good boy.', 'sharp');
+      later(4.5, () => finish('home'));
+    }
+  }
   // the finale: leading him out
   if (S.finalFollow) {
     father.speed = 1.0;
@@ -998,9 +1069,10 @@ function scares(dt) {
     }
   }
   // the furnace
-  refs.grilleMat.uniforms.map.value = S.dogCO > 0.55 || S.presenceActive ? T.grilleTeeth : T.grille;
+  refs.grilleMat.uniforms.map.value = S.dogCO > 0.55 || S.presenceActive || S.furnaceMaw ? T.grilleTeeth : T.grille;
   const br = 0.6 + 0.4 * Math.sin(S.t * (0.5 + S.co * 0.6));
-  refs.grilleMat.uniforms.uColor.value.setScalar(S.coOn ? 0.5 + br * 0.6 : 0.1);
+  refs.grilleMat.uniforms.uColor.value.setScalar(S.furnaceMaw ? 1.4 + br * 0.6 : S.coOn ? 0.5 + br * 0.6 : 0.1);
+  if (S.furnaceMaw && inBasement() && Math.random() < 0.3) emit(spots.furnace.x + (Math.random() - 0.5) * 0.5, BASE_Y + 0.4 + Math.random() * 0.4, spots.furnace.z, 'wrong', { spread: 0.3, life: 2, vz: 0.3, size: 0.05 });
   lights[5].intensity = S.coOn ? (0.6 + br * 0.8) * (0.7 + S.co) : 0;
   const sc = 1 + (S.coOn ? br * 0.015 * (1 + S.co * 2) : 0);
   refs.furnace.scale.set(sc, 1 + (sc - 1) * 0.5, sc);
@@ -1195,6 +1267,8 @@ export function onBark() {
   if (S.ended || S.cut || S.inspectOpen) return;
   AU.bark(1); dog.barkKick = 1;
   S.barks = (S.barks || 0) + 1; if (S.barks >= 50) ach('speak');
+  if (S.other) return;
+  if (S.ch === 10) for (const h of [F.father, F.mother, F.lily]) if (h.unconscious && sameFloor(h) && dist2d(h.pos, dog.pos) < 3.2) wakeFinal(h);
   if (S.outside) { const f = dogForward(); breath(dog.pos.x, dog.y + 0.33, dog.pos.z, f.x, f.z, 2); }
   const { father, mother, lily } = F;
   if (S.lilyDazed && dist2d(lily.pos, dog.pos) < 3.8 && Math.abs(lily.pos.y - dog.y) < 1) { lilyWakesUp(); return; }
@@ -1217,6 +1291,7 @@ export function onBark() {
 }
 function wake(h) {
   act('nudge');
+  if (S.ch === 10 && h.unconscious) { wakeFinal(h); return; }
   if (h === F.father && S.deep && h.pose === 'sleep' && S.ch < 8) dreadOnce('sleepwalk');
   if (h.unconscious || (S.deep && h !== F.lily)) {
     if (S.t - (h.lastNoWake || 0) > 6) {
@@ -1260,7 +1335,7 @@ function lockUp() {
   later(2.6, () => { S.fade = 0; dog.frozen = false; });
 }
 export function onSit() {
-  if (S.ended || S.cut || S.inspectOpen) return;
+  if (S.ended || S.cut || S.inspectOpen || S.other) return;
   if (S.wantSit && dist2d(S.wantSit.pos, dog.pos) < 2.6) { feedBiscuit(S.wantSit); return; }
   const h = [F.father, F.mother, F.lily].find((x) => awake(x) && !x.asleep && sameFloor(x) && dist2d(x.pos, dog.pos) < 2.6);
   if (!h || S.t - (h.lastSit || -99) < 15) return;
@@ -1273,6 +1348,7 @@ export function onSit() {
 export function onWag() {
   if (S.ended || S.cut || S.inspectOpen) return;
   AU.wagSwish();
+  if (S.other) return;
   if (S.coOn) dreadOnce('stare');
   { const p = S.presence; if (p.visible && p.root.visible && dist2d(p.pos, dog.pos) < 7 && Math.abs(p.pos.y - dog.y) < 1.5) ach('wagthing'); }
   const h = [F.father, F.mother, F.lily].find((x) => awake(x) && !x.asleep && sameFloor(x) && dist2d(x.pos, dog.pos) < 3);
@@ -1286,6 +1362,7 @@ export function onWag() {
 export function onWhine() {
   if (S.ended || S.cut || S.inspectOpen) return;
   AU.whine(); act('whine');
+  if (S.other) return;
   for (const h of [F.father, F.mother, F.lily]) {
     if (!awake(h) || !sameFloor(h) || dist2d(h.pos, dog.pos) > 2.8) continue;
     if (S.t - (h.lastComfort || -99) < 10) continue;
@@ -1379,6 +1456,7 @@ const nearCover = () => !yard.flapOpen && dist2d(dog.pos, v3(13.62, 0, 4.25)) < 
 const nearFullBowl = () => puzzle.bowl.full && !puzzle.bowl.carried && dist2d(dog.pos, puzzle.bowl.mesh.position) < 0.7;
 
 export function onInteract() {
+  if (S.other) { otherInteract(); return; }
   if (S.inspectOpen) { closeInspect(); return; }
   if (S.ended || S.cut || dog.frozen) return;
   if (puzzle.stool.dragging) { releaseStool(); return; }
@@ -1774,6 +1852,12 @@ function nextStep() {
   const carry = dog.carrying;
   const pz = puzzle, Y = S.yardDone;
   if (S.monsterTest) return [S.presenceActive ? 'It is down here with you. Run up the stairs, hide (hold C), or bark it apart (B).' : inBasement() ? 'Something is coming out of the furnace.' : 'Go back down the basement stairs. It is waiting.', S.presenceActive || inBasement() ? null : spots.stairBottom];
+  if (S.ch === 9) return ['Go down to the hot box in the basement and walk into its open mouth.', spots.furnace];
+  if (S.ch === 10) {
+    const left = [f, m, l].filter((h) => h.unconscious);
+    if (left.length) { const h = left.sort((a, b) => dist2d(a.pos, dog.pos) - dist2d(b.pos, dog.pos))[0]; return [`Wake ${h === f ? 'Tom (in his armchair)' : h === m ? 'Claire (in bed)' : 'Lily (in her bed)'}: bark at them (B) or nudge them (E).`, h.pos]; }
+    return ['Lead them all out of the front door.', spots.frontDoor];
+  }
   if (S.finalFollow) return ['Lead Tom to the front door. Walk slowly; he follows you.', spots.frontDoor];
   switch (S.ch) {
     case 1:
@@ -1907,8 +1991,9 @@ function updateGuide(dt) {
   S.guideT = (S.guideT || 0) - dt;
   if (S.guideT > 0) return;
   S.guideT = 0.25;
-  const [text, at] = nextStep();
+  const [text, at] = S.other ? otherNext() : nextStep();
   let where = '';
+  if (S.other) { ui.guide(text, at, at ? 'down the road' : '', at ? Math.hypot(at.x - dog.pos.x, at.z - dog.pos.z) : 0); return; }
   if (at) {
     const tUp = at.y > -0.5, meUp = dog.y > -0.5;
     const tOut = isOutside(at.x, at.z, at.y), meOut = S.outside;
@@ -2026,7 +2111,15 @@ function ENDING_TEXT(id) {
       'The house went on breathing without you.',
       'They found all four of them on the eighteenth, when the mail piled up. The dog was lying across the girl\'s doorway, as if he had been guarding it.',
     ];
-    case 'home': return [
+    case 'home': if (S.otherDone) return [
+      'You barked until they woke up, all three of them, and you did not stop until they were standing.',
+      'They followed you down the hall and out of the front door, into the snow, and stood in the yard in their pajamas, breathing.',
+      'The fire department shut off the gas at 4 a.m. The technician who had red-tagged the furnace came himself. He could not understand it. The burner was out, he said, and the gas was shut off at the valve. By hand. From the inside.',
+      'Tom held Danny\'s jacket and cried, and for the first time in a year he said his son\'s name out loud.',
+      'Lily told the firemen that Danny carried Biscuit home. Nobody corrected her.',
+      'You lay down in the snow by the truck, and you were not waiting for anyone anymore. Good boy.',
+    ];
+    return [
       'He carried Lily out in his arms and half dragged Claire through the snow, and they stood in the yard in their pajamas, breathing.',
       S.yardDone.vent
         ? 'The fire department shut off the gas at 4 a.m. The technician who had red-tagged the furnace came himself. Somebody had dug the exhaust pipe out of the drift, he said. By hand, it looked like. Or by paws. He said that bought them the hour.'
@@ -2152,11 +2245,11 @@ export function updateStory(dt) {
   if (S.inspectOpen) { S.prompt = ''; return; }
   S.t += dt;
   // the vent dug clear: the furnace breathes out instead of back into the house
-  if (S.coOn) { S.coAcc += dt / CO_DUR * (S.yardDone.vent ? 0.55 : 1); S.co = Math.min(1, S.coAcc); }
+  if (S.coOn && !S.other) { S.coAcc += dt / CO_DUR * (S.yardDone.vent ? 0.55 : 1); S.co = Math.min(1, S.coAcc); }
   S.outside = isOutside(dog.pos.x, dog.pos.z, dog.y);
   const extra = inBasement() ? 0.12 : 0;
   // out in the clean cold air, your head clears
-  const dogTarget = Math.min(1, S.outside ? S.co * 0.3 : S.co + (S.coOn ? extra : 0));
+  const dogTarget = S.other ? 0 : Math.min(1, S.outside ? S.co * 0.3 : S.co + (S.coOn ? extra : 0));
   S.dogCO += (dogTarget - S.dogCO) * Math.min(1, dt * (dogTarget < S.dogCO ? 0.35 : 0.8));
   if (S.dogCO > 0.42 && once('poisonCard')) ui.card('The bad air is in you now', 'Your eyes are doubling and the edges of everything are going dark, in time with your heart. That is the poison, in you too. The longer you stay inside, the worse it gets. Clean air outside clears it, for a while. When it is this bad, do not stare at them: their faces go wrong.');
   G.uCO.value = S.dogCO * 0.9;
@@ -2164,6 +2257,7 @@ export function updateStory(dt) {
 
   for (let i = S.timers.length - 1; i >= 0; i--) if (S.t >= S.timers[i].at) { const f = S.timers[i].fn; S.timers.splice(i, 1); f(); }
 
+  if (S.other) { otherFrame(dt); return; }
   phaseUpdate(dt);
   scares(dt);
   updatePresence(dt);
@@ -2255,6 +2349,27 @@ export function updateStory(dt) {
   if (S.dogCO > 0.85 && Math.random() < dt * 0.06) S.blackout = 0.6 + Math.random() * 0.6;
   S.blackout = Math.max(0, S.blackout - dt);
   P.uBlackout.value = Math.min(1, S.blackout * 2);
+  jumpscareStep(dt);
+  emitScents(dt);
+  houseTail(dt);
+}
+function otherFrame(dt) {
+  updateOther(dt);
+  updateGuide(dt);
+  ui.timer(null);
+  if (S.oStage !== 'throw') P.uFlash.value = Math.max(0, P.uFlash.value - dt * 1.5);
+  S.blackout = Math.max(0, S.blackout - dt);
+  P.uBlackout.value = Math.min(1, S.blackout * 2);
+  S.pulse = Math.max(0, (S.pulse || 0) - dt * 5); P.uPulse.value = S.pulse;
+  P.uCO.value = 0; G.uCO.value = 0; P.uStretch.value = 0; P.uSniff.value = 0; G.uSniff.value = 0;
+  jumpscareStep(dt);
+  S.label = ''; S.prompt = otherPrompt();
+  const ft = S.fade || 0;
+  S.fadeV = (S.fadeV || 0) + (ft - (S.fadeV || 0)) * Math.min(1, dt * (S.fadeSpeed || 2) * 2);
+  P.uFade.value = Math.max(S.fadeV, 0);
+  AU.updateAmbience(0.2, S.t, 0.6);
+}
+function jumpscareStep(dt) {
   if (S.jumpscare > 0) {
     S.jumpscare -= dt;
     const p = S.presence;
@@ -2274,8 +2389,10 @@ export function updateStory(dt) {
     P.uRed.value = 0.7;
   } else P.uRed.value = Math.max(0, (S.redFlash || 0));
   S.redFlash = Math.max(0, (S.redFlash || 0) - dt);
-
-  emitScents(dt);
+}
+function houseTail(dt) {
+  P.uFlash.value = Math.max(0, P.uFlash.value - dt * 0.45);
+  G.uFogNear.value = 3.0;
   const sniffTarget = input.sniff ? 1 : 0;
   S.sniff += (sniffTarget - S.sniff) * Math.min(1, dt * 6);
   G.uSniff.value = S.sniff;
@@ -2303,4 +2420,5 @@ export function updateStory(dt) {
 }
 
 // testing hooks
-export const DBG = { monsterRoom, powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
+function startOther() { S.ch = 9; S.furnaceMaw = true; for (const id of ['intro1', 'intro2', 'trackCard', 'poisonCard']) S.fired.add(id); enterOther(); }
+export const DBG = { startOther, otherStage: (st) => jumpToStage(st), comeHome: () => comeHomeReal(), finale, monsterRoom, powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
