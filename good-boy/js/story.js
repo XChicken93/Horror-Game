@@ -15,6 +15,7 @@ import { initDread, updateDread, dreadOnce } from './dread.js';
 import { dressPresence, monsterChoice } from './monster.js';
 import { unlock, achSet } from './achievements.js';
 import { initDirector, updateDirector, noise, repelled, directorVisible, hushLevel } from './director.js';
+import { initCine, updateCine, playCine, cineShake, cineTitle, V, orbit, makeCineDog, poseCineDog, hideCineDog, dogHeadAt, dogFaceCam } from './cutscene.js';
 import { buildOther, enterOther, updateOther, otherInteract, otherPrompt, otherNext, jumpToStage, otherNoise, forceHome } from './other.js';
 import { keys } from './player.js';
 
@@ -95,6 +96,7 @@ export function initStory(family, sc, uiRefs) {
   initDread({ S, F, scene, later, scared: (k) => scared(k), say, ball: items.find((i) => i.name === 'ball') });
   speechHook.fn = (rec) => { rec.snap = S.other ? null : snapshot(); rec.clock = clockStr(S.t); };
   makeHandProps();
+  initCine({ S, camera: ui.camera }); makeCineDog(scene);
   initDirector({ S, later, caught: () => { if (!S.testNoCatch) caughtUpstairs(); }, hidden: (d) => dogHidden(d), flashOn: () => puzzle.flashlight.carried && S.flashOn, scared: (k) => scared(k), summoned: () => S.summonPending, clearSummon: () => { S.summonPending = false; } });
   // everything Biscuit does makes some noise
   dog.onNoise = (loud) => { if (S.other) otherNoise(dog.pos, loud); else noise(dog.pos.x, dog.y, dog.pos.z, loud); };
@@ -523,25 +525,32 @@ function powerCut() {
   S.pendingCut = false; S.power = false;
   lightning(); S.flashSeq = [[0, 1], [0.05, 0.2], [0.1, 1], [0.25, 0.6], [0.4, 0]];
   AU.thunder(3); later(0.2, () => AU.stinger(0.8));
-  for (const i of [0, 1, 2, 3, 4, 6, 8, 10, 13]) if (lights[i]) lights[i].on = false;
+  const dying = [13, 1, 2, 3, 0, 6, 8, 10, 4];
+  const lb = spots.lilyBed;
   S.tvOn = false; AU.setTV(false); AU.setFridge(false);
   S.clockStopped = true;
   const fl = puzzle.flashlight;
   if (!fl.carried && dist2d(fl.mesh.position, v3(9.1, 0, 2.25)) < 0.5) { fl.mesh.position.set(9.1, 0.03, 2.25); }
   S.flashOn = true;
-  later(2.5, () => {
-    const l = F.lily;
-    AU.scream(); // small and far away
-    showSubtitle('lily', 'BISCUIT! It is dark! Danny? Danny, is that you?', 3);
-    later(2.2, () => {
-      // and then she is gone from her bed
-      l.path = []; l.activity = null; l.asleep = false; l.awakeUntil = 1e9;
-      l.setPos(7.75, -0.55, BASE_Y); l.yaw = Math.PI; l.pose = 'stand'; l.setFace(true);
-      S.lilyGone = true;
-      setObj('The lights are out. The girl screamed, and then she stopped. Find her. (Sniff for her, then T to follow only her smell.)');
-    });
-  });
-  later(8, () => ui.card('Lights out', 'The storm has taken the power. The furnace does not need it. It keeps breathing in the dark. And now that the house is dark, the thing that lives in the bad air does not have to stay under the house.'));
+  const l = F.lily;
+  const gone = () => {
+    l.path = []; l.activity = null; l.asleep = false; l.awakeUntil = 1e9;
+    l.setPos(7.75, -0.55, BASE_Y); l.yaw = Math.PI; l.pose = 'stand'; l.setFace(true);
+    S.lilyGone = true;
+    setObj('The lights are out. The girl screamed, and then she stopped. Find her.');
+  };
+  playCine([
+    // down the hall, the bulbs die one after another, toward you
+    { dur: 3.0, pos: V(1.0, 0.5, 4.25), look: V(13.5, 1.4, 4.25), fov: 58, update: (t) => { const n = Math.floor(t / 0.3); for (let i = 0; i < Math.min(n, dying.length); i++) { const L = lights[dying[i]]; if (L && L.on) { L.on = false; AU.knock(L.pos.x, L.pos.y, L.pos.z, 1, 0.3); } } } },
+    // Lily, sitting up in the dark
+    { dur: 2.6, pos: V(5.4, 1.2, 3.1), look: V(lb.x, 0.7, lb.z), fov: 52, start: () => { l.pose = 'sit'; l.setPos(lb.x, lb.z, 0.45); AU.scream(); showSubtitle('lily', 'BISCUIT! It is dark! Danny? Danny, is that you?', 2.6); S.flash = 0.8; },
+      update: (t) => { if (t > 1.8 && once('lilyLightning')) { lightning(); } } },
+    // the lightning goes, and comes back, and the bed is empty
+    { dur: 0.5, pos: V(5.4, 1.2, 3.1), look: V(lb.x, 0.7, lb.z), fov: 52, start: () => { S.blackout = 0.5; gone(); } },
+    { dur: 2.2, pos: V(5.6, 1.0, 3.0), look: V(lb.x, 0.6, lb.z), fov: 46, start: () => { S.flash = 1; AU.thunder(1.5); AU.stinger(0.5); } },
+    // and at the end of the hall, the basement door stands open, breathing
+    { dur: 2.4, pos: (k) => V(8.5 + k * 1.2, 0.45, 4.25), look: V(13.4, 0.9, 3.6), fov: 54, start: () => { doors.basement.target = 1.45; AU.creak(13.4, 1, 3.5, 2, 0.8); }, update: () => { if (Math.random() < 0.5) emit(13.4, 0.2 + Math.random() * 1.6, 3.4, 'wrong', { spread: 0.5, life: 4, vz: 0.3, size: 0.05 }); } },
+  ]);
   S.stalkOn = true; S.stalk = { state: 'away', t: 1e9 };
 }
 function lilyFound() {
@@ -610,7 +619,12 @@ function updateFlashlight(dt) {
 function startBasementChapter() {
   if (S.ch >= 7) return;
   S.ch = 7;
-  ui.card('Under the house', 'Danny\'s smell goes down the basement stairs, to his boxes, and into the dark where the hot box breathes. He wants you to find something.');
+  { const d = F.danny;
+    playCine([
+      { dur: 2.6, pos: V(10.5, 0.45, 4.25), look: V(13.3, 1.0, 4.1), fov: 52, start: () => { d.visible = true; d.setPos(13.3, 4.1); d.pose = 'stand'; d.yaw = -Math.PI / 2; d.look(dogHead(), 6, S.t); AU.ventVoice(13.3, 1, 3.6); } },
+      { dur: 3.0, pos: (k) => V(13.25, 1.5 - k * 1.6, 3.2 - k * 2.0), look: (k) => V(13.25, -0.8 - k * 1.6, 0.4 - k * 1.2), fov: 56, start: () => { d.setPos(13.25, 1.6, -1.2); }, update: () => { if (Math.random() < 0.4) emit(13.25, -1.2, 0.5, 'danny', { spread: 0.4, life: 3, size: 0.05 }); } },
+    ], () => { d.visible = false; });
+  }
   checkBasement();
 }
 function pullCover() {
@@ -641,7 +655,12 @@ function digDone(sp) {
   AU.chime();
   if (sp === yard.vent) {
     S.yardDone.vent = true;
-    ui.card('The pipe can breathe.', 'The snow had buried the hot box\'s breath, so it was breathing back into the house. Now it breathes out here instead. The bad air will build more slowly. But the hot box is still broken inside, and the house is still filling up.');
+    const vp = sp.pos.clone();
+    playCine([
+      { dur: 3.2, pos: V(vp.x + 0.9, 0.35, vp.z + 1.0), look: V(vp.x, 0.25, vp.z), fov: 46, update: (t) => { if (t > 0.8) { if (once('ventBreath')) { AU.whoomp(vp.x, 0.3, vp.z); } for (let i = 0; i < 3; i++) puff(vp.x, 0.3, vp.z, { col: [0.7, 0.7, 0.72], vy: 0.9 + Math.random() * 0.6, vx: (Math.random() - 0.5) * 0.4, vz: (Math.random() - 0.5) * 0.4, life: 2.5, size: 0.05 }); } } },
+      // and below the house, the flame in the hot box settles, a little
+      { dur: 2.6, pos: V(9.4, BASE_Y + 0.8, 0.2), look: V(spots.furnace.x, BASE_Y + 0.6, -1.6), fov: 50, update: (t, k) => { lights[5].intensity *= 1 - k * 0.3; } },
+    ]);
   } else if (sp === yard.tin) {
     S.yardDone.tin = true;
     const it = yard.tinItem;
@@ -673,9 +692,14 @@ function gateScene() {
     { clue: 'Danny never blamed Biscuit for running off that night.', hl: 'I am not mad' }));
   later(9, () => { d.path = [v3(33, 0, 3.2), v3(37, 0, 2.6)]; d.speed = 0.6; S.ghostState = { kind: 'field', t: 0 }; });
   later(11, () => {
-    ui.card('The gate', 'It was open, that night. You smelled the deer and you ran. He came after you without his coat, calling your name, out across the field toward the pond. You came home in the morning. He did not.');
-    S.yardDone.gate = true;
-    checkYard();
+    // that night: the gate open, the deer, and him running after you without his coat
+    const pw = P.uCold.value;
+    playCine([
+      { dur: 3.2, pos: V(27.0, 0.6, 5.2), look: V(33, 0.8, 3.0), fov: 56, start: () => { P.uCold.value = 0.9; S.flash = 0.6; d.visible = true; d.setPos(27.6, 4.0); d.path = [v3(33, 0, 3.2), v3(38, 0, 2.6)]; d.speed = 3.2; d.pose = 'stand'; say(d, 'BISCUIT! BISCUIT, COME BACK! It is too cold!', 'sharp', { force: true }); } },
+      { dur: 3.0, pos: V(30, 2.4, 9.5), look: () => d.pos.clone().setY(0.8), fov: 44, update: () => { if (Math.random() < 0.3) puff(d.pos.x, 1.2, d.pos.z, { col: [0.8, 0.82, 0.9], vy: 0.2, life: 1, size: 0.02 }); } },
+      { dur: 2.6, pos: V(40.5, 1.0, 6.5), look: V(39.3, 0.1, 3.0), fov: 50, start: () => { d.setPos(37.6, 2.7); d.path = [v3(39.3, 0, 3.0)]; d.speed = 1.2; AU.crash(39.3, 0.1, 3.0); }, update: (t) => { if (t > 1.6 && once('iceGives')) { AU.thunk(39.3, 0, 3.0, 1); d.visible = false; for (let i = 0; i < 30; i++) puff(39.3, 0.1, 3.0, { col: [0.7, 0.75, 0.85], vx: (Math.random() - 0.5) * 2, vy: Math.random() * 1.5, grav: 5, life: 1, size: 0.03 }); } } },
+      { dur: 2.0, pos: () => dogFaceCam(dog.pos, dog.yaw, 0.9, 0.2), look: () => dogHeadAt(dog.pos, dog.yaw), fov: 48, start: () => { P.uCold.value = pw; AU.whine(); }, update: (t, k, dt) => poseCineDog(dog.pos.x, dog.y, dog.pos.z, dog.yaw, 'cower', dt) },
+    ], () => { hideCineDog(); d.visible = false; d.path = []; S.ghostState = null; S.yardDone.gate = true; checkYard(); });
   });
 }
 function updateDigging(dt) {
@@ -763,7 +787,11 @@ function updateYard(dt) {
     d.visible = true; d.setPos(39.3, 3.0); d.pose = 'stand'; d.yaw = Math.atan2(dog.pos.x - 39.3, dog.pos.z - 3.0);
     d.look(dogHead(), 6, S.t); S.ghostState = { kind: 'pond', t: 0 };
     AU.ventVoice(39.3, 1.2, 3.0);
-    later(2, () => ui.card('The pond', 'The ice is thin here, by the dead tree. It always was. His smell goes out onto it, and stops. You did not come this far, that night. You were across the field, chasing the deer, and you did not hear the ice.'));
+    later(1.5, () => playCine([
+      { dur: 3.4, pos: (k) => V(36.5 + k * 1.2, 1.4, 6.5 - k), look: V(39.3, 0.6, 3.0), fov: 50, start: () => AU.ventVoice(39.3, 1.0, 3.0) },
+      { dur: 3.0, pos: V(39.9, 0.4, 3.7), look: V(39.3, 0.0, 3.0), fov: 40, start: () => { d.visible = false; AU.crash(39.3, 0.05, 3.0); }, update: (t) => { if (Math.random() < 0.2) puff(39.3 + (Math.random() - 0.5) * 0.6, 0.05, 3.0 + (Math.random() - 0.5) * 0.6, { col: [0.6, 0.65, 0.75], vy: 0.2, life: 1.5, size: 0.02 }); } },
+      { dur: 2.4, pos: () => dogFaceCam(dog.pos, dog.yaw, 1.0, -0.25), look: () => dogHeadAt(dog.pos, dog.yaw), fov: 48, start: () => AU.whine(), update: (t, k, dt) => poseCineDog(dog.pos.x, dog.y, dog.pos.z, dog.yaw, 'lie', dt) },
+    ], () => { hideCineDog(); S.ghostState = null; }));
   }
   if (S.ghostState && S.ghostState.kind === 'pond' && (S.ghostState.t > 6 || dist2d(dog.pos, F.danny.pos) < 3)) { F.danny.visible = false; S.ghostState = null; }
   // the deer, out in the field, only when the lightning shows it
@@ -873,14 +901,26 @@ function furnaceOpens() {
   S.ch = 9; S.furnaceMaw = true;
   AU.whoomp(spots.furnace.x, BASE_Y + 1, spots.furnace.z); AU.stinger(0.6); AU.thunder(0.4);
   lights[5].on = true;
-  ui.card('The hot box is open', 'From down in the basement comes a roar, and the whole house shakes. He has fallen, and he will not get up. The hot box has opened its grille like a mouth, and behind it there is no fire. There is a street. You know, the way dogs know things, that the only way to stop it is from the inside.');
+  const f = F.father, g = refs.grille, fx = spots.furnace.x, fz = -1.6;
+  playCine([
+    { dur: 2.4, pos: () => f.headWorld().add(V(0.6, 0.1, -0.5)), look: () => f.headWorld(), fov: 46, start: () => AU.groan(f.pos.x, 1, f.pos.z, 0.6) },
+    { dur: 4.0, pos: (k) => V(fx + 2.6 - k * 0.9, BASE_Y + 0.9, fz + 3.2 - k * 1.2), look: V(fx, BASE_Y + 0.7, fz), fov: (k) => 58 - k * 10, update: (t, k, dt) => {
+      cineShake(1.2); refs.furnace.position.x = fx + (Math.random() - 0.5) * 0.05; g.scale.set(1 + k * 0.6, 1 + k * 1.4, 1);
+      refs.grilleMat.uniforms.uColor.value.setScalar(1.4 + k * 1.5);
+      if (Math.random() < dt * 6) AU.knock(fx + (Math.random() - 0.5), BASE_Y + 1 + Math.random(), fz, 1, 0.6);
+      for (let i = 0; i < 3; i++) emit(fx + (Math.random() - 0.5) * 0.6, BASE_Y + 0.5 + Math.random() * 0.4, fz + 0.4, 'wrong', { spread: 0.3, life: 2.5, vz: 1.2, size: 0.06 });
+    } },
+    { dur: 2.2, pos: (k) => V(fx + 0.3, BASE_Y + 0.6, fz + 1.6 - k * 1.0), look: V(fx, BASE_Y + 0.6, fz), fov: (k) => 50 - k * 22, start: () => { AU.whoomp(fx, BASE_Y + 0.6, fz); AU.thunder(0.3); }, update: (t, k) => { P.uFlash.value = k * 0.35; } },
+  ], () => { refs.furnace.position.x = fx; });
   setObj('He fell down and will not wake up. The hot box is pouring the bad air into everything. Go down to it, and go INTO it.');
 }
 function intoFurnace() {
-  dog.frozen = true;
-  AU.whoomp(spots.furnace.x, BASE_Y + 1, spots.furnace.z); AU.stinger(0.8);
-  S.fade = 1; S.fadeSpeed = 3;
-  later(1.4, () => { enterOther(); S.fade = 0; S.fadeSpeed = 1; dog.frozen = false; });
+  const fx = spots.furnace.x, d0 = dog.pos.clone();
+  AU.whoomp(fx, BASE_Y + 1, spots.furnace.z);
+  playCine([
+    { dur: 2.8, pos: (k) => V(d0.x + 0.6 - k * 0.3, BASE_Y + 0.7, d0.z + 1.6 - k * 0.4), look: V(fx, BASE_Y + 0.55, -1.6), fov: (k) => 60 + k * 25, ease: 'linear',
+      update: (t, k, dt) => { const x = d0.x + (fx - d0.x) * k, z = d0.z + (-1.5 - d0.z) * k; poseCineDog(x, BASE_Y, z, Math.atan2(-(fx - d0.x), -(-1.5 - d0.z)), 'walk', dt); P.uFlash.value = k * k; if (k > 0.6 && once('furnaceIn')) { AU.stinger(0.8); AU.thunder(0.4); } cineShake(k); } },
+  ], () => { hideCineDog(); enterOther(); P.uFlash.value = 1; });
 }
 // back from the other side: the furnace is dead quiet, and they are still asleep
 function comeHomeReal() {
@@ -903,7 +943,13 @@ function comeHomeReal() {
   P.uFlash.value = 1;
   S.wakeList = [];
   VOCAB_STATE.all = true;
-  later(2, () => ui.card('You understand', 'Danny went out into the snow after you once, and he did not come back. Tonight he went into the dark after you again, and this time he got you home. You understand all of it now: every word they said, and what it meant. The hot box is quiet and cold. The air in the house is still bad. They are still asleep. Wake them up. All of them.'));
+  const fx = spots.furnace.x;
+  playCine([
+    { dur: 4.2, pos: (k) => V(10.4 - k * 0.3, BASE_Y + 0.35 + k * 0.15, -0.5 - k * 0.3), look: V(11.4, BASE_Y + 0.25, -1.5), fov: 50, start: () => cineTitle('HOME', '', 3), update: (t, k, dt) => poseCineDog(11.4, BASE_Y, -1.5, dog.yaw, 'lie', dt) },
+    { dur: 3.4, pos: V(fx + 1.2, BASE_Y + 0.8, 0.4), look: V(fx, BASE_Y + 0.7, -1.6), fov: 46, start: () => { F.danny.setPos(fx, -1.2, BASE_Y); AU.ventVoice(fx, BASE_Y + 0.8, -1.4); showSubtitle('danny', 'Wake them up, buddy. Go on.', 3.2); },
+      update: (t, k, dt) => { if (Math.random() < dt * 2) emit(fx, BASE_Y + 1.0, -1.4, 'wrong', { spread: 0.1, life: 3, vy: 0.3, size: 0.03 }); poseCineDog(11.4, BASE_Y, -1.5, dog.yaw, 'lie', dt); } },
+    { dur: 3.2, pos: V(12.1, BASE_Y + 0.5, -2.6), look: V(13.25, BASE_Y + 1.6, 1.5), fov: 56, update: (t, k, dt) => poseCineDog(11.4, BASE_Y, -1.5, Math.atan2(-(13.25 - 11.4), -(1.5 + 1.5)), t < 1.2 ? 'lie' : 'stand', dt) },
+  ], () => hideCineDog());
   setObj('Wake them up. All three. Bark at them, nudge them. Then lead them out the front door.');
 }
 function wakeFinal(h) {
@@ -959,9 +1005,8 @@ function phaseUpdate(dt) {
 
   // chapter 6: the power goes as soon as you are back under the roof
   if (S.pendingCut) { S.cutWait = (S.outside || inBasement()) ? 0 : (S.cutWait || 0) + dt; if (S.cutWait > 2.5) powerCut(); }
-  if (S.lilyGone && !S.escort && roomAt(dog.pos.x, dog.pos.z, dog.y) === 'lily' && once('emptyBed')) ui.card('Her bed is empty', 'The blanket is still warm. Her smell goes out of the door and away down the hall.');
   if (S.lilyGone && !S.escort && !S.lilyDazed && inBasement() && dist2d(dog.pos, lily.pos) < 2.8 && once('lilyFound')) lilyFound();
-  if (S.power === false) for (const i of [0, 1, 2, 3, 4, 6, 8, 10, 13]) if (lights[i]) lights[i].on = false;
+  if (S.power === false && !S.cine) for (const i of [0, 1, 2, 3, 4, 6, 8, 10, 13]) if (lights[i]) lights[i].on = false;
   // middle of the night
   // the first time you go down into the basement, something down there is singing
   if (inBasement() && S.coOn && once('basementLullaby')) { AU.lullaby(() => [9.5, BASE_Y + 1.2, -2.5], 0.8, 0.75); AU.groan(9, -1, -1, 0.7); }
@@ -1103,9 +1148,26 @@ function wakePresence() {
   lights[4].flicker = 1;
   later(1.2, () => {
     if (S.monsterTest) lights[4].flicker = 0.7; else lights[4].on = false;
-    S.presenceActive = true; S.metThing = true; S.presence.setPos(spots.furnace.x, spots.furnace.z, BASE_Y);
-    if (!S.monsterTest && once('presenceCard')) ui.card('It is not Danny.', 'Danny smelled of snow and pencils. This smells of the hot box, of the bad air that has been filling the house. It has no shape. Your poisoned head is giving it one. RUN. Up the stairs.');
+    S.metThing = true; S.presence.setPos(spots.furnace.x, spots.furnace.z, BASE_Y);
+    if (!S.monsterTest && once('presenceCard')) firstReveal(); else S.presenceActive = true;
   });
+}
+// the first time you see it: it comes out of the furnace
+function firstReveal() {
+  const p = S.presence, g = refs.grille, fx = spots.furnace.x, fz = -1.6;
+  const d0 = dog.pos.clone(), dy = dog.y;
+  p.setPos(fx, fz + 0.1, BASE_Y); p.yaw = 0; p.visible = true;
+  const showP = (mode, dt) => { p.root.visible = true; p.root.position.set(p.pos.x, BASE_Y, p.pos.z); p.root.rotation.set(0, p.yaw, 0); p.monster.update(S.t, dt, mode); };
+  playCine([
+    // the grille bulges, and bursts
+    { dur: 1.6, pos: V(fx + 1.4, BASE_Y + 0.6, fz + 2.0), look: V(fx, BASE_Y + 0.6, fz), fov: 52, update: (t, k, dt) => { g.scale.set(1 + k * 0.3, 1 + k * 0.4, 1); cineShake(0.6 * k); refs.furnace.position.x = fx + (Math.random() - 0.5) * 0.03 * k; if (k > 0.9 && once('grilleBurst')) { AU.crash(fx, BASE_Y + 0.6, fz); AU.whoomp(fx, BASE_Y + 0.5, fz); g.visible = false; cineShake(2); for (let i = 0; i < 40; i++) emit(fx, BASE_Y + 0.6, fz + 0.3, 'wrong', { spread: 0.4, life: 3, vz: 0.8, size: 0.07 }); } } },
+    // out of the hole, unfolding, wrong
+    { dur: 3.0, pos: V(fx + 1.9, BASE_Y + 0.35, fz + 2.4), look: () => V(p.pos.x, BASE_Y + 0.5, p.pos.z), fov: 50, update: (t, k, dt) => { p.pos.z = fz + 0.1 + k * 1.3; p.yaw = Math.sin(t * 9) * 0.4; showP(t < 2 ? 'scare' : 'walk', dt); if (Math.random() < dt * 3) AU.breathing(p.pos.x, BASE_Y + 0.6, p.pos.z, 1); for (let i = 0; i < 2; i++) emit(p.pos.x, BASE_Y + 0.3 + Math.random(), p.pos.z, 'wrong', { spread: 0.5, life: 1.5, size: 0.06 }); } },
+    // its face finds you
+    { dur: 1.6, pos: () => { const f = p.monster.face.getWorldPosition(V(0, 0, 0)); const dx = d0.x - f.x, dz = d0.z - f.z, L = Math.hypot(dx, dz) || 1; return V(f.x + dx / L * 0.8 + 0.15, f.y + 0.05, f.z + dz / L * 0.8); }, look: () => p.monster.face.getWorldPosition(V(0, 0, 0)), fov: 40, start: () => { AU.scream(); cineShake(2.5); }, update: (t, k, dt) => { p.yaw = Math.atan2(d0.x - p.pos.x, d0.z - p.pos.z); showP('scare', dt); } },
+    // you
+    { dur: 1.0, pos: () => V(d0.x + 0.7, dy + 0.4, d0.z - 0.6), look: () => V(d0.x, dy + 0.4, d0.z), fov: 50, update: (t, k, dt) => poseCineDog(d0.x, dy, d0.z, dog.yaw, 'cower', dt) },
+  ], () => { hideCineDog(); g.visible = true; g.scale.set(1, 1, 1); refs.furnace.position.x = fx; S.presenceActive = true; showSubtitle('note', '<span class="note">(It is not Danny. It is the bad air, wearing a shape. RUN.)</span>', 3); });
 }
 // Upstairs, once the lights are out, it walks the dark rooms looking for you.
 const STALK_NODES = [[1.5, 7.6], [1.95, 4.25], [5.9, 4.25], [9.45, 4.25], [11.45, 4.25], [13.0, 4.25], [6, 6.2], [4.4, 8.6], [8.0, 8.4], [9.7, 8.6], [12.8, 8.6], [12.8, 5.8], [2.9, 2.6], [6.3, 2.5], [11.45, 2.3], [3.6, 6.0]];
@@ -1191,9 +1253,13 @@ function caughtCount() {
   S.catches = (S.catches || 0) + 1;
   if (S.catches >= 3) { S.cut = 'dark'; later(1.5, () => finish('dark')); return; }
   later(5, () => { if (!S.ended) ach('caught'); });
-  later(3, () => ui.card(S.catches === 1 ? 'You wake up on the floor' : 'Again', S.catches === 1
-    ? 'Your head is pounding. You do not know how long you were gone. The air is thicker than it was. It is still in the house.'
-    : 'Longer, this time. It was harder to come back. You know, the way animals know things, that if it takes you again you will not wake up.'));
+  later(2.6, () => {
+    const n = S.catches;
+    playCine([
+      { dur: n === 1 ? 3.0 : 4.2, pos: (k) => dogFaceCam(dog.pos, dog.yaw, 0.9 - k * 0.2, 0.3, -0.25), look: () => dogHeadAt(dog.pos, dog.yaw).add(V(0, -0.3, 0)), fov: 50, start: () => { AU.heartbeat(1); later(0.6, () => AU.heartbeat(1)); later(1.2, () => AU.heartbeat(0.9)); }, update: (t, k, dt) => { poseCineDog(dog.pos.x, dog.y, dog.pos.z, dog.yaw, t < (n === 1 ? 1.8 : 3.2) ? 'lie' : 'tremble', dt); P.uBlackout.value = Math.max(0, 1 - t * 0.6); } },
+      { dur: 1.6, pos: () => dog.pos.clone().add(V(0, dog.y + 1.8, 0.4)), look: () => dog.pos.clone(), fov: 60, start: () => { if (n >= 2) showSubtitle('note', '<span class="note">(It took longer to come back, this time. You know you would not come back again.)</span>', 3.5); }, update: (t, k, dt) => poseCineDog(dog.pos.x, dog.y, dog.pos.z, dog.yaw, 'tremble', dt) },
+    ], () => hideCineDog());
+  });
 }
 // barking scatters it, like smoke. But not twice in a row.
 function barkRepel() {
@@ -2392,6 +2458,7 @@ function otherFrame(dt) {
   S.fadeV = (S.fadeV || 0) + (ft - (S.fadeV || 0)) * Math.min(1, dt * (S.fadeSpeed || 2) * 2);
   P.uFade.value = Math.max(S.fadeV, 0);
   AU.updateAmbience(0.2, S.t, 0.6);
+  updateCine(dt);
 }
 function jumpscareStep(dt) {
   if (S.jumpscare > 0) {
@@ -2441,8 +2508,9 @@ function houseTail(dt) {
   G.uFogFar.value = 15 + ok * 3;
   G.uFogColor.value.set(0.05 + ok * 0.03, 0.048 + ok * 0.035, 0.055 + ok * 0.05);
   if (S.debugLight) G.uAmbient.value.setScalar(S.debugLight); // testing aid only
+  updateCine(dt);
 }
 
 // testing hooks
 function startOther() { S.ch = 9; S.furnaceMaw = true; for (const id of ['intro1', 'intro2', 'trackCard', 'poisonCard']) S.fired.add(id); enterOther(); }
-export const DBG = { startOther, otherStage: (st) => jumpToStage(st), comeHome: () => (S.other ? forceHome() : comeHomeReal()), finale, monsterRoom, powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
+export const DBG = { wakePresence, furnaceOpens, intoFurnace, caughtUpstairs, startOther, otherStage: (st) => jumpToStage(st), comeHome: () => (S.other ? forceHome() : comeHomeReal()), finale, monsterRoom, powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };

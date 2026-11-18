@@ -95,6 +95,17 @@
   #track small { display: block; font-size: 14px; color: #6a645a; letter-spacing: 0.1em; }
   #label .tk { color: #8a8270; font-size: 0.8em; letter-spacing: 0.08em; margin-left: 6px; }
   body:not(.hint) #goalBox, body:not(.hint) #compass { opacity: 0 !important; transition: opacity 0.3s; }
+  /* cutscenes: letterbox, no HUD, a film title now and then */
+  #lbTop, #lbBot { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 30; transition: height 0.6s ease; pointer-events: none; }
+  #lbTop { top: 0; } #lbBot { bottom: 0; }
+  body.cine #lbTop, body.cine #lbBot { height: 12vh; }
+  body.cine #hud > *:not(#subs) { opacity: 0 !important; transition: opacity 0.3s; }
+  body.cine #subs { bottom: 13vh; z-index: 31; }
+  #cineTitle { position: fixed; left: 0; right: 0; top: 44%; text-align: center; z-index: 32; color: #e8d8b8; font-size: clamp(28px, 5vw, 56px); letter-spacing: 0.4em; opacity: 0; transition: opacity 1.4s; pointer-events: none; text-shadow: 0 0 18px #000; }
+  #cineTitle small { display: block; font-size: 0.32em; letter-spacing: 0.3em; color: #a08a6a; margin-top: 10px; }
+  #cineTitle.on { opacity: 1; }
+  #splat { position: fixed; inset: 0; z-index: 29; pointer-events: none; opacity: 0; transition: opacity 2.5s; }
+  #splat.on { opacity: 0.85; transition: opacity 0.05s; }
   #goalBox { position: fixed; right: 18px; top: 14px; max-width: min(430px, 46vw); z-index: 5; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
   #objective { position: static; max-width: 100%; text-align: right; font-size: 20px; line-height: 1.2; color: #e8dfc8; text-shadow: 2px 2px 0 #000; z-index: 5; opacity: 0; transition: opacity 0.8s; }
   #objective.show { opacity: 1; }
@@ -195,6 +206,7 @@
   <div id="resetSaves">forget everything and start over</div>
 </div>
 
+<div id="lbTop"></div><div id="lbBot"></div><div id="cineTitle"></div><canvas id="splat"></canvas>
 <div id="achPanel"><h2>ACHIEVEMENTS</h2><div class="grid" id="achGrid"></div><div class="close">close</div></div>
 
 <div id="intro" class="overlay"><span class="skip">click to skip</span></div>

@@ -243,7 +243,7 @@ export function updateDog(dt, camera, co, t) {
     if (keys.has('a')) mx -= 1; if (keys.has('d')) mx += 1;
     if (input.stickX || input.stickY) { mx += input.stickX; mz += input.stickY; } // touch joystick
   }
-  const lyingNow = input.cDown && !d.frozen && !d.digging && !d.air && !d.human;
+  const lyingNow = d.forceLie || (input.cDown && !d.frozen && !d.digging && !d.air && !d.human);
   if (lyingNow && !d.wasLying) flop();
   d.wasLying = lyingNow;
   d.lying += ((lyingNow ? 1 : 0) - d.lying) * Math.min(1, dt * 4);
@@ -261,7 +261,7 @@ export function updateDog(dt, camera, co, t) {
   right.set(Math.cos(d.yaw), 0, -Math.sin(d.yaw));
   const len = Math.hypot(mx, mz);
   const ox = d.pos.x, oz = d.pos.z;
-  d.moving = len > 0;
+  d.moving = len > 0 || !!d.forceMove; // a cutscene can make him run
   if (len > 0) {
     let an = input.stickX || input.stickY ? Math.min(1, len) : 1; // a gentle push walks slowly
     if (d.air) an *= 0.55; // in the air you mostly go up, so you come down on what you jumped at

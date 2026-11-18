@@ -12,6 +12,7 @@ import { colliders, lights, collide, SURFACES } from './house.js';
 import { dog, input, act, lookAtPoint } from './player.js';
 import { puff, FXCFG } from './fx.js';
 import { showSubtitle } from './humans.js';
+import { playCine, cineTitle, cineShake, splat, V, orbit, poseCineDog, hideCineDog, dogHeadAt, dogFaceCam } from './cutscene.js';
 
 export const OX = 300;
 const HALE = { x0: OX - 6, x1: OX + 6, z0: 8, z1: 15 };   // the house that is almost theirs
@@ -382,7 +383,7 @@ export function enterOther() {
   dog.human = false; dog.radius = 0.21; dog.frozen = false;
   dog.pos.set(OX + 1.5, 0, 2.2); dog.y = 0; dog.yaw = Math.PI; dog.pitch = 0.08;
   C.setObj('This is your street. Nearly. It is not snowing; that is ash. Go home.');
-  C.later(1.2, () => C.ui.card('The other side', 'You went into the hot box and came out here. It is your street, almost. The houses are the wrong colours. Ash comes down instead of snow. Your house is right there, and its door is open. It smells like them.'));
+  cineArrive();
   C.ach('through');
 }
 function leaveOther() {
@@ -395,7 +396,7 @@ function leaveOther() {
   F.danny.noNav = false; F.danny.visible = false;
   tear.visible = false; arms.visible = false; H.endLight.on = false; H.headlight = null;
   dog.human = false; dog.radius = 0.21; S.hideDog = false;
-  C.S.timeScale = 1;
+  C.S.timeScale = 1; S.cine = false; document.body.classList.remove('cine'); hideCineDog();
 }
 
 // ---------------------------------------------------------------------------
@@ -460,6 +461,7 @@ export function updateOther(dt) {
   // the air over here
   G.uAmbient.value.set(0.5, 0.36, 0.3);
   G.uCamLight.value.set(0.6, 0.5, 0.42);
+  if (S.cine) { G.uCamLight.value.set(1.1, 0.95, 0.85); G.uAmbient.value.set(0.6, 0.45, 0.4); }
   G.uFogColor.value.set(0.34, 0.16, 0.08);
   G.uFogNear.value = 5; G.uFogFar.value = 34;
   P.uCold.value = 0;
@@ -489,28 +491,13 @@ export function updateOther(dt) {
   }
   if (st === 'street') {
     if (inHale && dog.pos.z > 9.3) {
-      S.oStage = 'house'; S.oT = 0;
-      AU.stinger(0.35);
+      S.oStage = 'finding'; S.oT = 0;
       C.setObj('They are lying on the floor. They are not breathing.');
+      cineFindThem();
     }
   } else if (st === 'house') {
     // they get up, one by one, and turn to look at you. Behind you, the door slams.
-    if (S.oT > 5 && !S.oRisen) {
-      S.oRisen = true;
-      fam.forEach((h, i) => C.later(i * 1.6, () => {
-        h.pose = 'stand'; h.speed = 0.42; h.override = { type: 'zombie' };
-        h.look(C.dogHead(), 999, S.t);
-        AU.groan(h.pos.x, 1, h.pos.z, 0.6);
-        C.say(h, 'Biscuit.', 'whisper', { force: true, clear: true });
-      }));
-      C.later(3.8, () => {
-        S.oDoorFrom = H.haleDoor.rotation.y; S.oDoorTo = 0; S.oDoorT = 0; H.haleDoorCol.disabled = false;
-        AU.crash(OX, 1, 8); AU.thunk(OX, 1, 8, 1); S.oShake = 0.9; AU.stinger(0.9);
-        // the house goes dark, but for the cold blue coming in at the flap
-        for (const L of OL) if (L.box[1] === -1 && L.box[0] === HALE.x0) L.k0 = 0.35;
-      });
-      C.later(4.4, () => { S.oStage = 'risen'; S.oT = 0; C.setObj('The door slammed. They are coming, slowly, with their arms out.'); });
-    }
+    if (S.oT > 4 && !S.oRisen) { S.oRisen = true; cineRise(); }
   } else if (st === 'risen' || st === 'feast') {
     // the dead family come after you, slowly, and they talk to you
     S.oFollowT = (S.oFollowT || 0) - dt;
@@ -545,9 +532,8 @@ export function updateOther(dt) {
     }
     const outside = fam.filter((h) => h.pos.z < 7.6).length;
     if (st === 'risen' && S.oDoorOpen && dog.pos.z < 7 && (outside >= 1 || S.oT - S.oDoorAt > 9)) {
-      S.oStage = 'feast'; S.oT = 0;
-      const p = S.presence; p.setPos(OX - 26, -1.5); p.yaw = Math.PI / 2;
-      AU.stinger(1); AU.whoomp(OX - 20, 1, -1);
+      S.oStage = 'feasting'; S.oT = 0;
+      cineFeast();
     }
     if (st === 'feast') {
       const p = S.presence;
@@ -582,9 +568,8 @@ export function updateOther(dt) {
     if (Math.random() < dt * 0.3) AU.creak(FLAP_X, 0.3, 8, 0.5);
     if (inSafe) {
       S.oStage = 'safe'; S.oT = 0; hideMon();
-      AU.knock(FLAP_X, 0.3, 7.9, 4, 0.8);
-      C.setObj('Safe, for now. This house\'s hot box is sick, like yours.');
-      C.later(1, () => C.ui.card('Safe', 'It slams against the door, again and again, and then it stops. You can hear it breathing on the other side. In here it is warm, and the air is wrong: the hot box against the back wall is coughing its bad air back out into the room through a crack in its pipe. On the wall, a page in Danny\'s handwriting, torn in half: "1. CLEAR THE VE..." The rest is gone.'));
+      C.setObj('Safe, for now. This house\'s hot box is sick, like yours. Half of Danny\'s checklist is on the wall: "1. CLEAR THE VE..."');
+      cineFlap();
       return;
     }
     if (S.oT < 1.2) { showMon('scare', dt); return; } // it rears up first: your head start
@@ -819,6 +804,211 @@ function buildClutter() {
   for (const [cx] of [[OX], [FLAP_X - 2.7]]) { blk(cx - 0.8, 0, 7.4, cx + 0.8, 0.12, 7.95, mat({ map: T.concrete, color: 0x8a8070 })); }
 }
 
+// ===========================================================================
+// CUTSCENES on the other side
+// ---------------------------------------------------------------------------
+// gore: blood that sprays and pools and stays, and what is left
+const POOLS = [];
+function bloodSpray(x, y, z, n = 40, up = 2.5) {
+  for (let i = 0; i < n; i++) puff(x, y, z, { col: Math.random() < 0.6 ? [0.75, 0.03, 0.03] : [0.45, 0.0, 0.02], vx: (Math.random() - 0.5) * 3.2, vy: Math.random() * up, vz: (Math.random() - 0.5) * 3.2, grav: 8, life: 2.2, size: 0.03 + Math.random() * 0.03, spread: 0.15 });
+}
+function bloodPool(x, z, r) {
+  const m = put(new THREE.CircleGeometry(1, 14), mat({ color: 0x7a0606, emissive: 0x200000, unique: true }), x, 0.009 + POOLS.length * 0.0006, z, { rx: -Math.PI / 2 });
+  m.scale.setScalar(0.05);
+  // ragged: a few satellite splashes
+  for (let i = 0; i < 5; i++) { const a = Math.random() * 6.28, d = r * (0.8 + Math.random() * 0.7); put(new THREE.CircleGeometry(0.06 + Math.random() * 0.12, 7), m.material, x + Math.cos(a) * d, 0.0095, z + Math.sin(a) * d, { rx: -Math.PI / 2 }); }
+  POOLS.push({ m, r });
+}
+function chunks(x, z, n = 6) {
+  const fl = mat({ color: 0x5a1010, unique: true }), bn = mat({ color: 0xc8bca8 });
+  for (let i = 0; i < n; i++) put(new THREE.BoxGeometry(0.05 + Math.random() * 0.1, 0.03 + Math.random() * 0.05, 0.05 + Math.random() * 0.12), Math.random() < 0.2 ? bn : fl, x + (Math.random() - 0.5) * 1.4, 0.03, z + (Math.random() - 0.5) * 1.4, { ry: Math.random() * 3 });
+}
+// an arm, torn off and thrown: it lands in the road, and the hand is still moving
+function throwLimb(h, to) {
+  const g = new THREE.Group(); W.add(g);
+  const skin = mat({ map: T.skin, color: 0xc8a898 }), cloth = mat({ map: T.flannel }), raw = mat({ color: 0x7a0808, emissive: 0x200000 });
+  put(new THREE.CylinderGeometry(0.05, 0.045, 0.32, 6), cloth, 0, 0.16, 0, { parent: g });
+  put(new THREE.CylinderGeometry(0.04, 0.035, 0.28, 6), skin, 0, -0.12, 0, { parent: g });
+  put(new THREE.BoxGeometry(0.08, 0.1, 0.03), skin, 0, -0.3, 0, { parent: g });
+  put(new THREE.CylinderGeometry(0.055, 0.055, 0.04, 6), raw, 0, 0.33, 0, { parent: g });
+  const from = h.pos.clone().setY(1.0);
+  const L = { g, t: 0, from, to };
+  LIMBS.push(L);
+  return L;
+}
+const LIMBS = [];
+function updateLimbs(dt) {
+  for (const L of LIMBS) {
+    L.t += dt; const k = Math.min(1, L.t / 0.9);
+    if (k < 1) { L.g.position.lerpVectors(L.from, L.to, k); L.g.position.y = 1.0 + Math.sin(k * Math.PI) * 1.6 - k * 0.95; L.g.rotation.set(k * 9, k * 4, 0); if (Math.random() < dt * 40) puff(L.g.position.x, L.g.position.y, L.g.position.z, { col: [0.7, 0.03, 0.03], vy: -0.3, grav: 6, life: 1.5, size: 0.03 }); }
+    else { if (!L.down) { L.down = true; AU.thunk(L.to.x, 0.05, L.to.z, 0.6); bloodPool(L.to.x, L.to.z, 0.4); L.g.rotation.set(Math.PI / 2, 1.2, 0); L.g.position.y = 0.05; } L.g.children[2].rotation.z = Math.sin(L.t * 7) * 0.4 * Math.max(0, 1 - (L.t - 0.9) / 5); }
+  }
+}
+function growPools(dt) {
+  updateLimbs(dt); for (const p of POOLS) { const s = p.m.scale.x; if (s < p.r) p.m.scale.setScalar(Math.min(p.r, s + dt * 0.35)); } }
+// long pale fingers, pushing in through a dog flap
+function makeFingers() {
+  const g = new THREE.Group(); W.add(g); g.visible = false;
+  const pale = mat({ color: 0xb8b0a6 }), nail = mat({ color: 0x2a2020 });
+  put(new THREE.BoxGeometry(0.16, 0.04, 0.14), pale, 0, 0, 0, { parent: g });
+  for (let i = 0; i < 4; i++) { const f = put(new THREE.CylinderGeometry(0.012, 0.008, 0.26, 4), pale, -0.06 + i * 0.04, 0, 0.18, { parent: g, rx: Math.PI / 2 }); put(new THREE.BoxGeometry(0.014, 0.006, 0.03), nail, 0, 0.12, 0.005, { parent: f, rx: -Math.PI / 2 }); }
+  return g;
+}
+const at = (h) => h.headWorld();
+const faceOf = (h, dist = 0.7, side = 0.15, up = 0.02) => { const hp = h.headWorld(); const dx = dog.pos.x - hp.x, dz = dog.pos.z - hp.z, L = Math.hypot(dx, dz) || 1; return V(hp.x + dx / L * dist + dz / L * side, hp.y + up, hp.z + dz / L * dist - dx / L * side); };
+const famV = () => FAM.map((k) => C.F[k]);
+
+// arriving: from the sky, down to a dog lying in the ash
+function cineArrive() {
+  const d0 = dog.pos.clone();
+  playCine([
+    { dur: 4.2, pos: (k) => V(d0.x + 0.6, 14 - k * 11.5, d0.z - 7 + k * 4.2), look: V(d0.x, 0.25, d0.z), fov: 60, start: () => { cineTitle('THE OTHER SIDE', 'it is almost your street', 3.6); AU.thunder(0.3); }, update: (t, k, dt) => poseCineDog(d0.x, 0, d0.z, dog.yaw, 'lie', dt) },
+    { dur: 2.6, pos: V(d0.x + 0.9, 0.32, d0.z - 0.9), look: V(d0.x, 0.3, d0.z), fov: 55, update: (t, k, dt) => { poseCineDog(d0.x, 0, d0.z, dog.yaw, t < 1.3 ? 'lie' : 'stand', dt); if (t > 1.3 && C.once('arrShake')) AU.shakeSnd(); } },
+    { dur: 4.4, pos: orbit(V(d0.x, 0, d0.z), 2.6, 0.9, 2.6, 4.4), look: (k) => V(d0.x - 1.5 * k, 0.6 + k * 0.6, d0.z + 6 * k), fov: 62, update: (t, k, dt) => poseCineDog(d0.x, 0, d0.z, dog.yaw, 'stand', dt) },
+  ], () => hideCineDog());
+}
+// finding them
+function cineFindThem() {
+  const F = C.F, f = F.father, m = F.mother, l = F.lily;
+  playCine([
+    { dur: 3.4, pos: (k) => V(OX + 4.4 - k * 2.4, 0.32, 10.1 + k * 0.4), look: () => f.pos.clone().setY(0.2), fov: 58, start: () => AU.stinger(0.35) },
+    { dur: 2.6, pos: () => at(m).add(V(0.5, 0.45, 0.25)), look: () => at(m), fov: 50, start: () => AU.heartbeat(0.6) },
+    { dur: 2.6, pos: () => at(l).add(V(-0.5, 0.3, -0.35)), look: () => at(l), fov: 48 },
+    { dur: 2.2, pos: () => dogFaceCam(dog.pos, dog.yaw, 1.0, 0.3), look: () => dogHeadAt(dog.pos, dog.yaw), fov: 50, start: () => AU.whine(), update: (t, k, dt) => poseCineDog(dog.pos.x, 0, dog.pos.z, dog.yaw, 'cower', dt) },
+  ], () => { hideCineDog(); C.S.oStage = 'house'; C.S.oT = 0; });
+}
+// they get up, and the door slams
+function cineRise() {
+  const { S, F } = C;
+  const fam = famV();
+  const up = (h) => { h.pose = 'stand'; h.speed = 0.42; h.override = { type: 'zombie' }; h.look(C.dogHead(), 999, S.t); AU.groan(h.pos.x, 1, h.pos.z, 0.6); };
+  playCine([
+    { dur: 2.0, pos: () => faceOf(F.father, 0.75, 0.2), look: () => at(F.father), fov: 46, start: () => { up(F.father); } },
+    { dur: 1.6, pos: () => faceOf(F.mother, 0.7, -0.15), look: () => at(F.mother), fov: 44, start: () => { up(F.mother); C.say(F.mother, 'Biscuit.', 'whisper', { force: true, clear: true }); } },
+    { dur: 1.8, pos: () => at(F.lily).add(V(0.3, 0.0, -0.7)), look: () => at(F.lily), fov: 44, start: () => { up(F.lily); C.say(F.lily, 'Biscuit. You came.', 'whisper', { force: true, clear: true }); } },
+    { dur: 1.7, pos: V(OX + 0.3, 1.2, 10.8), look: V(OX, 1.1, 8), fov: 60, start: () => { S.oDoorFrom = H.haleDoor.rotation.y; S.oDoorTo = 0; S.oDoorT = 0; H.haleDoorCol.disabled = false; }, update: (t) => { if (t > 0.25 && C.once('slam')) { AU.crash(OX, 1, 8); AU.thunk(OX, 1, 8, 1); cineShake(2.5); AU.stinger(0.9); for (const L of OL) if (L.box[1] === -1 && L.box[0] === HALE.x0) L.k0 = 0.35; } } },
+    { dur: 1.6, pos: () => dog.pos.clone().add(V(0, 0.42, 0)), look: () => at(F.father), fov: 64, start: () => fam.forEach((h) => { if (h.visible) h.override = { type: 'zombie' }; }) },
+  ], () => { S.oStage = 'risen'; S.oT = 0; C.setObj('The door slammed. They are coming, slowly, with their arms out.'); });
+}
+// the feast: it comes down the street and eats them, in front of you
+function cineFeast() {
+  const { S, F } = C;
+  const p = S.presence;
+  const f = F.father, m = F.mother, l = F.lily;
+  // stage it: you in the street, the three of them in front of the house, coming
+  dog.pos.set(OX + 2.6, 0, 2.4); dog.yaw = Math.PI; dog.y = 0;
+  f.setPos(OX + 1.7, 6.0); m.setPos(OX - 1.4, 6.5); l.setPos(OX + 0.1, 7.3);
+  for (const h of [f, m, l]) { h.visible = true; h.path = [v3(OX + 1.4, 0, 3.6)]; h.speed = 0.35; h.override = { type: 'zombie' }; h.pose = 'stand'; }
+  p.setPos(OX - 24, 0.6); p.yaw = Math.PI / 2;
+  const eat = (h, t, dt) => {
+    // on him, tearing; he jerks; it shakes its head like a dog with a rag
+    p.pos.x += (h.pos.x - 0.25 - p.pos.x) * Math.min(1, dt * 12); p.pos.z += (h.pos.z - 0.2 - p.pos.z) * Math.min(1, dt * 12);
+    p.yaw = Math.atan2(h.pos.x - p.pos.x, h.pos.z - p.pos.z) + Math.sin(t * 30) * 0.4;
+    showMon('scare', dt);
+    h.yaw += Math.sin(t * 45) * 0.25;
+    if (Math.random() < dt * 6) bloodSpray(h.pos.x, 0.5 + Math.random() * 0.6, h.pos.z, 10, 2);
+  };
+  let tGore = 0;
+  playCine([
+    // 1: behind you, low: they come at you down the path, and something is coming fast up the street
+    { dur: 3.6, pos: V(OX + 3.1, 0.75, 0.6), look: V(OX + 0.6, 1.1, 6.6), fov: 62, update: (t, k, dt) => {
+      poseCineDog(dog.pos.x, 0, dog.pos.z, dog.yaw, 'tremble', dt);
+      if (t > 1.0) { moveMon(v3(f.pos.x - 0.3, 0, f.pos.z - 0.3), 11, dt); showMon('hunt', dt); if (C.once('feastSkitter')) { AU.stinger(1); AU.whoomp(OX - 15, 1, 0); } }
+    } },
+    // 2: his face. He knows.
+    { dur: 1.3, pos: () => dogFaceCam(dog.pos, dog.yaw, 0.85, 0.2), look: () => dogHeadAt(dog.pos, dog.yaw), fov: 46, start: () => AU.whine(), update: (t, k, dt) => { poseCineDog(dog.pos.x, 0, dog.pos.z, dog.yaw, 'cower', dt); moveMon(v3(f.pos.x - 0.3, 0, f.pos.z - 0.3), 11, dt); showMon('hunt', dt); } },
+    // 3: Tom. It goes for the throat.
+    { dur: 4.2, pos: () => f.pos.clone().add(V(2.0, 0.7, -1.2)), look: () => f.pos.clone().setY(0.6), fov: 52, start: () => { f.path = []; f.setFace(false); AU.scream(); cineShake(1.5); bloodSpray(f.pos.x, 1.45, f.pos.z, 70, 3.5); AU.gore(f.pos.x, 1, f.pos.z, 1.2); bloodPool(f.pos.x, f.pos.z, 1.3); },
+      update: (t, k, dt) => {
+        poseCineDog(dog.pos.x, 0, dog.pos.z, dog.yaw, 'cower', dt);
+        if (t < 0.7) { f.pos.y = 0; f.override = { type: 'stretch' }; } else { f.pose = 'sleep'; f.override = null; }
+        eat(f, t, dt);
+        tGore -= dt; if (tGore <= 0) { tGore = 0.55; AU.gore(f.pos.x, 0.4, f.pos.z, 0.8 + Math.random() * 0.4); cineShake(0.5); }
+        if (t > 2.2 && !H.limb) { H.limb = throwLimb(f, v3(f.pos.x + 2.2, 0, f.pos.z - 2.6)); AU.gore(f.pos.x, 0.8, f.pos.z, 1.4); bloodSpray(f.pos.x, 0.6, f.pos.z, 60, 3); cineShake(1.5); }
+        growPools(dt);
+      } },
+    // 4: Claire. Her real face comes back. She screams at you to run, and then it has her.
+    { dur: 2.6, pos: () => faceOf(m, 0.7, 0.12), look: () => at(m), fov: 42, start: () => { m.path = []; m.setFace(false); m.override = null; m.look(C.dogHead(), 9, S.t); C.say(m, 'BISCUIT! RUN! RUN, BABY!', 'sharp', { force: true, clear: true }); },
+      update: (t, k, dt) => {
+        if (t > 1.6) {
+          if (C.once('clGrab')) { AU.scream(); AU.gore(m.pos.x, 1.2, m.pos.z, 1.3); splat(1.2); cineShake(3); bloodSpray(m.pos.x, 1.4, m.pos.z, 80, 4); bloodPool(m.pos.x, m.pos.z, 1.1); }
+          m.pose = 'sleep'; showMon('scare', dt);
+          // it drags her backwards across the road
+          m.pos.x -= dt * 1.6; p.pos.set(m.pos.x - 0.3, 0, m.pos.z - 0.2);
+          if (Math.random() < dt * 14) { const sm = put(new THREE.CircleGeometry(0.16 + Math.random() * 0.12, 7), mat({ color: 0x6a0505, emissive: 0x180000 }), m.pos.x + 0.4, 0.009, m.pos.z + 0.3 + (Math.random() - 0.5) * 0.3, { rx: -Math.PI / 2 }); sm.scale.set(1.8, 1, 1); }
+        }
+        growPools(dt);
+      } },
+    // 5: Lily. You do not see it. You see the porch light go out, and you hear it.
+    { dur: 3.4, pos: () => dogFaceCam(dog.pos, dog.yaw, 0.95, -0.3), look: () => dogHeadAt(dog.pos, dog.yaw), fov: 44, start: () => { C.say(l, 'Biscuit? Biscuit, I am scared.', 'calm', { force: true, clear: true }); l.setFace(false); },
+      update: (t, k, dt) => {
+        poseCineDog(dog.pos.x, 0, dog.pos.z, dog.yaw, 'tremble', dt);
+        if (t > 1.8 && C.once('lilyDark')) { for (const L of OL) if (Math.abs(L.pos.x - OX) < 0.5 && Math.abs(L.pos.z - 7.4) < 0.5) L.on = false; AU.crash(OX, 2, 7.4); AU.gore(l.pos.x, 0.5, l.pos.z, 0.9); setTimeout(() => AU.gore(l.pos.x, 0.5, l.pos.z, 0.7), 500); l.pose = 'sleep'; l.path = []; bloodPool(l.pos.x, l.pos.z, 0.8); chunks(l.pos.x, l.pos.z, 4); cineShake(1); AU.whine(); }
+        growPools(dt);
+      } },
+    // 6: what is left. It lifts its head out of them and looks at you.
+    { dur: 4.4, pos: (k) => V(p.pos.x + 3.4 - k * 1.6, 0.55, p.pos.z - 2.6 + k * 1.2), look: () => p.pos.clone().setY(0.6), fov: (k) => 58 - k * 22, start: () => { chunks(f.pos.x, f.pos.z, 8); chunks(m.pos.x, m.pos.z, 6); p.pos.set(m.pos.x + 0.6, 0, m.pos.z - 0.5); },
+      update: (t, k, dt) => {
+        growPools(dt);
+        p.yaw = t < 2.6 ? Math.atan2(f.pos.x - p.pos.x, f.pos.z - p.pos.z) + Math.sin(t * 22) * 0.3 : Math.atan2(dog.pos.x - p.pos.x, dog.pos.z - p.pos.z);
+        showMon(t < 2.6 ? 'scare' : 'idle', dt);
+        if (t < 2.6 && Math.random() < dt * 3) AU.gore(p.pos.x, 0.3, p.pos.z, 0.4);
+        if (Math.random() < dt * 8) bloodSpray(p.pos.x, 0.7, p.pos.z, 2, 0.2);
+        if (t > 2.6 && C.once('lookUp')) { AU.growl(1.4, 1); AU.stinger(1); }
+      } },
+  ], () => {
+    hideCineDog();
+    for (const h of [f, m, l]) { h.eaten = true; h.path = []; h.pose = 'sleep'; h.override = null; deadLook(h, true); }
+    S.oVictim = null; S.oFed = true; S.oStage = 'run1'; S.oT = 0;
+  });
+}
+// in through the flap, just ahead of it
+function cineFlap() {
+  const { S } = C;
+  const p = S.presence;
+  if (!H.fingers) H.fingers = makeFingers();
+  let slam = 0;
+  playCine([
+    { dur: 1.7, pos: V(FLAP_X + 3.4, 1.0, 4.0), look: V(FLAP_X, 0.4, 7.6), fov: 60, ease: 'linear', update: (t, k, dt) => {
+      const z = 4.6 + k * 4.2; poseCineDog(FLAP_X, k > 0.75 ? -0.12 : 0, z, Math.PI, 'run', dt);
+      p.pos.set(FLAP_X - 0.2, 0, 2.6 + k * 4.6); p.yaw = 0; showMon('hunt', dt);
+      if (k > 0.75 && C.once('flapIn')) { AU.flap(FLAP_X, 0.3, 8); }
+    } },
+    { dur: 3.4, pos: V(FLAP_X + 1.5, 0.55, 11.3), look: V(FLAP_X, 0.35, 8.1), fov: 56, start: () => { hideMon(); H.fingers.visible = true; },
+      update: (t, k, dt) => {
+        poseCineDog(FLAP_X + 0.2, 0, 9.2 + k * 1.4, 0, 'cower', dt);
+        slam -= dt;
+        if (slam <= 0) { slam = 0.55 + Math.random() * 0.35; AU.thunk(FLAP_X, 1, 8, 1); AU.knock(FLAP_X, 1.2, 8, 2, 1); cineShake(1.4); for (let i = 0; i < 10; i++) puff(FLAP_X + (Math.random() - 0.5) * 2, 2.5, 8.6, { col: [0.5, 0.45, 0.4], vy: -0.6, life: 1.4, size: 0.02 }); }
+        const reach = Math.max(0, Math.sin(t * 2.6)) * 0.45;
+        H.fingers.position.set(FLAP_X, 0.2, 8.0 + reach); H.fingers.rotation.x = -0.15 + Math.sin(t * 9) * 0.1;
+      } },
+    { dur: 2.2, pos: V(FLAP_X + 0.5, 0.25, 9.0), look: V(FLAP_X, 0.2, 8.1), fov: 44,
+      update: (t, k, dt) => { H.fingers.position.set(FLAP_X, 0.2, 8.4 - k * 0.6); if (Math.random() < dt * 4) AU.scratch(FLAP_X, 0.2, 8); } },
+  ], () => { hideCineDog(); H.fingers.visible = false; dog.pos.set(FLAP_X + 0.2, 0, 10.4); dog.yaw = 0; });
+}
+// the tear opens
+function cineTear() {
+  const { S } = C;
+  const p = S.presence;
+  tear.visible = true; tear.position.set(OX + 45, 1.9, -10.5); tear.rotation.y = 0; tear.scale.set(0.02, 0.02, 1);
+  H.endLight.on = true; H.endLight.pos.copy(tear.position);
+  p.setPos(OX + 45.5, -5.5);
+  playCine([
+    { dur: 1.8, pos: V(OX + 46.2, 0.8, 11.8), look: V(OX + 45, 0.5, 13.2), fov: 50, start: () => { AU.whoomp(OX + 45, 0.5, 13); } },
+    { dur: 4.4, pos: V(FLAP_X - 3, 1.3, 6.8), look: V(OX + 45, 1.9, -10.5), fov: 58, update: (t, k, dt) => {
+      const g = Math.min(1, t / 3.2);
+      tear.scale.set(Math.max(0.02, g * g), Math.min(1, g * 2.2), 1);
+      if (Math.random() < dt * 8) { P.uFlash.value = 0.35; }
+      if (C.once('tearRip')) { AU.thunder(0.2); AU.stinger(0.7); }
+      cineShake(0.8 * (1 - g));
+      for (let i = 0; i < 4; i++) puff(tear.position.x + (Math.random() - 0.5) * 6, 0.3 + Math.random() * 3, tear.position.z + 3 + Math.random() * 3, { col: [0.4, 0.38, 0.36], vz: -2.5, vy: 0.4, life: 1.2, size: 0.03 });
+      showMon('idle', dt); p.yaw = Math.atan2(tear.position.x - p.pos.x, tear.position.z - p.pos.z);
+      tearPulse(dt);
+    } },
+    { dur: 2.6, pos: () => p.pos.clone().add(V(1.2, 0.5, 1.6)), look: () => p.pos.clone().setY(0.7), fov: 48, update: (t, k, dt) => { tearPulse(dt); p.yaw = t < 1.2 ? Math.atan2(tear.position.x - p.pos.x, tear.position.z - p.pos.z) : Math.atan2(FLAP_X - p.pos.x, 8 - p.pos.z); showMon('idle', dt); if (t > 1.2 && C.once('turnFlap')) AU.growl(1, 0.8); } },
+  ], () => { tear.scale.set(1, 1, 1); });
+}
+
 function tearPulse(dt) {
   const { S } = C;
   if (!tear.visible) return;
@@ -836,17 +1026,10 @@ function fixed() {
   H.grille.material.uniforms.uColor.value.set(0.15, 0.12, 0.1);
   H.fireLight.on = false;
   hideMon(); S.oPatrol = null; S.oAlert = null;
-  lookAtPoint(FLAP_X, 0.3, 7.5, 0.8);
   C.setObj('The hot box is quiet.');
-  C.later(1.2, () => {
-    S.oStage = 'torn'; S.oT = 0;
-    tear.visible = true; tear.position.set(OX + 45, 1.9, -10.5); tear.rotation.y = 0;
-    H.endLight.on = true; H.endLight.pos.copy(tear.position);
-    AU.thunder(0.3); AU.stinger(0.6); S.oShake = 1.2;
-    const p = C.S.presence; p.setPos(OX + 45.5, -5.5);
-    C.ui.card('Torn', 'Across the road, the air rips open, top to bottom, like paper. It burns orange. Through it you can smell home: woodsmoke, snow, Lily\'s shampoo. The thing is out there, between you and it, sitting in the road, watching the flap.');
-    C.later(2, () => C.setObj('Home is on the other side of that.'));
-  });
+  S.oStage = 'tearing';
+  C.later(0.6, () => cineTear());
+  C.later(9.6, () => { S.oStage = 'torn'; S.oT = 0; C.setObj('Home is on the other side of that.'); });
 }
 export function otherInteract() {
   const { S } = C;
@@ -930,29 +1113,37 @@ export function otherNext() {
 function dannyAppears() {
   const { S, F } = C;
   S.oStage = 'danny'; S.oT = 0;
-  dog.frozen = true;
   hideMon(); // it has slunk off, into the dark
   const d = F.danny;
-  d.visible = true; d.setPos(dog.pos.x - 0.1, dog.pos.z - 0.95); d.pose = 'kneel'; d.yaw = 0; d.override = null;
-  // he was just there, out of nowhere: a fright, then nothing but him
-  AU.stinger(0.8); P.uFlash.value = 0.5; S.oShake = 0.5;
-  lookAtPoint(d.pos.x, 1.05, d.pos.z, 0.3);
-  dog.pitch = 0.6;
-  C.later(0.25, () => C.say(d, 'WHOA! Hey! Hey, hey, hey. It is me. Biscuit, it is me.', 'calm', { force: true }));
-  C.later(1.2, () => { AU.chime(); d.look(C.dogHead(), 99, S.t); d.override = { type: 'pat' }; });
-  C.later(4.6, () => { C.say(d, 'Look at you. You got so grey, around your nose.', 'calm', { force: true }); AU.whine(); });
-  C.later(8.6, () => C.say(d, 'I know. I know, buddy. I missed you too. Every single day.', 'sad', { force: true }));
-  C.later(13.0, () => C.say(d, 'I kept waiting for you to come and find me. And you did. You always come.', 'sad', { force: true }));
-  C.later(17.6, () => { C.say(d, 'Come here. I have got you.', 'calm', { force: true }); AU.tailThump && AU.tailThump(dog.pos.x, 0, dog.pos.z); });
-  C.later(19.5, () => { d.override = { type: 'carry2' }; S.fade = 1; S.fadeSpeed = 4; });
-  C.later(20.3, () => {
+  const dz = dog.pos.z - 0.95, dx = dog.pos.x - 0.1;
+  d.visible = true; d.setPos(dx, dz); d.pose = 'kneel'; d.yaw = 0; d.override = null;
+  const dp = () => dog.pos.clone();
+  C.later(1.6, () => { C.say(d, 'WHOA! Hey! Hey, hey, hey. It is me. Biscuit, it is me.', 'calm', { force: true }); });
+  C.later(2.6, () => { AU.chime(); d.look(C.dogHead(), 99, S.t); d.override = { type: 'pat' }; });
+  C.later(5.6, () => { C.say(d, 'Look at you. You got so grey, around your nose.', 'calm', { force: true }); AU.whine(); });
+  C.later(9.8, () => C.say(d, 'I know. I know, buddy. I missed you too. Every single day.', 'sad', { force: true }));
+  C.later(14.2, () => C.say(d, 'I kept waiting for you to come and find me. And you did. You always come.', 'sad', { force: true }));
+  C.later(18.8, () => { C.say(d, 'Come here. I have got you.', 'calm', { force: true }); AU.tailThump(dog.pos.x, 0, dog.pos.z); });
+  playCine([
+    // out of the flap, nose first, into the dark
+    { dur: 1.5, pos: () => V(FLAP_X + 0.9, 0.32, 6.1), look: V(FLAP_X, 0.35, 7.9), fov: 52, update: (t, k, dt) => poseCineDog(FLAP_X, 0, 8.4 - k * 0.8, 0, 'walk', dt) },
+    // and he is RIGHT THERE
+    { dur: 0.9, pos: () => dp().add(V(0.22, 0.5, 0.3)), look: () => d.headWorld(), fov: 42, start: () => { AU.stinger(0.9); P.uFlash.value = 0.6; cineShake(2); }, update: (t, k, dt) => poseCineDog(dog.pos.x, 0, dog.pos.z, 0, 'cower', dt) },
+    { dur: 3.2, pos: V(dx + 2.3, 0.75, dz + 0.6), look: () => V(dx, 0.55, dz + 0.5), fov: 54, update: (t, k, dt) => poseCineDog(dog.pos.x, 0, dog.pos.z, 0, t < 1.8 ? 'cower' : 'wag', dt) },
+    { dur: 4.2, pos: () => d.headWorld().add(V(0.12, 0.02, 0.62)), look: () => d.headWorld(), fov: 40, update: (t, k, dt) => poseCineDog(dog.pos.x, 0, dog.pos.z, 0, 'wag', dt) },
+    { dur: 4.4, pos: () => dogFaceCam(dog.pos, 0, 0.9, 0.25), look: () => dogHeadAt(dog.pos, 0), fov: 44, update: (t, k, dt) => { poseCineDog(dog.pos.x, 0, dog.pos.z, 0, 'wag', dt); } },
+    { dur: 4.6, pos: orbit(V(dx, 0, dz + 0.45), 2.4, 0.8, 1.2, 2.3), look: V(dx, 0.6, dz + 0.45), fov: 52, update: (t, k, dt) => poseCineDog(dog.pos.x, 0, dog.pos.z, 0, 'wag', dt) },
+    // he picks you up, the way he always did
+    { dur: 2.0, pos: V(dx + 1.6, 1.1, dz + 1.4), look: V(dx, 0.9, dz + 0.3), fov: 50, start: () => { d.override = { type: 'carry2' }; d.pose = 'stand'; },
+      update: (t, k, dt) => { poseCineDog(dx + 0.05, k * 0.75, dz + 0.95 - k * 0.6, Math.PI, 'wag', dt); if (k > 0.85) { S.fade = 1; S.fadeSpeed = 5; } } },
+  ], () => {
     // you are Danny now, carrying him
+    hideCineDog();
     dog.human = true; dog.radius = 0.28; dog.frozen = false;
     dog.pos.set(d.pos.x, 0, d.pos.z); dog.yaw = Math.PI * 0.85; dog.pitch = 0.05;
     d.visible = false; d.pose = 'stand'; d.override = null;
     arms.visible = true; S.fade = 0; S.fadeSpeed = 2;
     S.oStage = 'walk'; S.oT = 0;
-    C.ui.card('Danny', 'He picks you up like you weigh nothing, the way he always did, and tucks you against his chest. He smells like snow and pencils. You are looking out through his eyes now, and he is looking at the tear.');
     C.later(1.5, () => C.say(d, 'See that? That is the way home. I will get you there. I promise.', 'calm', { force: true }));
     // he hums while he walks: the song your mother sings to Lily
     C.later(4, () => { S.oHum = AU.lullaby(() => [C.camera.position.x, C.camera.position.y - 0.2, C.camera.position.z], 0, 0.62); });
@@ -1058,7 +1249,7 @@ function chase(dt) {
 function startEdge() {
   const { S, F } = C;
   S.oStage = 'edge'; S.oT = 0;
-  dog.frozen = true;
+  dog.frozen = true; S.cine = true; document.body.classList.add('cine');
   dog.pos.set(EDGE_X - 0.6, 0, Math.max(-1.5, Math.min(1.5, dog.pos.z))); dog.yaw = -Math.PI / 2;
   lookAtPoint(TEAR_END.x, 1.2, TEAR_END.z, 0.5);
   const p = S.presence; p.setPos(dog.pos.x - 13, dog.pos.z);

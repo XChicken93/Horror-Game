@@ -857,3 +857,24 @@ export function kibblePour(x, y, z) {
   const s = noiseSrc(false, false); const f = filt('lowpass', 1200, 0.5); const g = ctx.createGain(); env(g, now(), 0.15, 0.02, 1.4);
   s.connect(f); f.connect(g); at(g, x, y, z, 1, 1.3, 0.3); s.stop(now() + 1.8);
 }
+
+// something being eaten: wet tearing, a crunch of bone, the thud of weight. Not subtle.
+export function gore(x, y, z, k = 1) {
+  if (!A.ready) return;
+  const ctx = A.ctx, t0 = now();
+  // wet tearing: noise through a sweeping bandpass, chopped fast
+  const n = noiseSrc(false, false); const f = bp(900, 1.2); const g = ctx.createGain();
+  f.frequency.setValueAtTime(1600, t0); f.frequency.exponentialRampToValueAtTime(380, t0 + 0.7);
+  g.gain.setValueAtTime(0, t0);
+  for (let i = 0; i < 14; i++) g.gain.setValueAtTime((0.12 + Math.random() * 0.18) * k, t0 + i * 0.05); g.gain.setTargetAtTime(0, t0 + 0.75, 0.08);
+  n.connect(f); f.connect(g); at(g, x, y, z, 1, 1.2, 0.3); n.stop(t0 + 1.2);
+  // bone: sharp cracks
+  for (let i = 0; i < 3 + Math.floor(Math.random() * 3); i++) {
+    const tt = t0 + 0.1 + Math.random() * 0.6;
+    const s = noiseSrc(false, false); const h = filt('highpass', 1800); const cg = ctx.createGain(); env(cg, tt, 0.0005, 0.35 * k, 0.03);
+    s.connect(h); h.connect(cg); at(cg, x, y, z, 1, 1.2, 0.2); s.stop(tt + 0.08);
+  }
+  // the weight going down
+  const o = ctx.createOscillator(); o.frequency.setValueAtTime(90, t0 + 0.2); o.frequency.exponentialRampToValueAtTime(38, t0 + 0.6);
+  const og = ctx.createGain(); env(og, t0 + 0.2, 0.005, 0.4 * k, 0.4); o.connect(og); at(og, x, y, z, 1, 1.2, 0.3); o.start(t0 + 0.2); o.stop(t0 + 0.8);
+}

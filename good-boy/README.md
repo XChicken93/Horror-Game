@@ -64,6 +64,20 @@ Built on what makes the best stalker horror work (Alien: Isolation's two-layer A
 - **Silence first.** The house hushes for a moment before it comes out of a vent.
 - **No guaranteed safety.** Hiding (lying still, in the dark, ideally under something) usually works, but it may stop right beside you and listen.
 
+## Cutscenes
+
+When something big happens, the game takes the camera and shows you instead of telling you (`js/cutscene.js`): letterbox, hard cuts, scripted camera moves, shake, slow motion, and Biscuit seen from outside (a full model of him that only appears in cutscenes). They replace the old caption cards:
+
+- **The lights go out:** the bulbs die one after another down the hall; Lily sits up in the dark and screams for Danny; lightning; her bed is empty; the basement door stands open, breathing.
+- **The first time it comes out:** the furnace grille bulges and bursts, the thing unfolds out of the hole, and its upside-down face finds you.
+- **The vent pipe, dug out:** it breathes again, and below the house the flame settles a little.
+- **The gate:** that night, shown: the gate open, Danny running out after you without his coat, calling, across the field to the pond, and the ice.
+- **The pond, the way down to the basement, coming to after being caught.**
+- **The furnace opens** (Tom falls; the hot box shakes, glows white and opens like a mouth) and **you walk into it**.
+- **The other side:** arriving (down from the sky to a dog lying in the ash), finding them on the floor, the three of them getting up while the door slams, **the feast**, diving through the dog flap with it right behind you (it slams the door, fingers come in under the flap), the tear ripping open across the road, and Danny.
+- **The feast** is meant to be hard to watch. It goes for Tom's throat, shakes him like a rag, tears his arm off and throws it into the road where the hand keeps moving; Claire's real face comes back long enough to scream at you to run before it drags her away across the road, leaving a smear; for Lily, you see only Biscuit's face, hear her small voice, and the porch light goes out, and you hear it. Then it lifts its head out of what is left of them and looks at you.
+- **Coming home:** Biscuit on the basement floor by a cold, quiet furnace, Danny's voice once more, then up the stairs.
+
 ## The story, in ten chapters
 
 Biscuit starts out understanding about twenty-five words. **Each puzzle you solve teaches him more**, so the family's garbled speech fills in as the night goes on, until by the end you understand every word.
@@ -226,6 +240,7 @@ Every ending starts with a **rewind**. The camera runs back through every moment
 | `js/lore.js` | Danny's room, photographs, letters, the clipping and tag, puzzle props |
 | `js/other.js` | the other side: the wrong street, the dead family, the yellow house, the tear, Danny, the chase and the throw |
 | `js/director.js` | the director (menace gauge, pacing) and the thing's senses: hearing, sight, roaming, investigating, searching, ambushing |
+| `js/cutscene.js` | the cutscene player (shots, cuts, camera, letterbox, titles, blood on the lens) and the third-person Biscuit |
 | `js/monster.js` | the five shapes of the thing from the furnace, and their animation |
 | `js/achievements.js` | achievements: the list, toasts, saving |
 | `js/main.js` | bootstrap, title screen and render loop |

@@ -290,8 +290,8 @@ function frame() {
   updateLights(S.t || titleT);
   updateScent(dt, S.t);
   updateFx(dt, camera.position, S.outside ? 0.5 : 0.2, true);
-  if (dog.body) dog.body.visible = introDone && !S.montage && !S.hideDog && !dog.human;
-  if (dog.snout) dog.snout.visible = !S.hideDog && !S.montage && !dog.human;
+  if (dog.body) dog.body.visible = introDone && !S.montage && !S.hideDog && !dog.human && !S.cine;
+  if (dog.snout) dog.snout.visible = !S.hideDog && !S.montage && !dog.human && !S.cine;
   G.uTime.value += dt; P.uTime.value += dt;
   G.uCamPos.value.copy(camera.position);
   if (AU.A.ready) { camera.getWorldDirection(fwdV); AU.setListener(camera.position, fwdV); }
