@@ -895,6 +895,15 @@ export function otherPrompt() {
   }
   return '';
 }
+/** Biscuit made a noise on the other side: out there, it hears you. */
+export function otherNoise(pos, loud) {
+  if (!C) return;
+  const { S } = C;
+  if (S.oStage === 'safe' && !S.oFixed && loud >= 0.3 && S.oPatrol && !S.oPatrol.hunt) {
+    const d = d2(S.presence.pos, pos);
+    if (d < loud * 14) { S.oAlert = pos.clone(); S.oAlertT = 0; }
+  }
+}
 export function otherNext() {
   const { S, F } = C;
   const st = S.oStage;

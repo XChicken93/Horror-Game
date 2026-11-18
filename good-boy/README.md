@@ -52,6 +52,18 @@ Use headphones and play in the dark. A first playthrough to the true ending is m
 
 There is no objective marker, no NEXT line and no compass on screen. You find your way the way a dog would: the family's behaviour, sounds through the walls, light under a door, and smells (sniff with F, follow one with T). If you are truly lost, hold **H** to remember what you were doing (it shows Biscuit's thought, the next step and a compass for as long as you hold it). If you go a long time without progress, the place you need gives off a glimmer of Danny's scent (visible when you sniff) and a soft knock.
 
+## How the fear works
+
+Built on what makes the best stalker horror work (Alien: Isolation's two-layer AI, Amnesia's noise and vulnerability, build-up and release):
+
+- **A director you never see** (`js/director.js`) keeps a *menace* gauge of how much pressure you are under. When you have had it easy, it nudges the thing toward you (roughly, never exactly). When fear peaks, it pulls the thing away before it goes stale, usually for a while, sometimes only for a few seconds. Every wait, route and choice is rolled fresh, so no two nights go the same way.
+- **The thing does not know where you are.** It has to hear you and see you. It roams, investigates noises (going to where the sound *was*, not where you are), hunts what it sees, searches where it lost you, and sometimes stops dead in a dark doorway and waits, silent, for ten or twenty seconds.
+- **Everything you do makes noise, and the puzzles need you to do it.** A bark carries ten metres through walls. Running, landing a jump, scratching a door, dragging the stool, knocking the jar off the counter, biting, tugging, dropping things: all of it can be heard. Creeping is nearly silent. Lying still makes no sound at all. Every loud thing is a gamble.
+- **Light is a risk too.** With Danny's flashlight in your mouth you can see, and it can see you from much further away, even from the next room.
+- **Gaps.** Before the power goes it is still in the walls: knocks that follow your noise, breathing through the nearest vent, lights flickering in the room it is behind. Make enough noise for long enough, close enough, and it comes out. After the power goes it walks the house: you hear its steps and breathing placed where it is, the lights flicker in its room, and its grey smell drifts ahead of it.
+- **Silence first.** The house hushes for a moment before it comes out of a vent.
+- **No guaranteed safety.** Hiding (lying still, in the dark, ideally under something) usually works, but it may stop right beside you and listen.
+
 ## The story, in ten chapters
 
 Biscuit starts out understanding about twenty-five words. **Each puzzle you solve teaches him more**, so the family's garbled speech fills in as the night goes on, until by the end you understand every word.
@@ -213,6 +225,7 @@ Every ending starts with a **rewind**. The camera runs back through every moment
 | `js/dread.js` | the scares: each one set off by something you do, once |
 | `js/lore.js` | Danny's room, photographs, letters, the clipping and tag, puzzle props |
 | `js/other.js` | the other side: the wrong street, the dead family, the yellow house, the tear, Danny, the chase and the throw |
+| `js/director.js` | the director (menace gauge, pacing) and the thing's senses: hearing, sight, roaming, investigating, searching, ambushing |
 | `js/monster.js` | the five shapes of the thing from the furnace, and their animation |
 | `js/achievements.js` | achievements: the list, toasts, saving |
 | `js/main.js` | bootstrap, title screen and render loop |

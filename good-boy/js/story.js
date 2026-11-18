@@ -14,7 +14,8 @@ import { puff, spray, breath } from './fx.js';
 import { initDread, updateDread, dreadOnce } from './dread.js';
 import { dressPresence, monsterChoice } from './monster.js';
 import { unlock, achSet } from './achievements.js';
-import { buildOther, enterOther, updateOther, otherInteract, otherPrompt, otherNext, jumpToStage } from './other.js';
+import { initDirector, updateDirector, noise, repelled, directorVisible, hushLevel } from './director.js';
+import { buildOther, enterOther, updateOther, otherInteract, otherPrompt, otherNext, jumpToStage, otherNoise } from './other.js';
 import { keys } from './player.js';
 
 export const S = {
@@ -94,6 +95,9 @@ export function initStory(family, sc, uiRefs) {
   initDread({ S, F, scene, later, scared: (k) => scared(k), say, ball: items.find((i) => i.name === 'ball') });
   speechHook.fn = (rec) => { rec.snap = S.other ? null : snapshot(); rec.clock = clockStr(S.t); };
   makeHandProps();
+  initDirector({ S, later, caught: () => caughtUpstairs(), hidden: (d) => dogHidden(d), flashOn: () => puzzle.flashlight.carried && S.flashOn, scared: (k) => scared(k), summoned: () => S.summonPending, clearSummon: () => { S.summonPending = false; } });
+  // everything Biscuit does makes some noise
+  dog.onNoise = (loud) => { if (S.other) otherNoise(dog.pos, loud); else noise(dog.pos.x, dog.y, dog.pos.z, loud); };
   buildOther({ S, F, scene, camera: ui.camera, ui, later, say, setObj, once, dogHead: () => dogHead(), ach: (id) => ach(id), home: () => comeHomeReal() });
   setObj('Your bowl is empty. The woman forgot to feed you again.');
 }
@@ -1023,7 +1027,7 @@ function updatePushDoors() {
     const human = [F.father, F.mother, F.lily].some((h) => h.path.length && Math.abs(h.pos.y) < 0.3 && at(h.pos, 0.9));
     if (!dogPush && !human) continue;
     d.target = open; d.speed = dogPush ? 1.6 : 1.2;
-    AU.creak(d.hingeX + d.width / 2, 1, d.hingeZ, 1.0, 0.6);
+    AU.creak(d.hingeX + d.width / 2, 1, d.hingeZ, 1.0, 0.6); noise(d.hingeX + d.width / 2, 0, d.hingeZ, 0.3);
     if (dogPush) { act('nudge'); if (S.coOn) later(3, () => dreadOnce('doorDrift')); }
   }
 }
@@ -1108,7 +1112,7 @@ const STALK_NODES = [[1.5, 7.6], [1.95, 4.25], [5.9, 4.25], [9.45, 4.25], [11.45
 // it comes once for each of these: taking Danny's flashlight in the dark, and carrying his jacket up
 function summonHunt(why) {
   if (!once('hunt_' + why) || !S.stalk) return;
-  later(2.5, () => { S.stalk.state = 'away'; S.stalk.t = 0; S.stalk.pending = true; });
+  later(2.5, () => { S.summonPending = true; });
 }
 function dogHidden(d) {
   if (dog.lying < 0.5 || dog.moving || (puzzle.flashlight.carried && S.flashOn)) return false;
@@ -1173,7 +1177,7 @@ function updateStalker(dt) {
 function caughtUpstairs() {
   S.jumpscare = 1.2; dog.frozen = true;
   AU.scream();
-  const K = S.stalk; K.state = 'away'; K.t = 1e9;
+  if (S.stalk) { S.stalk.state = 'away'; S.stalk.t = 1e9; }
   later(1.1, () => {
     S.blackout = 2.8;
     if (dog.carrying) dropItem(dog.carrying, true);
@@ -1194,7 +1198,7 @@ function caughtCount() {
 // barking scatters it, like smoke. But not twice in a row.
 function barkRepel() {
   const p = S.presence, fwd = dogForward();
-  const near = (S.presenceActive || (S.stalk && S.stalk.state !== 'away')) && p.root.visible !== undefined && p.visible;
+  const near = (S.presenceActive || directorVisible()) && p.visible;
   if (!near) return false;
   const dx = p.pos.x - dog.pos.x, dz = p.pos.z - dog.pos.z, d = Math.hypot(dx, dz);
   if (d > 4.5 || Math.abs(p.pos.y - dog.y) > 1.2 || (dx * fwd.x + dz * fwd.z) / d < 0.45) return false;
@@ -1204,7 +1208,7 @@ function barkRepel() {
   for (let i = 0; i < 40; i++) emit(p.pos.x, p.pos.y + Math.random() * 2.2, p.pos.z, 'wrong', { spread: 1.2, life: 1.5, size: 0.07, vy: 0.4 });
   ach('smoke');
   if (S.presenceActive) S.presenceSleep = 12;
-  else { S.stalk.state = 'away'; S.stalk.t = 1e9; }
+  else repelled();
   p.root.visible = false; p.visible = false;
   if (once('repelNote')) showSubtitle('note', '<span class="note">(It comes apart when you bark at it, like smoke. It is not gone. It will come back.)</span>', 3.5);
   return true;
@@ -1228,7 +1232,7 @@ function updatePresence(dt) {
     p.update(dt, S.t, 0, dog.pos); p.root.position.y = M.y; p.root.rotation.set(0, M.yaw, 0);
     p.monster.update(S.t, dt, M.mode); p.root.visible = true; return;
   }
-  if (!S.presenceActive) { updateStalker(dt); return; }
+  if (!S.presenceActive) { updateDirector(dt); return; }
   if (S.presenceSleep > 0) { S.presenceSleep -= dt; p.root.visible = false; return; }
   p.visible = true;
   const target = dog.pos;
@@ -1279,6 +1283,7 @@ export function onBark() {
   if (S.ended || S.cut || S.inspectOpen) return;
   AU.bark(1); dog.barkKick = 1;
   S.barks = (S.barks || 0) + 1; if (S.barks >= 50) ach('speak');
+  if (dog.onNoise) dog.onNoise(1);
   if (S.other) return;
   if (S.ch === 10) for (const h of [F.father, F.mother, F.lily]) if (h.unconscious && sameFloor(h) && dist2d(h.pos, dog.pos) < 3.2) wakeFinal(h);
   if (S.outside) { const f = dogForward(); breath(dog.pos.x, dog.y + 0.33, dog.pos.z, f.x, f.z, 2); }
@@ -1373,7 +1378,7 @@ export function onWag() {
 }
 export function onWhine() {
   if (S.ended || S.cut || S.inspectOpen) return;
-  AU.whine(); act('whine');
+  AU.whine(); act('whine'); if (dog.onNoise) dog.onNoise(0.35);
   if (S.other) return;
   for (const h of [F.father, F.mother, F.lily]) {
     if (!awake(h) || !sameFloor(h) || dist2d(h.pos, dog.pos) > 2.8) continue;
@@ -1453,7 +1458,7 @@ const nearJar = () => !puzzle.jarFallen && dog.surface && dog.surface.name === '
 function knockJar() {
   puzzle.jarFallen = true;
   act('nudge');
-  ach('jar');
+  ach('jar'); noise(refs.jar.position.x, 0.9, refs.jar.position.z, 1);
   S.jarFall = { t: 0, x0: refs.jar.position.x, z0: refs.jar.position.z };
   later(0.55, () => {
     AU.crash(13.2, 0.1, 7.55);
@@ -1534,7 +1539,7 @@ function updateStool() {
   st.mesh.position.set(p.x, 0, p.z);
   st.mesh.rotation.y = dog.yaw;
   S.stoolScrape = (S.stoolScrape || 0) - 1 / 60;
-  if (dog.moving && S.stoolScrape <= 0) { S.stoolScrape = 0.7; AU.scoot(p.x, 0.1, p.z); }
+  if (dog.moving && S.stoolScrape <= 0) { S.stoolScrape = 0.7; AU.scoot(p.x, 0.1, p.z); noise(p.x, 0, p.z, 0.55); }
 }
 function pullDrawer() {
   puzzle.drawerOpen = true;
@@ -1560,7 +1565,7 @@ function pickItem(it) {
 }
 
 function dropItem(it, silent) {
-  if (!silent) act('drop');
+  if (!silent) { act('drop'); noise(dog.pos.x, dog.y, dog.pos.z, 0.25); }
   it.carried = false; dog.carrying = null;
   scene.attach(it.mesh);
   const f = dogForward();
@@ -1647,7 +1652,7 @@ function reactToItem(h, it) {
 }
 
 function tug(h) {
-  act(awake(h) ? 'tug' : 'nudge');
+  act(awake(h) ? 'tug' : 'nudge'); noise(dog.pos.x, dog.y, dog.pos.z, 0.3);
   if (awake(h)) AU.growl(0.6, 0.35);
   if (!awake(h)) { if (!h.unconscious && !(S.deep && h !== F.lily)) AU.whine(); wake(h); return; }
   h.look(dogHead(), 3, S.t);
@@ -1685,7 +1690,7 @@ function updateFollow(dt) {
 }
 function bite(h) {
   if (S.ended || S.cut) return;
-  AU.growl(0.5, 1.2); AU.snap(); AU.scream(); act('bite');
+  AU.growl(0.5, 1.2); AU.snap(); AU.scream(); act('bite'); noise(dog.pos.x, dog.y, dog.pos.z, 0.9);
   dog.barkKick = 0;
   S.redFlash = 0.8;
   if (S.co >= 0.3) { badDogEnding(h); return; }
@@ -1706,7 +1711,7 @@ function scratchMarks(d) {
   d.mesh.add(g);
 }
 function scratchDoor(name) {
-  AU.scratch(); act('scratch');
+  AU.scratch(); act('scratch'); noise(dog.pos.x, dog.y, dog.pos.z, 0.6);
   const dd = doors[name];
   if (dd) { S.doorShakeD = dd; S.doorShakeT = 0.9; later(0.5, () => scratchMarks(dd)); }
   if (name === 'laundry' && S.locked) {
@@ -2425,7 +2430,7 @@ function houseTail(dt) {
   S.fadeV = (S.fadeV || 0) + (ft - (S.fadeV || 0)) * Math.min(1, dt * (S.fadeSpeed || 2) * 2);
   P.uFade.value = Math.max(S.fadeV, 0);
 
-  AU.updateAmbience(S.coOn ? S.dogCO + 0.02 : 0, S.t, (S.windBoost || 0) + (S.outside ? 0.45 : 0));
+  AU.updateAmbience((S.coOn ? S.dogCO + 0.02 : 0) * hushLevel(), S.t, (S.windBoost || 0) + (S.outside ? 0.45 : 0));
   // out under the sky: brighter snow-light, longer sight, paler fog
   S.outK = (S.outK || 0) + ((S.outside ? 1 : 0) - (S.outK || 0)) * Math.min(1, dt * 1.5);
   const ok = S.outK;

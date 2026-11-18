@@ -271,6 +271,7 @@ export function updateDog(dt, camera, co, t) {
     d.stepT -= dt;
     if (d.stepT <= 0) {
       d.stepT = d.human ? (run ? 0.3 : 0.5) : run ? 0.26 : 0.4; // one soft pad every other footfall
+      if (d.onNoise) d.onNoise(d.human ? (run ? 0.3 : 0.1) : run ? 0.22 : 0.04); // running carries; creeping does not
       const onStairs = d.pos.x > 12.5 && d.pos.z > 0.4 && d.pos.z < 3.0;
       const carpet = (d.pos.z < 3.5 && d.pos.x < 8) || (Math.abs(d.pos.z - 4.25) < 0.35);
       const out = isOutside(d.pos.x, d.pos.z, d.y);
@@ -300,7 +301,7 @@ export function updateDog(dt, camera, co, t) {
         const nx = Math.max(L.x0 + 0.06, Math.min(L.x1 - 0.06, d.pos.x)), nz = Math.max(L.z0 + 0.06, Math.min(L.z1 - 0.06, d.pos.z));
         if (!crossesWall(d.pos.x, d.pos.z, nx, nz, L.top)) {
           d.pos.x += (nx - d.pos.x) * Math.min(1, dt * 14); d.pos.z += (nz - d.pos.z) * Math.min(1, dt * 14);
-          if (d.y <= L.top + 0.03) { d.pos.x = nx; d.pos.z = nz; d.y = L.top; d.air = false; d.vy = 0; d.jumped = false; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; }
+          if (d.y <= L.top + 0.03) { d.pos.x = nx; d.pos.z = nz; d.y = L.top; d.air = false; d.vy = 0; d.jumped = false; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; if (d.onNoise) d.onNoise(0.3); }
         }
       }
     }
@@ -308,7 +309,7 @@ export function updateDog(dt, camera, co, t) {
       // landed on top of something: settle a little in from its edge so you don't slide off
       const L = fy > floorAt(d.pos.x, d.pos.z, d.y) + 0.05 ? landingNear(d.pos.x, d.pos.z, fy + 0.01, 0.05) : null;
       if (L) { d.pos.x = Math.max(L.x0 + 0.08, Math.min(L.x1 - 0.08, d.pos.x)); d.pos.z = Math.max(L.z0 + 0.08, Math.min(L.z1 - 0.08, d.pos.z)); }
-      d.y = fy; d.air = false; d.vy = 0; d.jumped = false; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; if (d.jumpBuffer > 0) { d.jumpBuffer = 0; jump(); } }
+      d.y = fy; d.air = false; d.vy = 0; d.jumped = false; thunk(d.pos.x, d.y, d.pos.z, 0.35); d.landKick = 1; if (d.onNoise) d.onNoise(0.3); if (d.jumpBuffer > 0) { d.jumpBuffer = 0; jump(); } }
   } else if (fy < d.y - 0.12) { d.air = true; d.vy = 0; d.coyote = 0.2; } // walked off the edge
   else d.y += (fy - d.y) * Math.min(1, dt * 14);
   d.pos.y = d.y;
