@@ -1185,7 +1185,7 @@ function caughtUpstairs() {
     S.coAcc += 45 / CO_DUR;
     caughtCount();
   });
-  later(3.6, () => { if (!S.cut && !S.ended) dog.frozen = false; });
+  later(3.6, () => { if (!S.ended && S.cut !== 'dark') dog.frozen = false; });
 }
 function caughtCount() {
   S.catches = (S.catches || 0) + 1;
@@ -1251,7 +1251,7 @@ function updatePresence(dt) {
 function caught() {
   S.jumpscare = 1.2;
   dog.frozen = true;
-  later(3.2, () => { if (!S.cut) dog.frozen = false; });
+  later(3.2, () => { if (!S.ended && S.cut !== 'dark') dog.frozen = false; });
   AU.scream();
   const p = S.presence;
   S.presenceSleep = 7;
