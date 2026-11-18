@@ -1139,6 +1139,8 @@ function comeHome() {
   hideMon();
   C.home();
 }
+/** testing: come straight home from wherever you are over there */
+export function forceHome() { comeHome(); }
 export function jumpToStage(stage) {
   // testing: skip ahead
   const { S } = C;

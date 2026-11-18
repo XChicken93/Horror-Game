@@ -15,7 +15,7 @@ import { initDread, updateDread, dreadOnce } from './dread.js';
 import { dressPresence, monsterChoice } from './monster.js';
 import { unlock, achSet } from './achievements.js';
 import { initDirector, updateDirector, noise, repelled, directorVisible, hushLevel } from './director.js';
-import { buildOther, enterOther, updateOther, otherInteract, otherPrompt, otherNext, jumpToStage, otherNoise } from './other.js';
+import { buildOther, enterOther, updateOther, otherInteract, otherPrompt, otherNext, jumpToStage, otherNoise, forceHome } from './other.js';
 import { keys } from './player.js';
 
 export const S = {
@@ -1285,7 +1285,7 @@ export function onBark() {
   S.barks = (S.barks || 0) + 1; if (S.barks >= 50) ach('speak');
   if (dog.onNoise) dog.onNoise(1);
   if (S.other) return;
-  if (S.ch === 10) for (const h of [F.father, F.mother, F.lily]) if (h.unconscious && sameFloor(h) && dist2d(h.pos, dog.pos) < 3.2) wakeFinal(h);
+  if (S.ch === 10) { for (const h of [F.father, F.mother, F.lily]) if (h.unconscious && sameFloor(h) && dist2d(h.pos, dog.pos) < 3.2) wakeFinal(h); return; } // at the very end, nobody is cross with you
   if (S.outside) { const f = dogForward(); breath(dog.pos.x, dog.y + 0.33, dog.pos.z, f.x, f.z, 2); }
   const { father, mother, lily } = F;
   if (S.lilyDazed && dist2d(lily.pos, dog.pos) < 3.8 && Math.abs(lily.pos.y - dog.y) < 1) { lilyWakesUp(); return; }
@@ -2445,4 +2445,4 @@ function houseTail(dt) {
 
 // testing hooks
 function startOther() { S.ch = 9; S.furnaceMaw = true; for (const id of ['intro1', 'intro2', 'trackCard', 'poisonCard']) S.fired.add(id); enterOther(); }
-export const DBG = { startOther, otherStage: (st) => jumpToStage(st), comeHome: () => comeHomeReal(), finale, monsterRoom, powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
+export const DBG = { startOther, otherStage: (st) => jumpToStage(st), comeHome: () => (S.other ? forceHome() : comeHomeReal()), finale, monsterRoom, powerCut, startLightsOut, lightning, ignite, motherToBed, startWakeChapter, checkBasement, startYardChapter, startBasementChapter, checkYard, finish };
