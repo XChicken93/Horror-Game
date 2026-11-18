@@ -95,7 +95,7 @@ export function initStory(family, sc, uiRefs) {
   initDread({ S, F, scene, later, scared: (k) => scared(k), say, ball: items.find((i) => i.name === 'ball') });
   speechHook.fn = (rec) => { rec.snap = S.other ? null : snapshot(); rec.clock = clockStr(S.t); };
   makeHandProps();
-  initDirector({ S, later, caught: () => caughtUpstairs(), hidden: (d) => dogHidden(d), flashOn: () => puzzle.flashlight.carried && S.flashOn, scared: (k) => scared(k), summoned: () => S.summonPending, clearSummon: () => { S.summonPending = false; } });
+  initDirector({ S, later, caught: () => { if (!S.testNoCatch) caughtUpstairs(); }, hidden: (d) => dogHidden(d), flashOn: () => puzzle.flashlight.carried && S.flashOn, scared: (k) => scared(k), summoned: () => S.summonPending, clearSummon: () => { S.summonPending = false; } });
   // everything Biscuit does makes some noise
   dog.onNoise = (loud) => { if (S.other) otherNoise(dog.pos, loud); else noise(dog.pos.x, dog.y, dog.pos.z, loud); };
   buildOther({ S, F, scene, camera: ui.camera, ui, later, say, setObj, once, dogHead: () => dogHead(), ach: (id) => ach(id), home: () => comeHomeReal() });
